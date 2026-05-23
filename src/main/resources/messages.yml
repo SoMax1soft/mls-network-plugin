@@ -1,71 +1,78 @@
-prefix: "&6[MLSAC] &r"
+prefix: '&#F1F1F1▍ &#D8D8D8M&#BFBFBFL&#A6A6A6S&#8D8D8DA&#747474C &r'
 
-alerts-enabled: "&aAlerts enabled"
-alerts-disabled: "&eAlerts disabled"
+alerts-enabled: '&fAlerts &eenabled'
+alerts-disabled: '&fAlerts &cdisabled'
 # Local alert shown on the server where the violation was detected.
-alert-format: "&c{PLAYER} &7| &6Prob: &f{PROBABILITY} &7| &6Buffer: &f{BUFFER} &7| &dModel: &f{MODEL}"
-alert-format-vl: "&c{PLAYER} &7| &6Prob: &f{PROBABILITY} &7| &6Buffer: &f{BUFFER} &7| &cVL: {VL}"
+alert-format: '&#81FFC2[{MODEL}]&f &f{PLAYER} &7Failed check &#E5396A(&#E5396AA&#E6366Ai&#E7346Am&#E83169-&#E92F69A&#EA2C69i: &f{PROBABILITY}&#E5396A)&f
+  &#E5396A(&#E5396AB&#E6366Au&#E7346Af&#E83169f&#E92F69e&#EA2C69r: &f{BUFFER}&#E5396A)&f'
+alert-format-vl: '&f{PLAYER} &7Got VL &#E5396A(&#E5396AVL:&f{VL}&#E5396A) &#E5396A(&#E5396AB&#E6366Au&#E7346Af&#E83169f&#E92F69e&#EA2C69r: &f{BUFFER}&#E5396A)'
 # Alert received from another server through inter-server mode.
-interserver-alert-format: "&b[InterServer] &c{PLAYER} &7| &6Prob: &f{PROBABILITY} &7| &6Buffer: &f{BUFFER} &7| &dModel: &f{MODEL} &7| &bServer: &f{SERVER}"
+interserver-alert-format: '&#81FFC2[{MODEL}]&f &#1E9F9A[Cross-server: &#19EEE6{SERVER}&#1E9F9A] &f{PLAYER} &7Failed check &#E5396A(&#E5396AA&#E6366Ai&#E7346Am&#E83169-&#E92F69A&#EA2C69i: &f{PROBABILITY}&#E5396A)&f
+  &#E5396A(&#E5396AB&#E6366Au&#E7346Af&#E83169f&#E92F69e&#EA2C69r: &f{BUFFER}&#E5396A)&f'
+unknown-command: '&FUnknown command: &c{ARGS}'
+players-only: '&fThis command is for players only (not console)'
+no-permission: '&fYou don''t have permission'
+player-not-found: '&fPlayer not found: &c{PLAYER}'
+config-reloaded: '&fConfiguration reloaded &asuccessfully&f!'
 
-unknown-command: "&cUnknown command: &f{ARGS}"
-players-only: "&cThis command is for players only"
-no-permission: "&cYou don't have permission"
-player-not-found: "&cPlayer not found: &f{PLAYER}"
-config-reloaded: "&aConfiguration reloaded!"
+tracking-stopped: '&fTracking stopped (write /mlsac prob to track)'
+tracking-started: '&fTracking player &e{PLAYER}&f. Use &f/mlsac prob &aagain to stop'
+prob-usage: '&fUsage: &e/mlsac prob <player>'
+player-offline: '&fPlayer is &coffline'
+falsepositive-success: '&fTicks restored at &frestored_data/'
+falsepositive-fail: '&fCan''t save, some errors'
+falsepositive-usage: '&fUsage: &f/mlsac falsepositive restore <player>'
+falsepositive-no-data: '&аCan''t save, no buffer before'
 
-tracking-stopped: "&eTracking stopped"
-tracking-started: "&aTracking player &f{PLAYER}&a. Use &f/mlsac prob &aagain to stop"
-prob-usage: "&eUsage: &f/mlsac prob <player>"
-player-offline: "&cPlayer is offline"
-falsepositive-success: "&aИстория (5000 тиков) успешно сохранена в &frestored_data/"
-falsepositive-fail: "&cНе удалось сохранить историю. Возможно, буфер пуст."
-falsepositive-usage: "&cИспользование: &f/mlsac falsepositive restore <player>"
-falsepositive-no-data: "&cНет данных для этого игрока."
+actionbar-format: '&2▶FAST &f{LAST-FAST}% &7| &6▶PRO &f{LAST-PRO}% &7| &c▶ULTRA &f{LAST-ULTRA}%
+  &7| &eBuffer: &f{BUFFER} &7| &2VL: &f{VL}'
 
-actionbar-format: "&2▶FAST &f{LAST-FAST}% &7| &6▶PRO &f{LAST-PRO}% &7| &c▶ULTRA &f{LAST-ULTRA}% &7| &eBuffer: &f{BUFFER} &7| &2VL: &f{VL}"
+data-status-header: '&e=== Data Collection Status ==='
+active-sessions: '&fActive sessions: &a{COUNT}'
+no-active-sessions: '&fNo active data collection sessions'
+start-hint: '&fUse &e/mlsac start <NICK|GLOBAL> <CHEAT|LEGIT> &7to start (Only for
+  developers)'
+session-started: '&fStarted &b{LABEL} &fsession for &f{COUNT} &aplayer(s)'
+session-stopped: '&fStopped session for &b{PLAYER}&f (thats dont teaching model in
+  real-time)'
+all-sessions-stopped: '&fStopped &f{COUNT} &csessions&f (thats dont teaching model
+  in real-time)'
+no-sessions-to-stop: '&7No active sessions to stop'
+no-players-online: '&cNo players online'
+invalid-label: '&cInvalid label: &f{LABEL}'
+valid-labels: '&7Available labels: &aCHEAT, LEGIT'
 
-data-status-header: "&e=== Data Collection Status ==="
-active-sessions: "&fActive sessions: &e{COUNT}"
-no-active-sessions: "&7No active data collection sessions"
-start-hint: "&7Use &e/mlsac start <NICK|GLOBAL> <CHEAT|LEGIT|UNLABELED> &7to start (Only for developers)"
-session-started: "&aStarted &f{LABEL} &asession for &f{COUNT} &aplayer(s)"
-session-stopped: "&eStopped session for &f{PLAYER} (thats dont teaching model in real-time)"
-all-sessions-stopped: "&eStopped &f{COUNT} &esessions (thats dont teaching model in real-time)"
-no-sessions-to-stop: "&7No active sessions to stop"
-no-players-online: "&cNo players online"
-invalid-label: "&cInvalid label: &f{LABEL}"
-valid-labels: "&7Available labels: &aCHEAT, LEGIT, UNLABELED"
+kicklist-header: '&fLast kicks from AC &7(Стр. {PAGE}/{MAX_PAGE}):'
+kicklist-footer: '&fUse &f/mlsac kicklist {NEXT_PAGE} &7for next page'
+kicklist-empty: '&7There is nothing to see.'
 
-kicklist-header: "&6Последние кики от AI античита &7(Стр. {PAGE}/{MAX_PAGE}):"
-kicklist-footer: "&7Используйте &f/mlsac kicklist {NEXT_PAGE} &7для следующей страницы"
-kicklist-empty: "&7Нет киков от AI античита"
+usage-header: '&eUsage:'
+usage-start: '&7  /mlsac start <NICK|GLOBAL> <CHEAT|LEGIT> "<comment>"'
+usage-stop: '&7  /mlsac stop <NICK|GLOBAL>'
+usage-alerts: '&7  /mlsac alerts - Toggle AI alerts'
+usage-prob: '&7  /mlsac prob <player> - Track probability (actionbar)'
+usage-datastatus: '&7  /mlsac datastatus - Data collection status'
+usage-reload: '&7  /mlsac reload - Reload configuration'
+usage-suspects: '&7  /mlsac suspects - Open the suspects GUI'
+usage-punish: '&7  /mlsac punish <player> - Execute max punishment'
+usage-profile: '&7  /mlsac profile <player> - View player profile'
+usage-kicklist: '&7  /mlsac kicklist [page] - View kick history'
+usage-falsepositive: '&7  /mlsac falsepositive restore <player> - Export 5,000 ticks
+  to CSV'
 
-usage-header: "&eUsage:"
-usage-start: "&7  /mlsac start <NICK|GLOBAL> <CHEAT|LEGIT|UNLABELED> \"<comment>\""
-usage-stop: "&7  /mlsac stop <NICK|GLOBAL>"
-usage-alerts: "&7  /mlsac alerts - Toggle AI alerts"
-usage-prob: "&7  /mlsac prob <player> - Track probability (actionbar)"
-usage-datastatus: "&7  /mlsac datastatus - Data collection status"
-usage-reload: "&7  /mlsac reload - Reload configuration"
-usage-suspects: "&7  /mlsac suspects - Open the suspects GUI"
-usage-punish: "&7  /mlsac punish <player> - Execute max punishment"
-usage-profile: "&7  /mlsac profile <player> - View player profile"
-usage-kicklist: "&7  /mlsac kicklist [page] - View kick history"
-usage-falsepositive: "&7  /mlsac falsepositive restore <player> - Export 5,000 ticks to CSV"
+suspects-teleport: '&fTeleported to &b{PLAYER}'
+suspects-teleport-spectator: '&fTeleported to &b{PLAYER}&f in &2Spectator mode'
+suspects-player-offline: '&fPlayer is &cno longer online&f.'
+suspects-invalid-action: '&fInvalid suspects menu action: &f{ACTION}'
 
-suspects-teleport: "&aTeleported to {PLAYER}"
-suspects-teleport-spectator: "&aTeleported to {PLAYER} in Spectator mode"
-suspects-player-offline: "&cPlayer is no longer online."
-suspects-invalid-action: "&cInvalid suspects menu action: &f{ACTION}"
+punish-success: '&aExecuted max punishment on &f{PLAYER} &7(Action: {ACTION})'
+punish-no-action: '&cNo punishment actions configured.'
 
-punish-success: "&aExecuted max punishment on &f{PLAYER} &7(Action: {ACTION})"
-punish-no-action: "&cNo punishment actions configured."
-
-profile-header: "&e=== &6&lPROFILE&f {PLAYER} &e==="
-profile-info: 
-  - "&7Sens: &f{SENS}%"
-  - "&7Client: &f{CLIENT}"
-  - "&7Detections (>80%): &f{DETECTIONS}"
-
-analytics-join-alert: "Player found in cheat-list database &e{PLAYER} &7({DETECTIONS_COLORED} alerts)"
+profile-header: '&e=== &6&lPROFILE&f {PLAYER} &e==='
+profile-info:
+- '&7Sens: &f{SENS}%'
+- '&7Client: &f{CLIENT}'
+- '&7Detections (>80%): &f{DETECTIONS}'
+interserver-action-format: '&b[InterServer] &c{PLAYER} &7| &eAction: &f{ACTION} &7|
+  &6Prob: &f{PROBABILITY} &7| &6Buffer: &f{BUFFER} &7| &cVL: &f{VL} &7| &dModel: &f{MODEL}
+  &7| &bServer: &f{SERVER}'

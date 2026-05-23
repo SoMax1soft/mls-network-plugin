@@ -68,13 +68,13 @@ detection:
   #   only-alert: When true, alerts are sent but NO punishments for this model
   models:
     fast:
-      name: "Fast-A1"
+      name: "Fast"
       only-alert: false # Stable model - punishments enabled
     pro:
-      name: "Pro-E1"
+      name: "Pro"
       only-alert: false # Newest model - punishments enabled
     ultra:
-      name: "Ultra-D1"
+      name: "Ultra"
       only-alert: true # Model in development - testing mode - no punishments
     experimental:
       name: "Experimental" # You can change colors but change names is necessary
@@ -196,14 +196,14 @@ alert-responses:
       - type: "shuffle_inventory"
         detections: 4
         cooldown-seconds: 20
-        message: "&6[MLSAC] &c{PLAYER} &7| &6Forced to shuffle&f his inventory &7| after &c{DETECTIONS} detections&f."
+        message: "&#F1F1F1▍ &#D8D8D8M&#BFBFBFL&#A6A6A6S&#8D8D8DA&#747474C &f{PLAYER} &7Forced to shuffle his inventory after &#EE1955(&#EE1955D&#E81750e&#E2154Bt&#DC1245e&#D61040c&#CF0E3Bt&#C90C36i&#C30930o&#BD072Bn&#B70526s: &f{DETECTIONS}&#EE1955)&f"
       - type: "drop_weapon"
         detections: 3
         cooldown-seconds: 20
         only-sword: true
         horizontal-velocity: 1.9
         vertical-velocity: 0.55
-        message: "&6[MLSAC] &c{PLAYER} &7| &6Forced to drop&f his weapon &7| after &c{DETECTIONS} detections&f."
+        message: "&#F1F1F1▍ &#D8D8D8M&#BFBFBFL&#A6A6A6S&#8D8D8DA&#747474C &f{PLAYER} &7Forced to shuffle his inventory after &#EE1955(&#EE1955D&#E81750e&#E2154Bt&#DC1245e&#D61040c&#CF0E3Bt&#C90C36i&#C30930o&#BD072Bn&#B70526s: &f{DETECTIONS}&#EE1955)&f"
 
 # ┌───────────────────────────────────────────────────────────────────────────────┐
 # │                            FOLIA SETTINGS                                     │
