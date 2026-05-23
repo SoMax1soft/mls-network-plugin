@@ -313,6 +313,14 @@ public final class Main extends JavaPlugin {
                     currentConfig.getString("ai.api-key", Config.DEFAULT_AI_API_KEY));
             boolean preservedAiDetection = currentConfig.getBoolean("detection.enabled",
                     currentConfig.getBoolean("ai.enabled", Config.DEFAULT_AI_ENABLED));
+            String preservedServerIdentityName = currentConfig.getString("server-identity.name",
+                    Config.DEFAULT_SERVER_IDENTITY_NAME);
+            boolean preservedInterServerEnabled = currentConfig.getBoolean("server-identity.interserver.enabled",
+                    Config.DEFAULT_INTERSERVER_ENABLED);
+            boolean preservedEventReportingEnabled = currentConfig.getBoolean("server-identity.reporting.events-enabled",
+                    Config.DEFAULT_API_EVENT_REPORTING_ENABLED);
+            double preservedAlertThreshold = currentConfig.getDouble("server-identity.reporting.alert-threshold",
+                    Config.DEFAULT_API_ALERT_EVENT_THRESHOLD);
 
             if (!reinstallResourceFile("config.yml")) {
                 return false;
@@ -322,6 +330,10 @@ public final class Main extends JavaPlugin {
             FileConfiguration reinstalledConfig = getConfig();
             reinstalledConfig.set("detection.api-key", preservedApiKey);
             reinstalledConfig.set("detection.enabled", preservedAiDetection);
+            reinstalledConfig.set("server-identity.name", preservedServerIdentityName);
+            reinstalledConfig.set("server-identity.interserver.enabled", preservedInterServerEnabled);
+            reinstalledConfig.set("server-identity.reporting.events-enabled", preservedEventReportingEnabled);
+            reinstalledConfig.set("server-identity.reporting.alert-threshold", preservedAlertThreshold);
             reinstalledConfig.set("ai", null);
             saveConfig();
 
@@ -337,7 +349,7 @@ public final class Main extends JavaPlugin {
 
             reloadPluginConfig();
             getLogger().info(
-                    "All configuration YAML files were reinstalled. API key and AI detection state were preserved.");
+                    "All configuration YAML files were reinstalled. API key, AI detection state, and server identity were preserved.");
             return true;
         } catch (Exception e) {
             getLogger().severe("Failed to reinstall configuration: " + e.getMessage());
