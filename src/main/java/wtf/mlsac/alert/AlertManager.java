@@ -198,21 +198,24 @@ public class AlertManager {
         String template;
 
         if (isPunish) {
-            template = "&c{PLAYER} &7| &eAction: &f{ACTION} &7| &6Prob: &f{PROBABILITY} "
-                    + "&7| &6Buffer: &f{BUFFER} &7| &cVL: &f{VL} &7| &dModel: &f{MODEL}";
+            template = messagesConfig.getMessage("interserver-action-format", suspectName, probability, buffer, vl);
         } else {
-            template = messagesConfig.getMessage("alert-format", suspectName, probability, buffer, vl);
+            template = messagesConfig.getMessage("interserver-alert-format", suspectName, probability, buffer, vl);
         }
 
         template = template
                 .replace("{PLAYER}", suspectName != null ? suspectName : "Unknown")
                 .replace("{ACTION}", action != null && !action.trim().isEmpty() ? action.trim() : type)
+                .replace("{SERVER}", serverDisplay)
+                .replace("{SERVER_NAME}", serverDisplay)
+                .replace("{SOURCE_SERVER}", serverDisplay)
+                .replace("<server>", serverDisplay)
                 .replace("{PROBABILITY}", ProbabilityFormatUtil.formatPercent(probability) + "%")
                 .replace("{BUFFER}", String.format("%.1f", buffer))
                 .replace("{VL}", String.valueOf(vl))
                 .replace("{MODEL}", modelDisplay)
                 .replace("<model>", modelDisplay);
-        return getPrefix() + ColorUtil.colorize(template + " &7| &bServer: &f" + serverDisplay);
+        return getPrefix() + ColorUtil.colorize(template);
     }
 
     private String appendInterServerSuffix(String template) {

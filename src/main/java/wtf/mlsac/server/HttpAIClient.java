@@ -57,6 +57,7 @@ public class HttpAIClient implements IAIClient {
     private static final long INITIAL_BACKOFF_MS = 1000;
     private static final long HEARTBEAT_INTERVAL_MS = 30000;
     private static final long REPORT_STATS_INTERVAL_MS = 30000;
+    private static final long INTERSERVER_EVENT_POLL_INTERVAL_MS = 3000;
     private static final int CONNECT_TIMEOUT_SECONDS = 10;
     private static final int READ_TIMEOUT_SECONDS = 30;
     private static final int WRITE_TIMEOUT_SECONDS = 30;
@@ -79,10 +80,12 @@ public class HttpAIClient implements IAIClient {
     private final OkHttpClient httpClient;
     private final AtomicReference<ScheduledTask> heartbeatTask = new AtomicReference<>();
     private final AtomicReference<ScheduledTask> reportStatsTask = new AtomicReference<>();
+    private final AtomicReference<ScheduledTask> interserverEventTask = new AtomicReference<>();
     private final AtomicReference<ScheduledTask> periodicCheckTask = new AtomicReference<>();
     private final AtomicReference<ScheduledTask> reconnectTask = new AtomicReference<>();
     private final AtomicBoolean connected = new AtomicBoolean(false);
     private final AtomicBoolean shuttingDown = new AtomicBoolean(false);
+    private final AtomicBoolean interserverPollInFlight = new AtomicBoolean(false);
     private volatile boolean autoReconnectEnabled = true;
     private volatile String sessionId = null;
     private volatile boolean limitExceeded = false;
@@ -367,6 +370,7 @@ public class HttpAIClient implements IAIClient {
 
                 startHeartbeat();
                 startReportStats();
+                startInterserverEventPoll();
                 startPeriodicCheck();
 
                 return true;
@@ -427,6 +431,8 @@ public class HttpAIClient implements IAIClient {
         if (hb != null) hb.cancel();
         ScheduledTask rs = reportStatsTask.getAndSet(null);
         if (rs != null) rs.cancel();
+        ScheduledTask ie = interserverEventTask.getAndSet(null);
+        if (ie != null) ie.cancel();
         ScheduledTask pc = periodicCheckTask.getAndSet(null);
         if (pc != null) pc.cancel();
         ScheduledTask rt = reconnectTask.getAndSet(null);
@@ -510,6 +516,16 @@ public class HttpAIClient implements IAIClient {
         }, 100, REPORT_STATS_INTERVAL_MS / 50));
     }
 
+    private void startInterserverEventPoll() {
+        ScheduledTask existing = interserverEventTask.getAndSet(null);
+        if (existing != null) existing.cancel();
+
+        interserverEventTask.set(SchedulerManager.getAdapter().runAsyncRepeating(() -> {
+            if (shuttingDown.get() || !autoReconnectEnabled) return;
+            sendInterserverEventPoll();
+        }, 60, INTERSERVER_EVENT_POLL_INTERVAL_MS / 50));
+    }
+
     private void startPeriodicCheck() {
         ScheduledTask existing = periodicCheckTask.get();
         if (existing != null) existing.cancel();
@@ -575,6 +591,52 @@ public class HttpAIClient implements IAIClient {
                 }
             } catch (IOException e) {
                 if (debug) logger.warning("[HTTP] ReportStats error: " + e.getMessage());
+            }
+        }, httpExecutor);
+    }
+
+    private void sendInterserverEventPoll() {
+        if (!isConnected() || sessionId == null || isServerInErrorState()) {
+            return;
+        }
+        if (!interserverPollInFlight.compareAndSet(false, true)) {
+            return;
+        }
+
+        CompletableFuture.runAsync(() -> {
+            try {
+                String url = serverAddress + "/api/v1/events/poll";
+                JsonObject json = createBasePayload();
+                addSession(json);
+
+                Request request = new Request.Builder()
+                        .url(url)
+                        .post(jsonBody(json))
+                        .header("X-API-Key", apiKey)
+                        .build();
+
+                try (Response response = httpClient.newCall(request).execute()) {
+                    int code = response.code();
+                    ResponseBody respBody = response.body();
+                    String responseBody = respBody != null ? respBody.string() : "";
+                    handleApiWarnings(responseBody);
+                    if (code == 404 || code == 405) {
+                        return;
+                    }
+                    if (code == 401 || code == 403) {
+                        connected.set(false);
+                        return;
+                    }
+                    if (response.isSuccessful()) {
+                        handleInterserverEvents(responseBody);
+                    } else if (debug) {
+                        logger.warning("[HTTP] Inter-server event poll failed: HTTP " + code);
+                    }
+                }
+            } catch (IOException e) {
+                if (debug) logger.warning("[HTTP] Inter-server event poll error: " + e.getMessage());
+            } finally {
+                interserverPollInFlight.set(false);
             }
         }, httpExecutor);
     }

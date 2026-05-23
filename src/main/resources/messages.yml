@@ -2,8 +2,12 @@ prefix: "&6[MLSAC] &r"
 
 alerts-enabled: "&aAlerts enabled"
 alerts-disabled: "&eAlerts disabled"
+# Local alert shown on the server where the violation was detected.
 alert-format: "&c{PLAYER} &7| &6Prob: &f{PROBABILITY} &7| &6Buffer: &f{BUFFER} &7| &dModel: &f{MODEL}"
 alert-format-vl: "&c{PLAYER} &7| &6Prob: &f{PROBABILITY} &7| &6Buffer: &f{BUFFER} &7| &cVL: {VL}"
+# Alert received from another server through inter-server mode.
+interserver-alert-format: "&b[InterServer] &c{PLAYER} &7| &6Prob: &f{PROBABILITY} &7| &6Buffer: &f{BUFFER} &7| &dModel: &f{MODEL} &7| &bServer: &f{SERVER}"
+interserver-action-format: "&b[InterServer] &c{PLAYER} &7| &eAction: &f{ACTION} &7| &6Prob: &f{PROBABILITY} &7| &6Buffer: &f{BUFFER} &7| &cVL: &f{VL} &7| &dModel: &f{MODEL} &7| &bServer: &f{SERVER}"
 
 unknown-command: "&cUnknown command: &f{ARGS}"
 players-only: "&cThis command is for players only"
