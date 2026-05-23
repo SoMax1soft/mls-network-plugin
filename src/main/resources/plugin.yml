@@ -14,7 +14,7 @@ commands:
       /mlsac alerts - Toggle alerts
       /mlsac prob <player> - Show player probability
       /mlsac reload - Reload config
-      /mlsac reinstall - Reinstall config and keep api-key + AI detection + server identity
+      /mlsac reinstall - Reinstall config and keep api-key + AI detection + server identity + updater
       /mlsac falsepositive restore <player> - Export 5,000 ticks to CSV
       /mlsac suspects - Open the suspects GUI
       /mlsac punish <player> - Execute max punishment

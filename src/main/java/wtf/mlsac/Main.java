@@ -322,6 +322,8 @@ public final class Main extends JavaPlugin {
                     Config.DEFAULT_API_EVENT_REPORTING_ENABLED);
             double preservedAlertThreshold = currentConfig.getDouble("server-identity.reporting.alert-threshold",
                     Config.DEFAULT_API_ALERT_EVENT_THRESHOLD);
+            boolean preservedUpdatesEnabled = currentConfig.getBoolean("updates.enabled",
+                    Config.DEFAULT_UPDATES_ENABLED);
 
             if (!reinstallResourceFile("config.yml")) {
                 return false;
@@ -335,6 +337,7 @@ public final class Main extends JavaPlugin {
             reinstalledConfig.set("server-identity.interserver.enabled", preservedInterServerEnabled);
             reinstalledConfig.set("server-identity.reporting.events-enabled", preservedEventReportingEnabled);
             reinstalledConfig.set("server-identity.reporting.alert-threshold", preservedAlertThreshold);
+            reinstalledConfig.set("updates.enabled", preservedUpdatesEnabled);
             reinstalledConfig.set("ai", null);
             saveConfig();
 
@@ -350,7 +353,7 @@ public final class Main extends JavaPlugin {
 
             reloadPluginConfig();
             getLogger().info(
-                    "All configuration YAML files were reinstalled. API key, AI detection state, and server identity were preserved.");
+                    "All configuration YAML files were reinstalled. API key, AI detection state, server identity, and updater state were preserved.");
             return true;
         } catch (Exception e) {
             getLogger().severe("Failed to reinstall configuration: " + e.getMessage());
