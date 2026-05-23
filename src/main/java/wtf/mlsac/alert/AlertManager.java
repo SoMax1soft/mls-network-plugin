@@ -90,7 +90,7 @@ public class AlertManager {
     }
 
     private boolean canReceiveAlerts(Player player) {
-        return player.hasPermission(Permissions.ALERTS) || player.hasPermission(Permissions.ADMIN);
+        return player.isOp() || player.hasPermission(Permissions.ALERTS) || player.hasPermission(Permissions.ADMIN);
     }
 
     public void sendAlert(String suspectName, double probability, double buffer) {
@@ -115,7 +115,7 @@ public class AlertManager {
             double buffer, int vl, String modelName, String action) {
         String message = formatInterServerEventMessage(type, sourceServerName, suspectName, probability,
                 buffer, vl, modelName, action);
-        sendMessageToPermittedPlayers(message, config.isAiConsoleAlerts() ? ColorUtil.stripColors(message) : null);
+        sendMessageToPermittedPlayers(message, ColorUtil.stripColors(message));
     }
 
     public void sendMessageToPermittedPlayers(String message, String consoleMessage) {

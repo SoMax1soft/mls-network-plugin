@@ -145,6 +145,8 @@ public class HttpAIClient implements IAIClient {
 
     private JsonObject createBasePayload() {
         JsonObject json = new JsonObject();
+        json.addProperty("pluginVersion", plugin.getDescription().getVersion());
+        json.addProperty("interserverEventsSupported", true);
         json.addProperty("serverName", serverName);
         json.addProperty("serverIp", getAdvertisedServerIp());
         json.addProperty("serverPort", getAdvertisedServerPort());
@@ -211,6 +213,9 @@ public class HttpAIClient implements IAIClient {
             }
 
             JsonArray events = data.getAsJsonArray("interserverEvents");
+            if (events.size() > 0) {
+                logger.info("[HTTP] Received " + events.size() + " inter-server event(s)");
+            }
             for (JsonElement element : events) {
                 if (element != null && element.isJsonObject()) {
                     handleInterserverEvent(element.getAsJsonObject());
