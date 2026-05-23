@@ -216,9 +216,6 @@ public class HttpAIClient implements IAIClient {
             }
 
             JsonArray events = data.getAsJsonArray("interserverEvents");
-            if (events.size() > 0) {
-                logger.info("[HTTP] Received " + events.size() + " inter-server event(s)");
-            }
             for (JsonElement element : events) {
                 if (element != null && element.isJsonObject()) {
                     handleInterserverEvent(element.getAsJsonObject());
