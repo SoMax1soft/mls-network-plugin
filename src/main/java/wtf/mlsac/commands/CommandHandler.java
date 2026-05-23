@@ -271,9 +271,9 @@ public class CommandHandler implements CommandExecutor, TabCompleter {
         boolean success = plugin.reinstallPluginConfig();
         if (success) {
             sender.sendMessage(getPrefix() + ColorUtil.colorize(
-                    "&aconfig.yml was reinstalled to current defaults. Saved values: &fapi-key&a, &fAI detection&a, &fserver identity&a, and &fupdater state&a."));
+                    "&aYAML configs were synced with current defaults. Existing values were kept and missing fields were added."));
         } else {
-            sender.sendMessage(getPrefix() + ColorUtil.colorize("&cFailed to reinstall config.yml. Check console."));
+            sender.sendMessage(getPrefix() + ColorUtil.colorize("&cFailed to sync YAML configs. Check console."));
         }
         return true;
     }
@@ -576,7 +576,7 @@ public class CommandHandler implements CommandExecutor, TabCompleter {
         sender.sendMessage(msg("usage-punish"));
         sender.sendMessage(msg("usage-profile"));
         sender.sendMessage(msg("usage-reload"));
-        sender.sendMessage(ColorUtil.colorize("&7  /mlsac reinstall - Reinstall config and keep api-key + AI detection + server identity + updater"));
+        sender.sendMessage(ColorUtil.colorize("&7  /mlsac reinstall - Add missing fields to config, messages, menu, and holograms"));
         sender.sendMessage(ColorUtil.colorize("&7  /mlsac kicklist [page] - Список киков от AI античита"));
         sender.sendMessage(ColorUtil.colorize("&7  /mlsac falsepositive restore <player> - Сохранить 5000 тиков игрока в CSV"));
     }

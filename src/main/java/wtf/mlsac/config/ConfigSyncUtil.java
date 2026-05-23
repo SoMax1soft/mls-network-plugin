@@ -9,32 +9,59 @@ import java.io.File;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
-import java.util.logging.Logger;
 
 public final class ConfigSyncUtil {
     private ConfigSyncUtil() {
     }
 
-    public static void syncPluginConfig(JavaPlugin plugin) {
+    public static boolean syncPluginConfig(JavaPlugin plugin) {
         plugin.saveDefaultConfig();
+        File configFile = new File(plugin.getDataFolder(), "config.yml");
         try (InputStream inputStream = plugin.getResource("config.yml")) {
             if (inputStream == null) {
-                return;
+                return false;
             }
 
-            FileConfiguration current = plugin.getConfig();
+            YamlConfiguration current = YamlConfiguration.loadConfiguration(configFile);
             YamlConfiguration defaults = YamlConfiguration
                     .loadConfiguration(new InputStreamReader(inputStream, StandardCharsets.UTF_8));
 
             boolean changed = migrateLegacyDetectionSettings(current);
             changed |= copyMissing(current, defaults, "");
             if (changed) {
-                plugin.saveConfig();
+                current.save(configFile);
                 plugin.reloadConfig();
                 plugin.getLogger().info("Added or migrated missing entries in config.yml");
             }
+            return changed;
         } catch (Exception exception) {
             plugin.getLogger().warning("Failed to sync config.yml: " + exception.getMessage());
+            return false;
+        }
+    }
+
+    public static boolean syncResourceConfig(JavaPlugin plugin, String resourceName, File configFile) {
+        if (!configFile.exists()) {
+            plugin.saveResource(resourceName, false);
+        }
+
+        YamlConfiguration config = YamlConfiguration.loadConfiguration(configFile);
+        try (InputStream inputStream = plugin.getResource(resourceName)) {
+            if (inputStream == null) {
+                return false;
+            }
+
+            YamlConfiguration defaults = YamlConfiguration
+                    .loadConfiguration(new InputStreamReader(inputStream, StandardCharsets.UTF_8));
+            boolean changed = copyMissing(config, defaults, "");
+            if (changed) {
+                config.save(configFile);
+                plugin.getLogger().info("Added missing entries to " + resourceName);
+            }
+            return changed;
+        } catch (Exception exception) {
+            plugin.getLogger().warning("Failed to sync " + resourceName + ": " + exception.getMessage());
+            return false;
         }
     }
 
@@ -84,7 +111,7 @@ public final class ConfigSyncUtil {
     }
 
     private static boolean copyLegacyApiKey(FileConfiguration target) {
-        if (!target.contains("ai.api-key")) {
+        if (!target.isSet("ai.api-key")) {
             return false;
         }
 
@@ -94,7 +121,7 @@ public final class ConfigSyncUtil {
         }
 
         String currentApiKey = target.getString("detection.api-key", "");
-        if (target.contains("detection.api-key") && !isApiKeyPlaceholder(currentApiKey)) {
+        if (target.isSet("detection.api-key") && !isApiKeyPlaceholder(currentApiKey)) {
             return false;
         }
 
@@ -103,7 +130,7 @@ public final class ConfigSyncUtil {
     }
 
     private static boolean copyLegacyIfMissing(FileConfiguration target, String legacyPath, String newPath) {
-        if (target.contains(newPath) || !target.contains(legacyPath)) {
+        if (target.isSet(newPath) || !target.isSet(legacyPath)) {
             return false;
         }
 
@@ -112,7 +139,7 @@ public final class ConfigSyncUtil {
     }
 
     private static boolean copyLegacySectionIfMissing(FileConfiguration target, String legacyPath, String newPath) {
-        if (target.contains(newPath)) {
+        if (target.isSet(newPath)) {
             return false;
         }
 
@@ -148,17 +175,32 @@ public final class ConfigSyncUtil {
 
     private static boolean copyMissing(FileConfiguration target, FileConfiguration defaults, String path) {
         boolean changed = false;
-        for (String key : defaults.getKeys(false)) {
+        ConfigurationSection defaultSection = path.isEmpty()
+                ? defaults
+                : defaults.getConfigurationSection(path);
+        if (defaultSection == null) {
+            return false;
+        }
+
+        for (String key : defaultSection.getKeys(false)) {
             String fullPath = path.isEmpty() ? key : path + "." + key;
-            if (!target.contains(fullPath)) {
-                target.set(fullPath, defaults.get(fullPath));
-                changed = true;
+            ConfigurationSection childDefaults = defaults.getConfigurationSection(fullPath);
+            if (childDefaults != null) {
+                if (!target.isSet(fullPath)) {
+                    target.createSection(fullPath);
+                    changed = true;
+                } else if (!target.isConfigurationSection(fullPath)) {
+                    target.set(fullPath, null);
+                    target.createSection(fullPath);
+                    changed = true;
+                }
+                changed |= copyMissing(target, defaults, fullPath);
                 continue;
             }
 
-            Object defaultValue = defaults.get(fullPath);
-            if (defaultValue instanceof ConfigurationSection && target.isConfigurationSection(fullPath)) {
-                changed |= copyMissing(target, defaults, fullPath);
+            if (!target.isSet(fullPath)) {
+                target.set(fullPath, defaults.get(fullPath));
+                changed = true;
             }
         }
         return changed;

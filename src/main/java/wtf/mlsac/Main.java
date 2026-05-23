@@ -52,8 +52,6 @@ import wtf.mlsac.violation.ViolationManager;
 import wtf.mlsac.util.FeatureCalculator;
 import wtf.mlsac.util.UpdateChecker;
 import org.bukkit.command.PluginCommand;
-import org.bukkit.configuration.file.FileConfiguration;
-import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.plugin.java.JavaPlugin;
 import java.io.File;
 
@@ -308,74 +306,17 @@ public final class Main extends JavaPlugin {
 
     public boolean reinstallPluginConfig() {
         try {
-            File configFile = new File(getDataFolder(), "config.yml");
-            FileConfiguration currentConfig = YamlConfiguration.loadConfiguration(configFile);
-            String preservedApiKey = currentConfig.getString("detection.api-key",
-                    currentConfig.getString("ai.api-key", Config.DEFAULT_AI_API_KEY));
-            boolean preservedAiDetection = currentConfig.getBoolean("detection.enabled",
-                    currentConfig.getBoolean("ai.enabled", Config.DEFAULT_AI_ENABLED));
-            String preservedServerIdentityName = currentConfig.getString("server-identity.name",
-                    Config.DEFAULT_SERVER_IDENTITY_NAME);
-            String preservedServerIdentityFamily = currentConfig.getString("server-identity.family",
-                    Config.DEFAULT_SERVER_IDENTITY_FAMILY);
-            boolean preservedInterServerEnabled = currentConfig.getBoolean("server-identity.interserver.enabled",
-                    Config.DEFAULT_INTERSERVER_ENABLED);
-            boolean preservedEventReportingEnabled = currentConfig.getBoolean("server-identity.reporting.events-enabled",
-                    Config.DEFAULT_API_EVENT_REPORTING_ENABLED);
-            double preservedAlertThreshold = currentConfig.getDouble("server-identity.reporting.alert-threshold",
-                    Config.DEFAULT_API_ALERT_EVENT_THRESHOLD);
-            boolean preservedUpdatesEnabled = currentConfig.getBoolean("updates.enabled",
-                    Config.DEFAULT_UPDATES_ENABLED);
-
-            if (!reinstallResourceFile("config.yml")) {
-                return false;
-            }
-            reloadConfig();
-
-            FileConfiguration reinstalledConfig = getConfig();
-            reinstalledConfig.set("detection.api-key", preservedApiKey);
-            reinstalledConfig.set("detection.enabled", preservedAiDetection);
-            reinstalledConfig.set("server-identity.name", preservedServerIdentityName);
-            reinstalledConfig.set("server-identity.family", preservedServerIdentityFamily);
-            reinstalledConfig.set("server-identity.interserver.enabled", preservedInterServerEnabled);
-            reinstalledConfig.set("server-identity.reporting.events-enabled", preservedEventReportingEnabled);
-            reinstalledConfig.set("server-identity.reporting.alert-threshold", preservedAlertThreshold);
-            reinstalledConfig.set("updates.enabled", preservedUpdatesEnabled);
-            reinstalledConfig.set("ai", null);
-            saveConfig();
-
-            if (!reinstallResourceFile("messages.yml")) {
-                return false;
-            }
-            if (!reinstallResourceFile("menu.yml")) {
-                return false;
-            }
-            if (!reinstallResourceFile("holograms.yml")) {
-                return false;
-            }
-
+            ConfigSyncUtil.syncPluginConfig(this);
+            ConfigSyncUtil.syncResourceConfig(this, "messages.yml", new File(getDataFolder(), "messages.yml"));
+            ConfigSyncUtil.syncResourceConfig(this, "menu.yml", new File(getDataFolder(), "menu.yml"));
+            ConfigSyncUtil.syncResourceConfig(this, "holograms.yml", new File(getDataFolder(), "holograms.yml"));
             reloadPluginConfig();
             getLogger().info(
-                    "All configuration YAML files were reinstalled. API key, AI detection state, server identity, and updater state were preserved.");
+                    "All configuration YAML files were synced. Existing values were preserved and missing entries were added.");
             return true;
         } catch (Exception e) {
             getLogger().severe("Failed to reinstall configuration: " + e.getMessage());
             e.printStackTrace();
-            return false;
-        }
-    }
-
-    private boolean reinstallResourceFile(String resourceName) {
-        try {
-            File targetFile = new File(getDataFolder(), resourceName);
-            if (targetFile.exists() && !targetFile.delete()) {
-                getLogger().warning("Failed to delete " + resourceName + " during reinstall");
-                return false;
-            }
-            saveResource(resourceName, false);
-            return true;
-        } catch (Exception exception) {
-            getLogger().warning("Failed to reinstall " + resourceName + ": " + exception.getMessage());
             return false;
         }
     }
