@@ -170,14 +170,26 @@ public class AlertManager {
         String template = messagesConfig.getMessage("alert-format", suspectName, probability, buffer, 0);
         String modelDisplay = modelName != null ? config.getModelDisplayName(modelName) : "Unknown";
         template = template.replace("{MODEL}", modelDisplay).replace("<model>", modelDisplay);
-        return getPrefix() + ColorUtil.colorize(template);
+        return getPrefix() + ColorUtil.colorize(appendInterServerSuffix(template));
     }
 
     private String formatAlertMessage(String suspectName, double probability, double buffer, int vl, String modelName) {
         String template = messagesConfig.getMessage("alert-format-vl", suspectName, probability, buffer, vl);
         String modelDisplay = modelName != null ? config.getModelDisplayName(modelName) : "Unknown";
         template = template.replace("{MODEL}", modelDisplay).replace("<model>", modelDisplay);
-        return getPrefix() + ColorUtil.colorize(template);
+        return getPrefix() + ColorUtil.colorize(appendInterServerSuffix(template));
+    }
+
+    private String appendInterServerSuffix(String template) {
+        if (!config.isInterServerEnabled()) {
+            return template;
+        }
+
+        String serverName = config.getServerIdentityName();
+        if (serverName == null || serverName.trim().isEmpty()) {
+            serverName = "default";
+        }
+        return template + " &7| &bServer: &f" + serverName.trim();
     }
 
     public void handlePlayerQuit(Player player) {
