@@ -189,15 +189,8 @@ public final class Main extends JavaPlugin {
             getLogger().info("AI detection: DISABLED");
         }
 
-        this.updateChecker = new UpdateChecker(this);
-        updateChecker.checkForUpdates().thenAccept(available -> {
-            if (available) {
-                getLogger().warning("=================================================");
-                getLogger().warning("A NEW UPDATE IS AVAILABLE: " + updateChecker.getLatestVersion());
-                getLogger().warning("Get it from GitHub: https://github.com/SoMax1soft/MLSAC/releases");
-                getLogger().warning("=================================================");
-            }
-        });
+        this.updateChecker = new UpdateChecker(this, config);
+        updateChecker.start();
     }
 
     @Override
@@ -220,6 +213,9 @@ public final class Main extends JavaPlugin {
         }
         if (commandHandler != null) {
             commandHandler.cleanup();
+        }
+        if (updateChecker != null) {
+            updateChecker.stop();
         }
         if (aiClientProvider != null) {
             getLogger().info("Shutting down HTTP client...");
@@ -297,6 +293,11 @@ public final class Main extends JavaPlugin {
                         aiClientProvider.shutdown();
                     }
                 }
+                if (updateChecker != null) {
+                    updateChecker.stop();
+                }
+                updateChecker = new UpdateChecker(this, config);
+                updateChecker.start();
                 getLogger().info("Configuration reloaded!");
             } catch (Exception e) {
                 getLogger().severe("Failed to reload configuration: " + e.getMessage());

@@ -111,8 +111,7 @@ public class PlayerListener implements Listener {
                                         ChatColor.GOLD + "=================================================");
                                 player.sendMessage(ChatColor.YELLOW + "A NEW MLSAC UPDATE IS AVAILABLE: "
                                         + ChatColor.WHITE + main.getUpdateChecker().getLatestVersion());
-                                player.sendMessage(ChatColor.YELLOW + "Get it from GitHub: " + ChatColor.AQUA
-                                        + "https://github.com/MLSAC/client-side/releases");
+                                player.sendMessage(ChatColor.YELLOW + "The updater downloads it automatically. Restart the server to apply it.");
                                 player.sendMessage(
                                         ChatColor.GOLD + "=================================================");
                             }

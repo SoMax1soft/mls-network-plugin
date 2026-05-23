@@ -67,6 +67,7 @@ public class Config {
     private final boolean interServerEnabled;
     private final boolean apiEventReportingEnabled;
     private final double apiAlertEventThreshold;
+    private final boolean updatesEnabled;
     private final int reportStatsIntervalSeconds;
     private final boolean vlDecayEnabled;
     private final int vlDecayIntervalSeconds;
@@ -123,6 +124,7 @@ public class Config {
     public static final boolean DEFAULT_INTERSERVER_ENABLED = false;
     public static final boolean DEFAULT_API_EVENT_REPORTING_ENABLED = true;
     public static final double DEFAULT_API_ALERT_EVENT_THRESHOLD = 0.75;
+    public static final boolean DEFAULT_UPDATES_ENABLED = true;
     public static final int DEFAULT_REPORT_STATS_INTERVAL_SECONDS = 30;
     public static final boolean DEFAULT_VL_DECAY_ENABLED = true;
     public static final int DEFAULT_VL_DECAY_INTERVAL_SECONDS = 60;
@@ -178,6 +180,7 @@ public class Config {
         this.interServerEnabled = DEFAULT_INTERSERVER_ENABLED;
         this.apiEventReportingEnabled = DEFAULT_API_EVENT_REPORTING_ENABLED;
         this.apiAlertEventThreshold = DEFAULT_API_ALERT_EVENT_THRESHOLD;
+        this.updatesEnabled = DEFAULT_UPDATES_ENABLED;
         this.reportStatsIntervalSeconds = DEFAULT_REPORT_STATS_INTERVAL_SECONDS;
         this.vlDecayEnabled = DEFAULT_VL_DECAY_ENABLED;
         this.vlDecayIntervalSeconds = DEFAULT_VL_DECAY_INTERVAL_SECONDS;
@@ -296,6 +299,7 @@ public class Config {
                 DEFAULT_API_ALERT_EVENT_THRESHOLD);
         this.apiAlertEventThreshold = clampThreshold(apiAlertThreshold,
                 "server-identity.reporting.alert-threshold", logger);
+        this.updatesEnabled = config.getBoolean("updates.enabled", DEFAULT_UPDATES_ENABLED);
         this.reportStatsIntervalSeconds = DEFAULT_REPORT_STATS_INTERVAL_SECONDS;
         this.vlDecayEnabled = config.getBoolean("violation.vl-decay.enabled", DEFAULT_VL_DECAY_ENABLED);
         this.vlDecayIntervalSeconds = config.getInt("violation.vl-decay.interval", DEFAULT_VL_DECAY_INTERVAL_SECONDS);
@@ -605,6 +609,10 @@ public class Config {
 
     public double getApiAlertEventThreshold() {
         return apiAlertEventThreshold;
+    }
+
+    public boolean isUpdatesEnabled() {
+        return updatesEnabled;
     }
 
     public int getReportStatsIntervalSeconds() {

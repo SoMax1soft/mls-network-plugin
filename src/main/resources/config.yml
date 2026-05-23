@@ -20,6 +20,12 @@ debug: false
 # Directory for saving data files
 outputDirectory: "data"
 
+# Automatic stable updates.
+# The plugin checks MLSAC backend every 5 minutes and downloads the correct Java 17/21 build into plugins/update.
+# Restart the server to apply a downloaded update.
+updates:
+  enabled: true
+
 # ┌───────────────────────────────────────────────────────────────────────────────┐
 # │                            DETECTION SETTINGS                                 │
 # └───────────────────────────────────────────────────────────────────────────────┘
