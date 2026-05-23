@@ -89,6 +89,7 @@ public class AIClientProvider {
                 () -> onlinePlayers.size(),
                 config.isDebug(),
                 config.getServerIdentityName(),
+                config.getServerIdentityFamily(),
                 config.isInterServerEnabled(),
                 config.isApiEventReportingEnabled(),
                 config.getApiAlertEventThreshold());

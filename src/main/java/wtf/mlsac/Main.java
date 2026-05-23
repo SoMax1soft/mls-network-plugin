@@ -316,6 +316,8 @@ public final class Main extends JavaPlugin {
                     currentConfig.getBoolean("ai.enabled", Config.DEFAULT_AI_ENABLED));
             String preservedServerIdentityName = currentConfig.getString("server-identity.name",
                     Config.DEFAULT_SERVER_IDENTITY_NAME);
+            String preservedServerIdentityFamily = currentConfig.getString("server-identity.family",
+                    Config.DEFAULT_SERVER_IDENTITY_FAMILY);
             boolean preservedInterServerEnabled = currentConfig.getBoolean("server-identity.interserver.enabled",
                     Config.DEFAULT_INTERSERVER_ENABLED);
             boolean preservedEventReportingEnabled = currentConfig.getBoolean("server-identity.reporting.events-enabled",
@@ -334,6 +336,7 @@ public final class Main extends JavaPlugin {
             reinstalledConfig.set("detection.api-key", preservedApiKey);
             reinstalledConfig.set("detection.enabled", preservedAiDetection);
             reinstalledConfig.set("server-identity.name", preservedServerIdentityName);
+            reinstalledConfig.set("server-identity.family", preservedServerIdentityFamily);
             reinstalledConfig.set("server-identity.interserver.enabled", preservedInterServerEnabled);
             reinstalledConfig.set("server-identity.reporting.events-enabled", preservedEventReportingEnabled);
             reinstalledConfig.set("server-identity.reporting.alert-threshold", preservedAlertThreshold);

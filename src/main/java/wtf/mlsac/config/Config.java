@@ -64,6 +64,7 @@ public class Config {
     private final String autostartComment;
     private final String serverAddress;
     private final String serverIdentityName;
+    private final String serverIdentityFamily;
     private final boolean interServerEnabled;
     private final boolean apiEventReportingEnabled;
     private final double apiAlertEventThreshold;
@@ -121,6 +122,7 @@ public class Config {
     public static final String DEFAULT_AUTOSTART_COMMENT = "";
     public static final String DEFAULT_SERVER_ADDRESS = "https://api.mlsac.net/api/v1";
     public static final String DEFAULT_SERVER_IDENTITY_NAME = "default";
+    public static final String DEFAULT_SERVER_IDENTITY_FAMILY = "default";
     public static final boolean DEFAULT_INTERSERVER_ENABLED = false;
     public static final boolean DEFAULT_API_EVENT_REPORTING_ENABLED = true;
     public static final double DEFAULT_API_ALERT_EVENT_THRESHOLD = 0.75;
@@ -177,6 +179,7 @@ public class Config {
         this.autostartComment = DEFAULT_AUTOSTART_COMMENT;
         this.serverAddress = DEFAULT_SERVER_ADDRESS;
         this.serverIdentityName = DEFAULT_SERVER_IDENTITY_NAME;
+        this.serverIdentityFamily = DEFAULT_SERVER_IDENTITY_FAMILY;
         this.interServerEnabled = DEFAULT_INTERSERVER_ENABLED;
         this.apiEventReportingEnabled = DEFAULT_API_EVENT_REPORTING_ENABLED;
         this.apiAlertEventThreshold = DEFAULT_API_ALERT_EVENT_THRESHOLD;
@@ -291,6 +294,7 @@ public class Config {
         this.serverAddress = config.getString("detection.endpoint",
                 config.getString("ai.server", DEFAULT_SERVER_ADDRESS));
         this.serverIdentityName = config.getString("server-identity.name", DEFAULT_SERVER_IDENTITY_NAME);
+        this.serverIdentityFamily = config.getString("server-identity.family", DEFAULT_SERVER_IDENTITY_FAMILY);
         this.interServerEnabled = config.getBoolean("server-identity.interserver.enabled",
                 DEFAULT_INTERSERVER_ENABLED);
         this.apiEventReportingEnabled = config.getBoolean("server-identity.reporting.events-enabled",
@@ -597,6 +601,10 @@ public class Config {
 
     public String getServerIdentityName() {
         return serverIdentityName;
+    }
+
+    public String getServerIdentityFamily() {
+        return serverIdentityFamily;
     }
 
     public boolean isInterServerEnabled() {

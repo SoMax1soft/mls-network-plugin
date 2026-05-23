@@ -86,6 +86,9 @@ detection:
 server-identity:
   # Unique server name for cross-server alerts and duplicate-name warnings.
   name: "default"
+  # Family/group for inter-server exchange. Only servers with the same family share alerts/actions.
+  # Example: set every KingMC mode to "KingMC" so it does not receive events from other networks on the same key.
+  family: "default"
   interserver:
     # Adds the server name to inter-server alert/action messages.
     enabled: false

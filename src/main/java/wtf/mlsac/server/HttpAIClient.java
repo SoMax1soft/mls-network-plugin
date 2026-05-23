@@ -73,6 +73,7 @@ public class HttpAIClient implements IAIClient {
     private final IntSupplier onlinePlayersSupplier;
     private final boolean debug;
     private final String serverName;
+    private final String serverFamily;
     private final boolean interServerEnabled;
     private final boolean eventReportingEnabled;
     private final double apiAlertEventThreshold;
@@ -100,13 +101,13 @@ public class HttpAIClient implements IAIClient {
     public HttpAIClient(JavaPlugin plugin, String serverAddress, String apiKey,
                         IntSupplier onlinePlayersSupplier, boolean debug) {
         this(plugin, serverAddress, apiKey, onlinePlayersSupplier, debug,
-                "default", false, true, 0.75);
+                "default", "default", false, true, 0.75);
     }
 
     public HttpAIClient(JavaPlugin plugin, String serverAddress, String apiKey,
                         IntSupplier onlinePlayersSupplier, boolean debug,
-                        String serverName, boolean interServerEnabled, boolean eventReportingEnabled,
-                        double apiAlertEventThreshold) {
+                        String serverName, String serverFamily, boolean interServerEnabled,
+                        boolean eventReportingEnabled, double apiAlertEventThreshold) {
         this.plugin = plugin;
         this.serverAddress = serverAddress;
         this.apiKey = apiKey;
@@ -115,6 +116,9 @@ public class HttpAIClient implements IAIClient {
         this.debug = debug;
         this.serverName = serverName != null && !serverName.trim().isEmpty()
                 ? serverName.trim()
+                : "default";
+        this.serverFamily = serverFamily != null && !serverFamily.trim().isEmpty()
+                ? serverFamily.trim()
                 : "default";
         this.interServerEnabled = interServerEnabled;
         this.eventReportingEnabled = eventReportingEnabled;
@@ -151,6 +155,8 @@ public class HttpAIClient implements IAIClient {
         json.addProperty("pluginVersion", plugin.getDescription().getVersion());
         json.addProperty("interserverEventsSupported", true);
         json.addProperty("serverName", serverName);
+        json.addProperty("serverFamily", serverFamily);
+        json.addProperty("family", serverFamily);
         json.addProperty("serverIp", getAdvertisedServerIp());
         json.addProperty("serverPort", getAdvertisedServerPort());
         json.addProperty("interServer", interServerEnabled);
