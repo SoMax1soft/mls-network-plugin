@@ -33,6 +33,7 @@ import wtf.mlsac.scheduler.SchedulerAdapter;
 import wtf.mlsac.scheduler.SchedulerManager;
 import wtf.mlsac.scheduler.ServerType;
 import wtf.mlsac.util.ColorUtil;
+import wtf.mlsac.util.ProbabilityFormatUtil;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CopyOnWriteArraySet;
@@ -110,6 +111,13 @@ public class AlertManager {
         sendMessageToAlertSubscribers(message, config.isAiConsoleAlerts() ? ColorUtil.stripColors(message) : null);
     }
 
+    public void sendInterServerEvent(String type, String sourceServerName, String suspectName, double probability,
+            double buffer, int vl, String modelName, String action) {
+        String message = formatInterServerEventMessage(type, sourceServerName, suspectName, probability,
+                buffer, vl, modelName, action);
+        sendMessageToPermittedPlayers(message, config.isAiConsoleAlerts() ? ColorUtil.stripColors(message) : null);
+    }
+
     public void sendMessageToPermittedPlayers(String message, String consoleMessage) {
         if (SchedulerManager.getServerType() == ServerType.FOLIA) {
             for (Player player : Bukkit.getOnlinePlayers()) {
@@ -178,6 +186,33 @@ public class AlertManager {
         String modelDisplay = modelName != null ? config.getModelDisplayName(modelName) : "Unknown";
         template = template.replace("{MODEL}", modelDisplay).replace("<model>", modelDisplay);
         return getPrefix() + ColorUtil.colorize(appendInterServerSuffix(template));
+    }
+
+    private String formatInterServerEventMessage(String type, String sourceServerName, String suspectName,
+            double probability, double buffer, int vl, String modelName, String action) {
+        boolean isPunish = "punish".equalsIgnoreCase(type) || "action".equalsIgnoreCase(type);
+        String modelDisplay = modelName != null ? config.getModelDisplayName(modelName) : "Unknown";
+        String serverDisplay = sourceServerName != null && !sourceServerName.trim().isEmpty()
+                ? sourceServerName.trim()
+                : "unknown";
+        String template;
+
+        if (isPunish) {
+            template = "&c{PLAYER} &7| &eAction: &f{ACTION} &7| &6Prob: &f{PROBABILITY} "
+                    + "&7| &6Buffer: &f{BUFFER} &7| &cVL: &f{VL} &7| &dModel: &f{MODEL}";
+        } else {
+            template = messagesConfig.getMessage("alert-format", suspectName, probability, buffer, vl);
+        }
+
+        template = template
+                .replace("{PLAYER}", suspectName != null ? suspectName : "Unknown")
+                .replace("{ACTION}", action != null && !action.trim().isEmpty() ? action.trim() : type)
+                .replace("{PROBABILITY}", ProbabilityFormatUtil.formatPercent(probability) + "%")
+                .replace("{BUFFER}", String.format("%.1f", buffer))
+                .replace("{VL}", String.valueOf(vl))
+                .replace("{MODEL}", modelDisplay)
+                .replace("<model>", modelDisplay);
+        return getPrefix() + ColorUtil.colorize(template + " &7| &bServer: &f" + serverDisplay);
     }
 
     private String appendInterServerSuffix(String template) {

@@ -18,18 +18,26 @@
 
 package wtf.mlsac.server;
 
+import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import okhttp3.*;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.java.JavaPlugin;
+import wtf.mlsac.Main;
 import wtf.mlsac.Permissions;
+import wtf.mlsac.alert.AlertManager;
 import wtf.mlsac.scheduler.SchedulerManager;
 import wtf.mlsac.scheduler.ScheduledTask;
 import wtf.mlsac.util.ColorUtil;
 import java.io.BufferedReader;
 import java.io.IOException;
+import java.util.Queue;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
@@ -55,6 +63,7 @@ public class HttpAIClient implements IAIClient {
     private static final long PERIODIC_CHECK_INTERVAL_MS = 60000;
     private static final int DUPLICATE_NAME_WARNING_LIMIT = 3;
     private static final long DUPLICATE_NAME_WARNING_INTERVAL_MS = 30000;
+    private static final int INTERSERVER_EVENT_CACHE_LIMIT = 512;
 
     private final JavaPlugin plugin;
     private final String serverAddress;
@@ -81,6 +90,8 @@ public class HttpAIClient implements IAIClient {
     private volatile long lastServerErrorTime = 0;
     private volatile long lastDuplicateNameWarningTime = 0;
     private final AtomicInteger duplicateNameWarningsRemaining = new AtomicInteger(DUPLICATE_NAME_WARNING_LIMIT);
+    private final Set<String> seenInterserverEventIds = ConcurrentHashMap.newKeySet();
+    private final Queue<String> seenInterserverEventOrder = new ConcurrentLinkedQueue<>();
     private static final long SERVER_ERROR_SILENCE_MS = 60000;
 
     public HttpAIClient(JavaPlugin plugin, String serverAddress, String apiKey,
@@ -181,6 +192,101 @@ public class HttpAIClient implements IAIClient {
             warnDuplicateServerName(message);
         } catch (Exception ignored) {
         }
+    }
+
+    private void handleInterserverEvents(String responseBody) {
+        if (!interServerEnabled || responseBody == null || responseBody.isEmpty()) {
+            return;
+        }
+
+        try {
+            JsonObject root = new JsonParser().parse(responseBody).getAsJsonObject();
+            if (!root.has("data") || !root.get("data").isJsonObject()) {
+                return;
+            }
+
+            JsonObject data = root.getAsJsonObject("data");
+            if (!data.has("interserverEvents") || !data.get("interserverEvents").isJsonArray()) {
+                return;
+            }
+
+            JsonArray events = data.getAsJsonArray("interserverEvents");
+            for (JsonElement element : events) {
+                if (element != null && element.isJsonObject()) {
+                    handleInterserverEvent(element.getAsJsonObject());
+                }
+            }
+        } catch (Exception e) {
+            if (debug) {
+                logger.warning("[HTTP] Failed to parse inter-server events: " + e.getMessage());
+            }
+        }
+    }
+
+    private void handleInterserverEvent(JsonObject event) {
+        String eventId = getJsonString(event, "id", "");
+        if (!rememberInterserverEvent(eventId)) {
+            return;
+        }
+        if (!(plugin instanceof Main)) {
+            return;
+        }
+
+        AlertManager alertManager = ((Main) plugin).getAlertManager();
+        if (alertManager == null) {
+            return;
+        }
+
+        String type = getJsonString(event, "type", "alert");
+        String sourceServerName = getJsonString(event, "serverName", "unknown");
+        String playerName = getJsonString(event, "playerName", "Unknown");
+        String model = getJsonString(event, "model", "unknown");
+        String action = getJsonString(event, "action", type);
+        double probability = getJsonDouble(event, "probability", 0.0);
+        double buffer = getJsonDouble(event, "buffer", 0.0);
+        int violationLevel = (int) Math.round(getJsonDouble(event, "violationLevel", getJsonDouble(event, "vl", 0.0)));
+
+        alertManager.sendInterServerEvent(type, sourceServerName, playerName, probability,
+                buffer, violationLevel, model, action);
+    }
+
+    private boolean rememberInterserverEvent(String eventId) {
+        if (eventId == null || eventId.isEmpty()) {
+            return true;
+        }
+        if (!seenInterserverEventIds.add(eventId)) {
+            return false;
+        }
+
+        seenInterserverEventOrder.add(eventId);
+        while (seenInterserverEventOrder.size() > INTERSERVER_EVENT_CACHE_LIMIT) {
+            String oldEventId = seenInterserverEventOrder.poll();
+            if (oldEventId == null) {
+                break;
+            }
+            seenInterserverEventIds.remove(oldEventId);
+        }
+        return true;
+    }
+
+    private String getJsonString(JsonObject object, String key, String fallback) {
+        try {
+            if (object.has(key) && !object.get(key).isJsonNull()) {
+                return object.get(key).getAsString();
+            }
+        } catch (Exception ignored) {
+        }
+        return fallback;
+    }
+
+    private double getJsonDouble(JsonObject object, String key, double fallback) {
+        try {
+            if (object.has(key) && !object.get(key).isJsonNull()) {
+                return object.get(key).getAsDouble();
+            }
+        } catch (Exception ignored) {
+        }
+        return fallback;
     }
 
     private void warnDuplicateServerName(String message) {
@@ -451,6 +557,7 @@ public class HttpAIClient implements IAIClient {
                         return;
                     }
                     if (response.isSuccessful()) {
+                        handleInterserverEvents(responseBody);
                         limitExceeded = false;
                         serverErrorState = false;
                     } else if (code == 429) {
