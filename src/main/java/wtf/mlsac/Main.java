@@ -118,7 +118,7 @@ public final class Main extends JavaPlugin {
             e.printStackTrace();
         }
         VersionAdapter.get().logCompatibilityInfo();
-        ConfigSyncUtil.syncPluginConfig(this);
+        ConfigSyncUtil.syncAllPluginConfigs(this);
         this.config = new Config(this, getLogger());
         this.menuConfig = new MenuConfig(this);
         this.menuConfig.load();
@@ -253,7 +253,7 @@ public final class Main extends JavaPlugin {
         SchedulerManager.getAdapter().runSync(() -> {
             try {
                 reloadConfig();
-                ConfigSyncUtil.syncPluginConfig(this);
+                ConfigSyncUtil.syncAllPluginConfigs(this);
                 this.config = new Config(this, getLogger());
                 if (menuConfig != null)
                     menuConfig.reload();
@@ -306,10 +306,7 @@ public final class Main extends JavaPlugin {
 
     public boolean reinstallPluginConfig() {
         try {
-            ConfigSyncUtil.syncPluginConfig(this);
-            ConfigSyncUtil.syncResourceConfig(this, "messages.yml", new File(getDataFolder(), "messages.yml"));
-            ConfigSyncUtil.syncResourceConfig(this, "menu.yml", new File(getDataFolder(), "menu.yml"));
-            ConfigSyncUtil.syncResourceConfig(this, "holograms.yml", new File(getDataFolder(), "holograms.yml"));
+            ConfigSyncUtil.syncAllPluginConfigs(this);
             reloadPluginConfig();
             getLogger().info(
                     "All configuration YAML files were synced. Existing values were preserved and missing entries were added.");

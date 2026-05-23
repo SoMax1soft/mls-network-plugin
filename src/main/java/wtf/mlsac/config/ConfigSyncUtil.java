@@ -65,6 +65,15 @@ public final class ConfigSyncUtil {
         }
     }
 
+    public static boolean syncAllPluginConfigs(JavaPlugin plugin) {
+        File dataFolder = plugin.getDataFolder();
+        boolean changed = syncPluginConfig(plugin);
+        changed |= syncResourceConfig(plugin, "messages.yml", new File(dataFolder, "messages.yml"));
+        changed |= syncResourceConfig(plugin, "menu.yml", new File(dataFolder, "menu.yml"));
+        changed |= syncResourceConfig(plugin, "holograms.yml", new File(dataFolder, "holograms.yml"));
+        return changed;
+    }
+
     public static FileConfiguration loadAndSync(JavaPlugin plugin, String resourceName, File configFile) {
         if (!configFile.exists()) {
             plugin.saveResource(resourceName, false);

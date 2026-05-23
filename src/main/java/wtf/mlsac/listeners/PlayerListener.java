@@ -31,6 +31,7 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.entity.PlayerDeathEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerKickEvent;
+import org.bukkit.event.player.PlayerChangedWorldEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.event.player.PlayerRespawnEvent;
 import org.bukkit.plugin.java.JavaPlugin;
@@ -205,6 +206,13 @@ public class PlayerListener implements Listener {
     public void onPlayerRespawn(PlayerRespawnEvent event) {
         if (hologramManager != null) {
             hologramManager.handleRespawn(event.getPlayer());
+        }
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR)
+    public void onPlayerChangedWorld(PlayerChangedWorldEvent event) {
+        if (hologramManager != null) {
+            hologramManager.handleWorldChange(event.getPlayer());
         }
     }
 }

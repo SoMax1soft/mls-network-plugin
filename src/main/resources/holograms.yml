@@ -13,6 +13,8 @@ nametags:
   update-interval-ticks: 5
   view-distance: 48
   max-targets-per-viewer: 16
+  entity-id-cache-limit: 256
+  resync-interval-ticks: 600
   show-empty: false
   movement-threshold-squared: 0.04
   colors:

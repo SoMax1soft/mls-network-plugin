@@ -34,6 +34,9 @@ public class HologramManager {
     private static final int ENTITY_ID_START = 42000000;
     private static final int DEFAULT_UPDATE_INTERVAL_TICKS = 5;
     private static final int DEFAULT_MAX_TARGETS_PER_VIEWER = 16;
+    private static final int DEFAULT_ENTITY_ID_CACHE_LIMIT = 256;
+    private static final int DEFAULT_RESYNC_INTERVAL_TICKS = 600;
+    private static final int DESTROY_RETRY_ATTEMPTS = 5;
     private static final double DEFAULT_MOVE_THRESHOLD_SQUARED = 0.04D;
     private static final int ENTITY_FLAGS_INDEX = 0;
     private static final int CUSTOM_NAME_INDEX = 2;
@@ -110,6 +113,8 @@ public class HologramManager {
         for (Player viewer : staff) {
             UUID viewerId = viewer.getUniqueId();
             ViewerState state = viewers.computeIfAbsent(viewerId, k -> new ViewerState(viewerId));
+            flushPendingDestroys(viewer, state);
+            resyncViewerIfNeeded(viewer, state, settings);
 
             Location viewerLoc = viewer.getLocation();
             String viewerWorld = viewerLoc.getWorld().getName();
@@ -151,7 +156,27 @@ public class HologramManager {
                     removeTarget(viewer, targetId, state);
                 }
             }
+            pruneEntityIdCache(state, alive, settings.entityIdCacheLimit);
         }
+    }
+
+    private void resyncViewerIfNeeded(Player viewer, ViewerState state, NametagSettings settings) {
+        if (settings.resyncIntervalMillis <= 0) {
+            return;
+        }
+
+        long now = System.currentTimeMillis();
+        if (state.lastResyncAtMillis == 0) {
+            state.lastResyncAtMillis = now;
+            return;
+        }
+        if (now - state.lastResyncAtMillis < settings.resyncIntervalMillis) {
+            return;
+        }
+
+        destroyActiveTargets(viewer, state);
+        state.targets.clear();
+        state.lastResyncAtMillis = now;
     }
 
     private void updateTarget(Player viewer, TargetCandidate candidate, ViewerState state, NametagSettings settings) {
@@ -162,10 +187,10 @@ public class HologramManager {
         int entityId;
         EntityCache cache = state.targets.get(targetId);
         if (cache == null) {
-            entityId = entityIdCounter.incrementAndGet();
+            entityId = getOrCreateEntityId(state, targetId);
             cache = new EntityCache(entityId);
             state.targets.put(targetId, cache);
-            spawn(viewer, entityId, loc, newText);
+            spawnFresh(viewer, entityId, loc, newText);
             cache.lastText = newText;
             cache.lastLoc = loc;
         } else {
@@ -177,7 +202,7 @@ public class HologramManager {
             boolean moved = worldChanged || cache.lastLoc.distanceSquared(loc) > settings.moveThresholdSquared;
 
             if (worldChanged) {
-                spawn(viewer, entityId, loc, newText);
+                spawnFresh(viewer, entityId, loc, newText);
             } else if (moved) {
                 teleport(viewer, entityId, loc);
             }
@@ -191,10 +216,20 @@ public class HologramManager {
         }
     }
 
+    private int getOrCreateEntityId(ViewerState state, UUID targetId) {
+        return state.entityIdsByTarget.computeIfAbsent(targetId, ignored -> entityIdCounter.incrementAndGet());
+    }
+
+    private void spawnFresh(Player viewer, int entityId, Location loc, String text) {
+        clearPendingDestroy(viewer, entityId);
+        destroyEntity(viewer, entityId);
+        spawn(viewer, entityId, loc, text);
+    }
+
     private void removeTarget(Player viewer, UUID targetId, ViewerState state) {
         EntityCache cache = state.targets.remove(targetId);
         if (cache != null && viewer != null && viewer.isOnline()) {
-            destroyEntity(viewer, cache.entityId);
+            destroyEntityWithRetry(viewer, state, cache.entityId);
         }
     }
 
@@ -268,11 +303,73 @@ public class HologramManager {
         PacketEvents.getAPI().getPlayerManager().sendPacket(viewer, new WrapperPlayServerDestroyEntities(entityId));
     }
 
+    private void destroyEntityWithRetry(Player viewer, ViewerState state, int entityId) {
+        destroyEntity(viewer, entityId);
+        state.pendingDestroyAttempts.put(entityId, DESTROY_RETRY_ATTEMPTS);
+    }
+
+    private void clearPendingDestroy(Player viewer, int entityId) {
+        ViewerState state = viewers.get(viewer.getUniqueId());
+        if (state != null) {
+            state.pendingDestroyAttempts.remove(entityId);
+        }
+    }
+
+    private void flushPendingDestroys(Player viewer, ViewerState state) {
+        if (state.pendingDestroyAttempts.isEmpty()) {
+            return;
+        }
+
+        Set<Integer> activeEntityIds = getActiveEntityIds(state);
+        for (Map.Entry<Integer, Integer> entry : new ArrayList<>(state.pendingDestroyAttempts.entrySet())) {
+            int entityId = entry.getKey();
+            if (activeEntityIds.contains(entityId)) {
+                state.pendingDestroyAttempts.remove(entityId);
+                continue;
+            }
+
+            destroyEntity(viewer, entityId);
+            int attemptsLeft = entry.getValue() - 1;
+            if (attemptsLeft <= 0) {
+                state.pendingDestroyAttempts.remove(entityId);
+            } else {
+                state.pendingDestroyAttempts.put(entityId, attemptsLeft);
+            }
+        }
+    }
+
+    private Set<Integer> getActiveEntityIds(ViewerState state) {
+        Set<Integer> activeEntityIds = new HashSet<>();
+        for (EntityCache cache : state.targets.values()) {
+            activeEntityIds.add(cache.entityId);
+        }
+        return activeEntityIds;
+    }
+
     private void destroyViewerEntities(UUID viewerId, ViewerState state) {
         Player viewer = Bukkit.getPlayer(viewerId);
         if (viewer != null && viewer.isOnline()) {
-            for (EntityCache cache : state.targets.values()) {
-                destroyEntity(viewer, cache.entityId);
+            destroyActiveTargets(viewer, state);
+        }
+    }
+
+    private void destroyActiveTargets(Player viewer, ViewerState state) {
+        for (EntityCache cache : state.targets.values()) {
+            destroyEntity(viewer, cache.entityId);
+        }
+    }
+
+    private void pruneEntityIdCache(ViewerState state, Set<UUID> aliveTargetIds, int maxCachedTargetIds) {
+        if (state.entityIdsByTarget.size() <= maxCachedTargetIds) {
+            return;
+        }
+
+        for (UUID targetId : new ArrayList<>(state.entityIdsByTarget.keySet())) {
+            if (state.entityIdsByTarget.size() <= maxCachedTargetIds) {
+                return;
+            }
+            if (!aliveTargetIds.contains(targetId) && !state.targets.containsKey(targetId)) {
+                state.entityIdsByTarget.remove(targetId);
             }
         }
     }
@@ -363,12 +460,18 @@ public class HologramManager {
         boolean showEmpty = config.getBoolean("nametags.show-empty", false);
         double moveThresholdSquared = Math.max(0.0D,
                 config.getDouble("nametags.movement-threshold-squared", DEFAULT_MOVE_THRESHOLD_SQUARED));
+        int entityIdCacheLimit = Math.max(maxTargets,
+                config.getInt("nametags.entity-id-cache-limit", DEFAULT_ENTITY_ID_CACHE_LIMIT));
+        long resyncIntervalMillis = Math.max(0L,
+                config.getLong("nametags.resync-interval-ticks", DEFAULT_RESYNC_INTERVAL_TICKS)) * 50L;
         return new NametagSettings(
                 viewDistance,
                 maxTargets,
                 historyLimit,
                 showEmpty,
                 moveThresholdSquared,
+                entityIdCacheLimit,
+                resyncIntervalMillis,
                 config.getString("nametags.hologram", "&6AVG &f{AVG}% &7| {HIST}"),
                 config.getString("nametags.colors.low", "&f"),
                 config.getString("nametags.colors.medium", "&f"),
@@ -402,12 +505,30 @@ public class HologramManager {
     }
 
     public void handleRespawn(Player player) {
+        clearViewerState(player);
         // Голограммы автоматически появятся в следующем тике
+    }
+
+    public void handleWorldChange(Player player) {
+        clearViewerState(player);
+        handleDeath(player);
+    }
+
+    private void clearViewerState(Player player) {
+        UUID playerId = player.getUniqueId();
+        ViewerState state = viewers.remove(playerId);
+        if (state != null) {
+            destroyViewerEntities(playerId, state);
+            state.targets.clear();
+        }
     }
 
     private static class ViewerState {
         final UUID viewerId;
         final Map<UUID, EntityCache> targets = new ConcurrentHashMap<>();
+        final Map<UUID, Integer> entityIdsByTarget = new ConcurrentHashMap<>();
+        final Map<Integer, Integer> pendingDestroyAttempts = new ConcurrentHashMap<>();
+        long lastResyncAtMillis;
 
         ViewerState(UUID viewerId) {
             this.viewerId = viewerId;
@@ -444,6 +565,8 @@ public class HologramManager {
         final int historyLimit;
         final boolean showEmpty;
         final double moveThresholdSquared;
+        final int entityIdCacheLimit;
+        final long resyncIntervalMillis;
         final String format;
         final String lowColor;
         final String mediumColor;
@@ -456,14 +579,16 @@ public class HologramManager {
         final double criticalBoldThreshold;
 
         NametagSettings(double viewDistance, int maxTargetsPerViewer, int historyLimit, boolean showEmpty,
-                double moveThresholdSquared, String format, String lowColor, String mediumColor, String highColor,
-                String criticalColor, String criticalBoldColor, double mediumThreshold, double highThreshold,
-                double criticalThreshold, double criticalBoldThreshold) {
+                double moveThresholdSquared, int entityIdCacheLimit, long resyncIntervalMillis, String format,
+                String lowColor, String mediumColor, String highColor, String criticalColor, String criticalBoldColor,
+                double mediumThreshold, double highThreshold, double criticalThreshold, double criticalBoldThreshold) {
             this.viewDistance = viewDistance;
             this.maxTargetsPerViewer = maxTargetsPerViewer;
             this.historyLimit = historyLimit;
             this.showEmpty = showEmpty;
             this.moveThresholdSquared = moveThresholdSquared;
+            this.entityIdCacheLimit = entityIdCacheLimit;
+            this.resyncIntervalMillis = resyncIntervalMillis;
             this.format = format;
             this.lowColor = lowColor;
             this.mediumColor = mediumColor;

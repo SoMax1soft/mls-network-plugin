@@ -31,6 +31,7 @@ import org.bukkit.GameMode;
 import org.bukkit.Location;
 import org.bukkit.Particle;
 import org.bukkit.entity.Player;
+import org.bukkit.event.Cancellable;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.HandlerList;
@@ -39,13 +40,18 @@ import org.bukkit.event.block.BlockBreakEvent;
 import org.bukkit.event.block.BlockPlaceEvent;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.entity.EntityPickupItemEvent;
+import org.bukkit.event.entity.PlayerDeathEvent;
 import org.bukkit.event.inventory.InventoryClickEvent;
+import org.bukkit.event.inventory.InventoryDragEvent;
 import org.bukkit.event.inventory.InventoryOpenEvent;
+import org.bukkit.event.player.PlayerAttemptPickupItemEvent;
 import org.bukkit.event.player.PlayerCommandPreprocessEvent;
 import org.bukkit.event.player.PlayerDropItemEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
+import org.bukkit.event.player.PlayerItemHeldEvent;
 import org.bukkit.event.player.PlayerMoveEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
+import org.bukkit.event.player.PlayerSwapHandItemsEvent;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.potion.PotionEffectType;
 import org.bukkit.util.Vector;
@@ -90,6 +96,8 @@ public class BanAnimation implements Listener {
         plugin.getLogger().info(">>> STAGE 1: Starting ban animation for " + player.getName());
         animatingPlayers.add(playerId);
         pendingBans.put(playerId, banCommand);
+        player.closeInventory();
+        forceInventoryResync(player);
         freezePlayer(player);
         final int[] tick = { 0 };
         final ScheduledTask[] taskRef = new ScheduledTask[1];
@@ -259,6 +267,23 @@ public class BanAnimation implements Listener {
         return player != null && animatingPlayers.contains(player.getUniqueId());
     }
 
+    private void cancelInventoryMutation(Player player, Cancellable event) {
+        event.setCancelled(true);
+        forceInventoryResync(player);
+    }
+
+    private void forceInventoryResync(Player player) {
+        if (player == null || !player.isOnline()) {
+            return;
+        }
+        player.updateInventory();
+        SchedulerManager.getAdapter().runEntitySyncDelayed(player, () -> {
+            if (player.isOnline()) {
+                player.updateInventory();
+            }
+        }, 1L);
+    }
+
     @EventHandler(priority = EventPriority.MONITOR)
     public void onPlayerQuit(PlayerQuitEvent event) {
         handleQuit(event.getPlayer().getUniqueId());
@@ -280,62 +305,87 @@ public class BanAnimation implements Listener {
         }
     }
 
-    @EventHandler(priority = EventPriority.LOWEST)
+    @EventHandler(priority = EventPriority.HIGHEST)
     public void onPlayerInteract(PlayerInteractEvent event) {
         if (isAnimating(event.getPlayer())) {
-            event.setCancelled(true);
+            cancelInventoryMutation(event.getPlayer(), event);
         }
     }
 
-    @EventHandler(priority = EventPriority.LOWEST)
+    @EventHandler(priority = EventPriority.HIGHEST)
     public void onPlayerCommand(PlayerCommandPreprocessEvent event) {
         if (isAnimating(event.getPlayer())) {
             event.setCancelled(true);
         }
     }
 
-    @EventHandler(priority = EventPriority.LOWEST)
+    @EventHandler(priority = EventPriority.HIGHEST)
     public void onPlayerDropItem(PlayerDropItemEvent event) {
         if (isAnimating(event.getPlayer())) {
-            event.setCancelled(true);
+            cancelInventoryMutation(event.getPlayer(), event);
+            event.getItemDrop().remove();
         }
     }
 
-    @EventHandler(priority = EventPriority.LOWEST)
+    @EventHandler(priority = EventPriority.HIGHEST)
     public void onInventoryClick(InventoryClickEvent event) {
         if (event.getWhoClicked() instanceof Player) {
             Player player = (Player) event.getWhoClicked();
             if (isAnimating(player)) {
-                event.setCancelled(true);
+                cancelInventoryMutation(player, event);
             }
         }
     }
 
-    @EventHandler(priority = EventPriority.LOWEST)
+    @EventHandler(priority = EventPriority.HIGHEST)
+    public void onInventoryDrag(InventoryDragEvent event) {
+        if (event.getWhoClicked() instanceof Player) {
+            Player player = (Player) event.getWhoClicked();
+            if (isAnimating(player)) {
+                cancelInventoryMutation(player, event);
+            }
+        }
+    }
+
+    @EventHandler(priority = EventPriority.HIGHEST)
+    public void onSwapHandItems(PlayerSwapHandItemsEvent event) {
+        if (isAnimating(event.getPlayer())) {
+            cancelInventoryMutation(event.getPlayer(), event);
+        }
+    }
+
+    @EventHandler(priority = EventPriority.HIGHEST)
+    public void onPlayerItemHeld(PlayerItemHeldEvent event) {
+        if (isAnimating(event.getPlayer())) {
+            cancelInventoryMutation(event.getPlayer(), event);
+        }
+    }
+
+    @EventHandler(priority = EventPriority.HIGHEST)
     public void onInventoryOpen(InventoryOpenEvent event) {
         if (event.getPlayer() instanceof Player) {
             Player player = (Player) event.getPlayer();
             if (isAnimating(player)) {
-                event.setCancelled(true);
+                cancelInventoryMutation(player, event);
             }
         }
     }
 
-    @EventHandler(priority = EventPriority.LOWEST)
+    @EventHandler(priority = EventPriority.HIGHEST)
     public void onBlockBreak(BlockBreakEvent event) {
         if (isAnimating(event.getPlayer())) {
-            event.setCancelled(true);
+            cancelInventoryMutation(event.getPlayer(), event);
         }
     }
 
-    @EventHandler(priority = EventPriority.LOWEST)
+    @EventHandler(priority = EventPriority.HIGHEST)
     public void onBlockPlace(BlockPlaceEvent event) {
         if (isAnimating(event.getPlayer())) {
-            event.setCancelled(true);
+            cancelInventoryMutation(event.getPlayer(), event);
         }
     }
 
-    @EventHandler(priority = EventPriority.LOWEST)
+    @EventHandler(priority = EventPriority.HIGHEST)
     public void onEntityDamage(EntityDamageByEntityEvent event) {
         if (event.getDamager() instanceof Player) {
             Player player = (Player) event.getDamager();
@@ -351,13 +401,32 @@ public class BanAnimation implements Listener {
         }
     }
 
-    @EventHandler(priority = EventPriority.LOWEST)
+    @EventHandler(priority = EventPriority.HIGHEST)
+    public void onAttemptPickupItem(PlayerAttemptPickupItemEvent event) {
+        if (isAnimating(event.getPlayer())) {
+            event.setCancelled(true);
+        }
+    }
+
+    @EventHandler(priority = EventPriority.HIGHEST)
     public void onItemPickup(EntityPickupItemEvent event) {
         if (event.getEntity() instanceof Player) {
             Player player = (Player) event.getEntity();
             if (isAnimating(player)) {
                 event.setCancelled(true);
             }
+        }
+    }
+
+    @EventHandler(priority = EventPriority.HIGHEST)
+    public void onPlayerDeath(PlayerDeathEvent event) {
+        Player player = event.getEntity();
+        if (isAnimating(player)) {
+            event.getDrops().clear();
+            event.setDroppedExp(0);
+            event.setKeepInventory(true);
+            event.setKeepLevel(true);
+            forceInventoryResync(player);
         }
     }
 
