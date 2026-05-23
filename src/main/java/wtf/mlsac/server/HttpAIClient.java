@@ -195,7 +195,7 @@ public class HttpAIClient implements IAIClient {
     }
 
     private void handleInterserverEvents(String responseBody) {
-        if (!interServerEnabled || responseBody == null || responseBody.isEmpty()) {
+        if (responseBody == null || responseBody.isEmpty()) {
             return;
         }
 
