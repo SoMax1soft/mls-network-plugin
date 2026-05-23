@@ -35,6 +35,7 @@ import wtf.mlsac.penalty.PenaltyContext;
 import wtf.mlsac.penalty.PenaltyExecutor;
 import wtf.mlsac.scheduler.ScheduledTask;
 import wtf.mlsac.scheduler.SchedulerManager;
+import wtf.mlsac.server.IAIClient;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
@@ -258,6 +259,7 @@ public class ViolationManager {
     }
 
     public void executeCommand(String command, Player player, double probability, double buffer, int vl) {
+        ActionType actionType = ActionType.fromCommand(command);
         PenaltyContext context = PenaltyContext.builder()
                 .playerName(player.getName())
                 .violationLevel(vl)
@@ -266,6 +268,13 @@ public class ViolationManager {
                 .build();
         addKickRecord(new KickRecord(player.getName(), probability, buffer, vl, command));
         penaltyExecutor.execute(command, context);
+        if (actionType.isPunishment() && plugin.getAiClientProvider() != null) {
+            IAIClient client = plugin.getAiClientProvider().get();
+            if (client != null) {
+                client.reportPunish(player.getUniqueId().toString(), player.getName(), "unknown",
+                        probability, buffer, vl, actionType.name().toLowerCase(), command);
+            }
+        }
     }
 
     private synchronized void addKickRecord(KickRecord record) {

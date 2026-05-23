@@ -63,6 +63,10 @@ public class Config {
     private final String autostartLabel;
     private final String autostartComment;
     private final String serverAddress;
+    private final String serverIdentityName;
+    private final boolean interServerEnabled;
+    private final boolean apiEventReportingEnabled;
+    private final double apiAlertEventThreshold;
     private final int reportStatsIntervalSeconds;
     private final boolean vlDecayEnabled;
     private final int vlDecayIntervalSeconds;
@@ -115,6 +119,10 @@ public class Config {
     public static final String DEFAULT_AUTOSTART_LABEL = "UNLABELED";
     public static final String DEFAULT_AUTOSTART_COMMENT = "";
     public static final String DEFAULT_SERVER_ADDRESS = "https://api.mlsac.net/api/v1";
+    public static final String DEFAULT_SERVER_IDENTITY_NAME = "default";
+    public static final boolean DEFAULT_INTERSERVER_ENABLED = false;
+    public static final boolean DEFAULT_API_EVENT_REPORTING_ENABLED = true;
+    public static final double DEFAULT_API_ALERT_EVENT_THRESHOLD = 0.75;
     public static final int DEFAULT_REPORT_STATS_INTERVAL_SECONDS = 30;
     public static final boolean DEFAULT_VL_DECAY_ENABLED = true;
     public static final int DEFAULT_VL_DECAY_INTERVAL_SECONDS = 60;
@@ -166,6 +174,10 @@ public class Config {
         this.autostartLabel = DEFAULT_AUTOSTART_LABEL;
         this.autostartComment = DEFAULT_AUTOSTART_COMMENT;
         this.serverAddress = DEFAULT_SERVER_ADDRESS;
+        this.serverIdentityName = DEFAULT_SERVER_IDENTITY_NAME;
+        this.interServerEnabled = DEFAULT_INTERSERVER_ENABLED;
+        this.apiEventReportingEnabled = DEFAULT_API_EVENT_REPORTING_ENABLED;
+        this.apiAlertEventThreshold = DEFAULT_API_ALERT_EVENT_THRESHOLD;
         this.reportStatsIntervalSeconds = DEFAULT_REPORT_STATS_INTERVAL_SECONDS;
         this.vlDecayEnabled = DEFAULT_VL_DECAY_ENABLED;
         this.vlDecayIntervalSeconds = DEFAULT_VL_DECAY_INTERVAL_SECONDS;
@@ -275,6 +287,15 @@ public class Config {
         this.autostartComment = config.getString("autostart.comment", DEFAULT_AUTOSTART_COMMENT);
         this.serverAddress = config.getString("detection.endpoint",
                 config.getString("ai.server", DEFAULT_SERVER_ADDRESS));
+        this.serverIdentityName = config.getString("server-identity.name", DEFAULT_SERVER_IDENTITY_NAME);
+        this.interServerEnabled = config.getBoolean("server-identity.interserver.enabled",
+                DEFAULT_INTERSERVER_ENABLED);
+        this.apiEventReportingEnabled = config.getBoolean("server-identity.reporting.events-enabled",
+                DEFAULT_API_EVENT_REPORTING_ENABLED);
+        double apiAlertThreshold = config.getDouble("server-identity.reporting.alert-threshold",
+                DEFAULT_API_ALERT_EVENT_THRESHOLD);
+        this.apiAlertEventThreshold = clampThreshold(apiAlertThreshold,
+                "server-identity.reporting.alert-threshold", logger);
         this.reportStatsIntervalSeconds = DEFAULT_REPORT_STATS_INTERVAL_SECONDS;
         this.vlDecayEnabled = config.getBoolean("violation.vl-decay.enabled", DEFAULT_VL_DECAY_ENABLED);
         this.vlDecayIntervalSeconds = config.getInt("violation.vl-decay.interval", DEFAULT_VL_DECAY_INTERVAL_SECONDS);
@@ -568,6 +589,22 @@ public class Config {
 
     public String getServerAddress() {
         return serverAddress;
+    }
+
+    public String getServerIdentityName() {
+        return serverIdentityName;
+    }
+
+    public boolean isInterServerEnabled() {
+        return interServerEnabled;
+    }
+
+    public boolean isApiEventReportingEnabled() {
+        return apiEventReportingEnabled;
+    }
+
+    public double getApiAlertEventThreshold() {
+        return apiAlertEventThreshold;
     }
 
     public int getReportStatsIntervalSeconds() {

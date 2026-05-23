@@ -34,6 +34,17 @@ public interface IAIClient {
 
     io.reactivex.rxjava3.core.Observable<AIResponse> predict(byte[] playerData, String playerUuid, String playerName);
 
+    default CompletableFuture<Boolean> reportAlert(String playerUuid, String playerName,
+            String model, double probability, double buffer) {
+        return CompletableFuture.completedFuture(false);
+    }
+
+    default CompletableFuture<Boolean> reportPunish(String playerUuid, String playerName,
+            String model, double probability, double buffer, int violationLevel,
+            String action, String command) {
+        return CompletableFuture.completedFuture(false);
+    }
+
     boolean isConnected();
 
     boolean isLimitExceeded();

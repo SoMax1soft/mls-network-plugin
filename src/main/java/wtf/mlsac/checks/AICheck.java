@@ -256,6 +256,10 @@ public class AICheck {
 
         if (alertManager.shouldAlert(probability)) {
             alertManager.sendAlert(playerName, probability, data.getBuffer(), modelName);
+            IAIClient client = clientProvider.get();
+            if (client != null) {
+                client.reportAlert(playerUuid.toString(), playerName, modelName, probability, data.getBuffer());
+            }
             if (playerRef != null && playerRef.isOnline() && plugin.getDetectionResponseManager() != null) {
                 schedulerAdapter.runEntitySync(playerRef, () -> {
                     if (playerRef.isOnline()) {

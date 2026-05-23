@@ -18,10 +18,17 @@
 
 package wtf.mlsac.server;
 
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 import okhttp3.*;
+import org.bukkit.Bukkit;
+import org.bukkit.entity.Player;
 import org.bukkit.plugin.java.JavaPlugin;
+import wtf.mlsac.Permissions;
 import wtf.mlsac.scheduler.SchedulerManager;
 import wtf.mlsac.scheduler.ScheduledTask;
+import wtf.mlsac.util.ColorUtil;
+import java.io.BufferedReader;
 import java.io.IOException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
@@ -29,6 +36,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.IntSupplier;
 import java.util.logging.Level;
@@ -45,6 +53,8 @@ public class HttpAIClient implements IAIClient {
     private static final int READ_TIMEOUT_SECONDS = 30;
     private static final int WRITE_TIMEOUT_SECONDS = 30;
     private static final long PERIODIC_CHECK_INTERVAL_MS = 60000;
+    private static final int DUPLICATE_NAME_WARNING_LIMIT = 3;
+    private static final long DUPLICATE_NAME_WARNING_INTERVAL_MS = 30000;
 
     private final JavaPlugin plugin;
     private final String serverAddress;
@@ -52,6 +62,10 @@ public class HttpAIClient implements IAIClient {
     private final Logger logger;
     private final IntSupplier onlinePlayersSupplier;
     private final boolean debug;
+    private final String serverName;
+    private final boolean interServerEnabled;
+    private final boolean eventReportingEnabled;
+    private final double apiAlertEventThreshold;
     private final ExecutorService httpExecutor;
     private final OkHttpClient httpClient;
     private final AtomicReference<ScheduledTask> heartbeatTask = new AtomicReference<>();
@@ -65,16 +79,32 @@ public class HttpAIClient implements IAIClient {
     private volatile boolean limitExceeded = false;
     private volatile boolean serverErrorState = false;
     private volatile long lastServerErrorTime = 0;
+    private volatile long lastDuplicateNameWarningTime = 0;
+    private final AtomicInteger duplicateNameWarningsRemaining = new AtomicInteger(DUPLICATE_NAME_WARNING_LIMIT);
     private static final long SERVER_ERROR_SILENCE_MS = 60000;
 
     public HttpAIClient(JavaPlugin plugin, String serverAddress, String apiKey,
                         IntSupplier onlinePlayersSupplier, boolean debug) {
+        this(plugin, serverAddress, apiKey, onlinePlayersSupplier, debug,
+                "default", false, true, 0.75);
+    }
+
+    public HttpAIClient(JavaPlugin plugin, String serverAddress, String apiKey,
+                        IntSupplier onlinePlayersSupplier, boolean debug,
+                        String serverName, boolean interServerEnabled, boolean eventReportingEnabled,
+                        double apiAlertEventThreshold) {
         this.plugin = plugin;
         this.serverAddress = serverAddress;
         this.apiKey = apiKey;
         this.logger = plugin.getLogger();
         this.onlinePlayersSupplier = onlinePlayersSupplier;
         this.debug = debug;
+        this.serverName = serverName != null && !serverName.trim().isEmpty()
+                ? serverName.trim()
+                : "default";
+        this.interServerEnabled = interServerEnabled;
+        this.eventReportingEnabled = eventReportingEnabled;
+        this.apiAlertEventThreshold = apiAlertEventThreshold;
         int workers = Math.max(2, Math.min(4, Runtime.getRuntime().availableProcessors()));
         this.httpExecutor = Executors.newFixedThreadPool(workers, r -> {
             Thread thread = new Thread(r, "http-ai-client-worker");
@@ -93,6 +123,88 @@ public class HttpAIClient implements IAIClient {
         return httpExecutor;
     }
 
+    private String getAdvertisedServerIp() {
+        String bukkitIp = plugin.getServer().getIp();
+        return bukkitIp != null && !bukkitIp.trim().isEmpty() ? bukkitIp.trim() : "unknown";
+    }
+
+    private int getAdvertisedServerPort() {
+        return plugin.getServer().getPort();
+    }
+
+    private JsonObject createBasePayload() {
+        JsonObject json = new JsonObject();
+        json.addProperty("serverName", serverName);
+        json.addProperty("serverIp", getAdvertisedServerIp());
+        json.addProperty("serverPort", getAdvertisedServerPort());
+        json.addProperty("interServer", interServerEnabled);
+        return json;
+    }
+
+    private RequestBody jsonBody(JsonObject json) {
+        return RequestBody.create(JSON, json.toString());
+    }
+
+    private void addOnline(JsonObject json) {
+        int online = onlinePlayersSupplier.getAsInt();
+        json.addProperty("onlinePlayers", online);
+        json.addProperty("onlineCount", online);
+    }
+
+    private void addSession(JsonObject json) {
+        if (sessionId != null) {
+            json.addProperty("sessionId", sessionId);
+        }
+    }
+
+    private void handleApiWarnings(String responseBody) {
+        if (responseBody == null || responseBody.isEmpty()) {
+            return;
+        }
+        try {
+            JsonObject root = new JsonParser().parse(responseBody).getAsJsonObject();
+            if (!root.has("warnings") || !root.get("warnings").isJsonObject()) {
+                return;
+            }
+            JsonObject warnings = root.getAsJsonObject("warnings");
+            if (!warnings.has("duplicateServerName") || !warnings.get("duplicateServerName").isJsonObject()) {
+                return;
+            }
+            JsonObject duplicate = warnings.getAsJsonObject("duplicateServerName");
+            if (!duplicate.has("active") || !duplicate.get("active").getAsBoolean()) {
+                duplicateNameWarningsRemaining.set(DUPLICATE_NAME_WARNING_LIMIT);
+                return;
+            }
+            String message = duplicate.has("message")
+                    ? duplicate.get("message").getAsString()
+                    : "MLSAC server-name is duplicated on another active server. Change server-identity.name in config.yml.";
+            warnDuplicateServerName(message);
+        } catch (Exception ignored) {
+        }
+    }
+
+    private void warnDuplicateServerName(String message) {
+        long now = System.currentTimeMillis();
+        if (duplicateNameWarningsRemaining.get() <= 0) {
+            return;
+        }
+        if (now - lastDuplicateNameWarningTime < DUPLICATE_NAME_WARNING_INTERVAL_MS) {
+            return;
+        }
+        lastDuplicateNameWarningTime = now;
+        duplicateNameWarningsRemaining.decrementAndGet();
+
+        logger.warning("[MLSAC] " + message);
+        SchedulerManager.getAdapter().runSync(() -> {
+            String chatMessage = ColorUtil.colorize("&c[MLSAC] &f" + message);
+            for (Player player : Bukkit.getOnlinePlayers()) {
+                if (player.hasPermission(Permissions.ALERTS) || player.isOp()) {
+                    player.sendMessage(chatMessage);
+                }
+            }
+        });
+    }
+
     @Override
     public CompletableFuture<Boolean> connect() {
         if (shuttingDown.get()) {
@@ -104,7 +216,10 @@ public class HttpAIClient implements IAIClient {
                 logger.info("[HTTP] Connecting to " + serverAddress + "...");
 
                 String initUrl = serverAddress + "/api/v1/init";
-                RequestBody initBody = RequestBody.create(JSON, "{\"apiKey\":\"" + apiKey + "\"}");
+                JsonObject initJson = createBasePayload();
+                initJson.addProperty("apiKey", apiKey);
+                addOnline(initJson);
+                RequestBody initBody = jsonBody(initJson);
                 Request initRequest = new Request.Builder()
                         .url(initUrl)
                         .post(initBody)
@@ -129,6 +244,7 @@ public class HttpAIClient implements IAIClient {
                     } else {
                         responseBody = "";
                     }
+                    handleApiWarnings(responseBody);
                     sessionId = extractSessionId(responseBody);
                     if (sessionId == null || sessionId.isEmpty()) {
                         sessionId = "http-session-" + System.currentTimeMillis();
@@ -240,11 +356,11 @@ public class HttpAIClient implements IAIClient {
         CompletableFuture.runAsync(() -> {
             try {
                 String url = serverAddress + "/api/v1/heartbeat";
-                String json = sessionId != null
-                    ? "{\"sessionId\":\"" + sessionId + "\",\"onlinePlayers\":" + onlinePlayersSupplier.getAsInt() + "}"
-                    : "{\"onlinePlayers\":" + onlinePlayersSupplier.getAsInt() + "}";
+                JsonObject json = createBasePayload();
+                addSession(json);
+                addOnline(json);
 
-                RequestBody body = RequestBody.create(JSON, json);
+                RequestBody body = jsonBody(json);
                 Request request = new Request.Builder()
                         .url(url)
                         .post(body)
@@ -252,6 +368,9 @@ public class HttpAIClient implements IAIClient {
                         .build();
 
                 try (Response response = httpClient.newCall(request).execute()) {
+                    ResponseBody respBody = response.body();
+                    String responseBody = respBody != null ? respBody.string() : "";
+                    handleApiWarnings(responseBody);
                     int code = response.code();
                     if (!response.isSuccessful()) {
                         if (debug) logger.warning("[HTTP] Heartbeat failed: " + code);
@@ -310,13 +429,12 @@ public class HttpAIClient implements IAIClient {
     private void sendReportStats() {
         CompletableFuture.runAsync(() -> {
             try {
-                String url = serverAddress + "/api/v1/reportstats";
-                int players = onlinePlayersSupplier.getAsInt();
-                String json = sessionId != null
-                    ? "{\"sessionId\":\"" + sessionId + "\",\"onlinePlayers\":" + players + "}"
-                    : "{\"onlinePlayers\":" + players + "}";
+                String url = serverAddress + "/api/v1/online";
+                JsonObject json = createBasePayload();
+                addSession(json);
+                addOnline(json);
 
-                RequestBody body = RequestBody.create(JSON, json);
+                RequestBody body = jsonBody(json);
                 Request request = new Request.Builder()
                         .url(url)
                         .post(body)
@@ -325,6 +443,13 @@ public class HttpAIClient implements IAIClient {
 
                 try (Response response = httpClient.newCall(request).execute()) {
                     int code = response.code();
+                    ResponseBody respBody = response.body();
+                    String responseBody = respBody != null ? respBody.string() : "";
+                    handleApiWarnings(responseBody);
+                    if (code == 404 || code == 405) {
+                        sendLegacyReportStats(json);
+                        return;
+                    }
                     if (response.isSuccessful()) {
                         limitExceeded = false;
                         serverErrorState = false;
@@ -340,6 +465,32 @@ public class HttpAIClient implements IAIClient {
                 if (debug) logger.warning("[HTTP] ReportStats error: " + e.getMessage());
             }
         }, httpExecutor);
+    }
+
+    private void sendLegacyReportStats(JsonObject json) throws IOException {
+        String url = serverAddress + "/api/v1/reportstats";
+        Request request = new Request.Builder()
+                .url(url)
+                .post(jsonBody(json))
+                .header("X-API-Key", apiKey)
+                .build();
+
+        try (Response response = httpClient.newCall(request).execute()) {
+            int code = response.code();
+            ResponseBody respBody = response.body();
+            String responseBody = respBody != null ? respBody.string() : "";
+            handleApiWarnings(responseBody);
+            if (response.isSuccessful()) {
+                limitExceeded = false;
+                serverErrorState = false;
+            } else if (code == 429) {
+                limitExceeded = true;
+                logger.warning("[HTTP] Online limit exceeded - Predict blocked");
+            } else if (code >= 500) {
+                logger.warning("[HTTP] ReportStats received server error " + code);
+                enterServerErrorState("ReportStats received HTTP " + code);
+            }
+        }
     }
 
     private void scheduleReconnect() {
@@ -380,66 +531,211 @@ public class HttpAIClient implements IAIClient {
         }
 
         return io.reactivex.rxjava3.core.Observable.create(emitter -> {
-            CompletableFuture.supplyAsync(() -> {
+            CompletableFuture.runAsync(() -> {
                 try {
-                    String url = serverAddress + "/api/v1/predict";
-                    String dataBase64 = java.util.Base64.getEncoder().encodeToString(playerData);
-
-                    String json = sessionId != null
-                        ? "{\"sessionId\":\"" + sessionId + "\",\"playerData\":\"" + dataBase64 + "\",\"playerUuid\":\"" + playerUuid + "\",\"playerName\":\"" + playerName + "\"}"
-                        : "{\"playerData\":\"" + dataBase64 + "\",\"playerUuid\":\"" + playerUuid + "\",\"playerName\":\"" + playerName + "\"}";
-
-                    RequestBody body = RequestBody.create(JSON, json);
-                    Request request = new Request.Builder()
-                            .url(url)
-                            .post(body)
-                            .header("X-API-Key", apiKey)
-                            .build();
-
-                    try (Response response = httpClient.newCall(request).execute()) {
-                        ResponseBody respBody = response.body();
-                        String responseBody = respBody != null ? respBody.string() : "";
-                        int code = response.code();
-
-                        if (code == 401 || code == 403) {
-                            logger.severe("[HTTP] Authentication failed! API key is invalid, expired, or corrupted. Please check your API key in config.yml");
-                            connected.set(false);
-                            throw new RuntimeException("API key is invalid or corrupted");
-                        }
-                        if (code == 429) {
-                            limitExceeded = true;
-                            logger.warning("[HTTP] Online limit exceeded - Predict blocked");
-                            throw new RuntimeException("Online limit exceeded");
-                        }
-                        if (code >= 500) {
-                            enterServerErrorState("Server error HTTP " + code + ": " + responseBody);
-                            throw new RuntimeException("Server error HTTP " + code + " - entering silent mode");
-                        }
-                        if (!response.isSuccessful()) {
-                            throw new RuntimeException("HTTP " + code + ": " + responseBody);
-                        }
-
-                        return parsePredictResponse(responseBody);
+                    JsonObject payload = createPredictPayload(playerData, playerUuid, playerName);
+                    boolean streamed = executeStreamingPredict(payload, emitter);
+                    if (!streamed && !emitter.isDisposed()) {
+                        AIResponse response = executeLegacyPredict(payload);
+                        emitter.onNext(response);
+                    }
+                    if (!emitter.isDisposed()) {
+                        emitter.onComplete();
                     }
                 } catch (Exception e) {
                     String msg = e.getMessage();
                     if (msg != null && (msg.contains("Server error") || msg.contains("503") || msg.contains("500"))) {
                         enterServerErrorState(msg);
                     }
-                    throw new RuntimeException(e.getMessage());
+                    if (!emitter.isDisposed()) {
+                        emitter.onError(new RuntimeException(e.getMessage()));
+                    }
                 }
-            }, httpExecutor).whenComplete((res, err) -> {
-                if (emitter.isDisposed()) return;
-                if (err != null) {
-                    emitter.onError(err);
-                } else {
-                    emitter.onNext(res);
-                    emitter.onComplete();
-                }
-            });
+            }, httpExecutor);
         });
     }
 
+    private JsonObject createPredictPayload(byte[] playerData, String playerUuid, String playerName) {
+        String dataBase64 = java.util.Base64.getEncoder().encodeToString(playerData);
+        JsonObject json = createBasePayload();
+        addSession(json);
+        json.addProperty("playerData", dataBase64);
+        json.addProperty("playerUuid", playerUuid);
+        json.addProperty("playerName", playerName);
+        return json;
+    }
+
+    private AIResponse executeLegacyPredict(JsonObject json) throws IOException {
+        String url = serverAddress + "/api/v1/predict";
+        Request request = new Request.Builder()
+                .url(url)
+                .post(jsonBody(json))
+                .header("X-API-Key", apiKey)
+                .build();
+
+        try (Response response = httpClient.newCall(request).execute()) {
+            ResponseBody respBody = response.body();
+            String responseBody = respBody != null ? respBody.string() : "";
+            int code = response.code();
+            handleApiWarnings(responseBody);
+            handlePredictStatus(code, responseBody);
+            return parsePredictResponse(responseBody);
+        }
+    }
+
+    private boolean executeStreamingPredict(JsonObject json,
+            io.reactivex.rxjava3.core.ObservableEmitter<AIResponse> emitter) throws IOException {
+        String url = serverAddress + "/api/v1/predict-stream";
+        Request request = new Request.Builder()
+                .url(url)
+                .post(jsonBody(json))
+                .header("X-API-Key", apiKey)
+                .build();
+
+        try (Response response = httpClient.newCall(request).execute()) {
+            int code = response.code();
+            if (code == 404 || code == 405) {
+                return false;
+            }
+            ResponseBody respBody = response.body();
+            if (respBody == null) {
+                handlePredictStatus(code, "");
+                return false;
+            }
+            if (!response.isSuccessful()) {
+                String responseBody = respBody.string();
+                handleApiWarnings(responseBody);
+                handlePredictStatus(code, responseBody);
+                return false;
+            }
+
+            boolean emittedAny = false;
+            try (BufferedReader reader = new BufferedReader(respBody.charStream())) {
+                String line;
+                while (!emitter.isDisposed() && (line = reader.readLine()) != null) {
+                    if (line.trim().isEmpty()) {
+                        continue;
+                    }
+                    handleApiWarnings(line);
+                    JsonObject object = new JsonParser().parse(line).getAsJsonObject();
+                    String type = object.has("type") ? object.get("type").getAsString() : "prediction";
+                    if ("done".equalsIgnoreCase(type)) {
+                        break;
+                    }
+                    if ("error".equalsIgnoreCase(type)) {
+                        if (debug) logger.warning("[HTTP] Streaming model error: " + line);
+                        continue;
+                    }
+                    AIResponse aiResponse = parsePredictResponse(line);
+                    emitter.onNext(aiResponse);
+                    emittedAny = true;
+                }
+            }
+            return emittedAny;
+        }
+    }
+
+    private void handlePredictStatus(int code, String responseBody) {
+        if (code == 401 || code == 403) {
+            logger.severe("[HTTP] Authentication failed! API key is invalid, expired, or corrupted. Please check your API key in config.yml");
+            connected.set(false);
+            throw new RuntimeException("API key is invalid or corrupted");
+        }
+        if (code == 429) {
+            limitExceeded = true;
+            logger.warning("[HTTP] Online limit exceeded - Predict blocked");
+            throw new RuntimeException("Online limit exceeded");
+        }
+        if (code >= 500) {
+            enterServerErrorState("Server error HTTP " + code + ": " + responseBody);
+            throw new RuntimeException("Server error HTTP " + code + " - entering silent mode");
+        }
+        if (code < 200 || code >= 300) {
+            throw new RuntimeException("HTTP " + code + ": " + responseBody);
+        }
+    }
+
+    @Override
+    public CompletableFuture<Boolean> reportAlert(String playerUuid, String playerName,
+            String model, double probability, double buffer) {
+        if (!eventReportingEnabled || probability < apiAlertEventThreshold) {
+            return CompletableFuture.completedFuture(false);
+        }
+        JsonObject json = createEventPayload("alert", playerUuid, playerName, model,
+                probability, buffer, 0, "alert", "");
+        return sendEvent(json);
+    }
+
+    @Override
+    public CompletableFuture<Boolean> reportPunish(String playerUuid, String playerName,
+            String model, double probability, double buffer, int violationLevel,
+            String action, String command) {
+        if (!eventReportingEnabled) {
+            return CompletableFuture.completedFuture(false);
+        }
+        JsonObject json = createEventPayload("punish", playerUuid, playerName, model,
+                probability, buffer, violationLevel, action, command);
+        return sendEvent(json);
+    }
+
+    private JsonObject createEventPayload(String type, String playerUuid, String playerName,
+            String model, double probability, double buffer, int violationLevel,
+            String action, String command) {
+        JsonObject json = createBasePayload();
+        addSession(json);
+        json.addProperty("type", type);
+        json.addProperty("playerUuid", playerUuid);
+        json.addProperty("playerId", playerUuid);
+        json.addProperty("playerName", playerName);
+        json.addProperty("model", model);
+        json.addProperty("probability", probability);
+        json.addProperty("buffer", buffer);
+        json.addProperty("vl", violationLevel);
+        json.addProperty("violationLevel", violationLevel);
+        json.addProperty("action", action != null ? action : type);
+        json.addProperty("command", command != null ? command : "");
+        return json;
+    }
+
+    private CompletableFuture<Boolean> sendEvent(JsonObject json) {
+        if (!isConnected() || isServerInErrorState()) {
+            return CompletableFuture.completedFuture(false);
+        }
+        return CompletableFuture.supplyAsync(() -> {
+            try {
+                String url = serverAddress + "/api/v1/events";
+                Request request = new Request.Builder()
+                        .url(url)
+                        .post(jsonBody(json))
+                        .header("X-API-Key", apiKey)
+                        .build();
+
+                try (Response response = httpClient.newCall(request).execute()) {
+                    ResponseBody respBody = response.body();
+                    String responseBody = respBody != null ? respBody.string() : "";
+                    handleApiWarnings(responseBody);
+                    int code = response.code();
+                    if (code == 404 || code == 405) {
+                        return false;
+                    }
+                    if (code == 401 || code == 403) {
+                        connected.set(false);
+                        return false;
+                    }
+                    if (code >= 500) {
+                        enterServerErrorState("Event report received HTTP " + code);
+                        return false;
+                    }
+                    return response.isSuccessful();
+                }
+            } catch (Exception e) {
+                if (debug) {
+                    logger.warning("[HTTP] Event report failed: " + e.getMessage());
+                }
+                return false;
+            }
+        }, httpExecutor);
+    }
 
     private AIResponse parsePredictResponse(String responseBody) {
         try {

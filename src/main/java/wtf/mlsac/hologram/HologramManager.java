@@ -1,6 +1,7 @@
 package wtf.mlsac.hologram;
 
 import com.github.retrooper.packetevents.PacketEvents;
+import com.github.retrooper.packetevents.manager.server.ServerVersion;
 import com.github.retrooper.packetevents.protocol.entity.data.EntityData;
 import com.github.retrooper.packetevents.protocol.entity.data.EntityDataTypes;
 import com.github.retrooper.packetevents.protocol.entity.type.EntityTypes;
@@ -34,6 +35,15 @@ public class HologramManager {
     private static final int DEFAULT_UPDATE_INTERVAL_TICKS = 5;
     private static final int DEFAULT_MAX_TARGETS_PER_VIEWER = 16;
     private static final double DEFAULT_MOVE_THRESHOLD_SQUARED = 0.04D;
+    private static final int ENTITY_FLAGS_INDEX = 0;
+    private static final int CUSTOM_NAME_INDEX = 2;
+    private static final int CUSTOM_NAME_VISIBLE_INDEX = 3;
+    private static final int ARMOR_STAND_FLAGS_INDEX_1_9_TO_1_13 = 11;
+    private static final int ARMOR_STAND_FLAGS_INDEX_1_14 = 13;
+    private static final int ARMOR_STAND_FLAGS_INDEX_1_15_TO_1_16 = 14;
+    private static final int ARMOR_STAND_FLAGS_INDEX_1_17_PLUS = 15;
+    private static final byte ENTITY_FLAG_INVISIBLE = 0x20;
+    private static final byte ARMOR_STAND_FLAG_MARKER = 0x10;
 
     private final Main plugin;
     private final AICheck aiCheck;
@@ -205,14 +215,14 @@ public class HologramManager {
         try {
             List<EntityData<?>> meta = new ArrayList<>();
             // Index 0: Entity flags (invisible)
-            meta.add(new EntityData(0, EntityDataTypes.BYTE, (byte) 0x20));
+            meta.add(new EntityData(ENTITY_FLAGS_INDEX, EntityDataTypes.BYTE, ENTITY_FLAG_INVISIBLE));
             // Index 2: Custom name (text component)
-            meta.add(new EntityData(2, EntityDataTypes.OPTIONAL_COMPONENT,
+            meta.add(new EntityData(CUSTOM_NAME_INDEX, EntityDataTypes.OPTIONAL_COMPONENT,
                 Optional.of(GSON_SERIALIZER.serialize(LEGACY_SERIALIZER.deserialize(text)))));
             // Index 3: Custom name visible
-            meta.add(new EntityData(3, EntityDataTypes.BOOLEAN, true));
-            // Index 15: Armor Stand flags (0x10 is Marker - removes hitbox and interaction)
-            meta.add(new EntityData(15, EntityDataTypes.BYTE, (byte) 0x10));
+            meta.add(new EntityData(CUSTOM_NAME_VISIBLE_INDEX, EntityDataTypes.BOOLEAN, true));
+            // Armor stand metadata shifts between protocol versions.
+            meta.add(new EntityData(getArmorStandFlagsIndex(), EntityDataTypes.BYTE, ARMOR_STAND_FLAG_MARKER));
 
             WrapperPlayServerEntityMetadata metadataPacket = new WrapperPlayServerEntityMetadata(entityId, meta);
             PacketEvents.getAPI().getPlayerManager().sendPacket(viewer, metadataPacket);
@@ -229,8 +239,26 @@ public class HologramManager {
 
     private void updateText(Player viewer, int entityId, String text) {
         List<EntityData<?>> meta = new ArrayList<>();
-        meta.add(new EntityData(2, EntityDataTypes.OPTIONAL_COMPONENT, Optional.of(GSON_SERIALIZER.serialize(LEGACY_SERIALIZER.deserialize(text)))));
+        meta.add(new EntityData(CUSTOM_NAME_INDEX, EntityDataTypes.OPTIONAL_COMPONENT,
+                Optional.of(GSON_SERIALIZER.serialize(LEGACY_SERIALIZER.deserialize(text)))));
         PacketEvents.getAPI().getPlayerManager().sendPacket(viewer, new WrapperPlayServerEntityMetadata(entityId, meta));
+    }
+
+    private int getArmorStandFlagsIndex() {
+        ServerVersion version = PacketEvents.getAPI().getServerManager().getVersion();
+        if (version == null || version == ServerVersion.ERROR) {
+            return ARMOR_STAND_FLAGS_INDEX_1_17_PLUS;
+        }
+        if (version.isNewerThanOrEquals(ServerVersion.V_1_17)) {
+            return ARMOR_STAND_FLAGS_INDEX_1_17_PLUS;
+        }
+        if (version.isNewerThanOrEquals(ServerVersion.V_1_15)) {
+            return ARMOR_STAND_FLAGS_INDEX_1_15_TO_1_16;
+        }
+        if (version.isNewerThanOrEquals(ServerVersion.V_1_14)) {
+            return ARMOR_STAND_FLAGS_INDEX_1_14;
+        }
+        return ARMOR_STAND_FLAGS_INDEX_1_9_TO_1_13;
     }
 
     private void destroyEntity(Player viewer, int entityId) {

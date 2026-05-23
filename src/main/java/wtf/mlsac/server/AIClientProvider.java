@@ -87,7 +87,11 @@ public class AIClientProvider {
                 serverAddress,
                 apiKey,
                 () -> onlinePlayers.size(),
-                config.isDebug());
+                config.isDebug(),
+                config.getServerIdentityName(),
+                config.isInterServerEnabled(),
+                config.isApiEventReportingEnabled(),
+                config.getApiAlertEventThreshold());
         this.currentClient = httpClient;
         this.clientType = "HTTP";
         logger.info("[HTTP] Connecting to " + serverAddress + "...");
