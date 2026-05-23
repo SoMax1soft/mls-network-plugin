@@ -190,18 +190,11 @@ public class AlertManager {
 
     private String formatInterServerEventMessage(String type, String sourceServerName, String suspectName,
             double probability, double buffer, int vl, String modelName, String action) {
-        boolean isPunish = "punish".equalsIgnoreCase(type) || "action".equalsIgnoreCase(type);
         String modelDisplay = modelName != null ? config.getModelDisplayName(modelName) : "Unknown";
         String serverDisplay = sourceServerName != null && !sourceServerName.trim().isEmpty()
                 ? sourceServerName.trim()
                 : "unknown";
-        String template;
-
-        if (isPunish) {
-            template = messagesConfig.getMessage("interserver-action-format", suspectName, probability, buffer, vl);
-        } else {
-            template = messagesConfig.getMessage("interserver-alert-format", suspectName, probability, buffer, vl);
-        }
+        String template = messagesConfig.getMessage("interserver-alert-format", suspectName, probability, buffer, vl);
 
         template = template
                 .replace("{PLAYER}", suspectName != null ? suspectName : "Unknown")
