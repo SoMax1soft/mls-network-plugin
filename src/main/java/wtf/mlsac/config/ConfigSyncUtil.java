@@ -9,6 +9,7 @@ import java.io.File;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
+import java.util.List;
 
 public final class ConfigSyncUtil {
     private ConfigSyncUtil() {
@@ -195,23 +196,60 @@ public final class ConfigSyncUtil {
             String fullPath = path.isEmpty() ? key : path + "." + key;
             ConfigurationSection childDefaults = defaults.getConfigurationSection(fullPath);
             if (childDefaults != null) {
+                boolean createdOrRepairedSection = false;
                 if (!target.isSet(fullPath)) {
                     target.createSection(fullPath);
                     changed = true;
+                    createdOrRepairedSection = true;
                 } else if (!target.isConfigurationSection(fullPath)) {
                     target.set(fullPath, null);
                     target.createSection(fullPath);
                     changed = true;
+                    createdOrRepairedSection = true;
+                }
+                // Numeric-key scalar maps are user-defined thresholds, not fixed child fields.
+                if (!createdOrRepairedSection && isUserKeyedScalarMap(defaults, fullPath)) {
+                    continue;
                 }
                 changed |= copyMissing(target, defaults, fullPath);
                 continue;
             }
 
+            Object defaultValue = defaults.get(fullPath);
             if (!target.isSet(fullPath)) {
-                target.set(fullPath, defaults.get(fullPath));
+                target.set(fullPath, defaultValue);
+                changed = true;
+            } else if (defaultValue instanceof List && !(target.get(fullPath) instanceof List)) {
+                target.set(fullPath, defaultValue);
                 changed = true;
             }
         }
         return changed;
+    }
+
+    private static boolean isUserKeyedScalarMap(FileConfiguration defaults, String path) {
+        ConfigurationSection section = defaults.getConfigurationSection(path);
+        if (section == null) {
+            return false;
+        }
+
+        boolean hasKeys = false;
+        for (String key : section.getKeys(false)) {
+            hasKeys = true;
+            String childPath = path + "." + key;
+            if (!isIntegerKey(key) || defaults.getConfigurationSection(childPath) != null) {
+                return false;
+            }
+        }
+        return hasKeys;
+    }
+
+    private static boolean isIntegerKey(String key) {
+        try {
+            Integer.parseInt(key);
+            return true;
+        } catch (NumberFormatException ignored) {
+            return false;
+        }
     }
 }

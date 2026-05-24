@@ -5,8 +5,12 @@ import org.bukkit.configuration.file.YamlConfiguration;
 import org.junit.jupiter.api.Test;
 
 import java.lang.reflect.Method;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class ConfigSyncUtilTest {
@@ -50,6 +54,87 @@ class ConfigSyncUtilTest {
         assertEquals("{PLAYER}", target.getString("messages.alert.format"));
     }
 
+    @Test
+    void copyMissingDoesNotBackfillDefaultNumericKeysIntoUserMaps() throws Exception {
+        YamlConfiguration target = new YamlConfiguration();
+        target.set("penalties.actions.155", "{KICK} kick {PLAYER} MLSAC Detection (VL:{VL})");
+        target.set("penalties.actions.255", "{BAN} ban {PLAYER} Cheating (MLSAC VL:{VL})");
+
+        YamlConfiguration defaults = new YamlConfiguration();
+        defaults.set("penalties.actions.1", "{KICK} kick {PLAYER} MLSAC Detection (VL:{VL})");
+        defaults.set("penalties.actions.2", "{BAN} ban {PLAYER} Cheating (MLSAC VL:{VL})");
+
+        boolean changed = invokeCopyMissing(target, defaults);
+
+        assertFalse(changed);
+        assertEquals("{KICK} kick {PLAYER} MLSAC Detection (VL:{VL})",
+                target.getString("penalties.actions.155"));
+        assertEquals("{BAN} ban {PLAYER} Cheating (MLSAC VL:{VL})",
+                target.getString("penalties.actions.255"));
+        assertFalse(target.isSet("penalties.actions.1"));
+        assertFalse(target.isSet("penalties.actions.2"));
+    }
+
+    @Test
+    void copyMissingAddsDefaultNumericMapWhenWholeSectionIsMissing() throws Exception {
+        YamlConfiguration target = new YamlConfiguration();
+        target.set("penalties.min-probability", 0.01);
+
+        YamlConfiguration defaults = new YamlConfiguration();
+        defaults.set("penalties.actions.1", "{KICK} kick {PLAYER} MLSAC Detection (VL:{VL})");
+        defaults.set("penalties.actions.2", "{BAN} ban {PLAYER} Cheating (MLSAC VL:{VL})");
+
+        boolean changed = invokeCopyMissing(target, defaults);
+
+        assertTrue(changed);
+        assertEquals("{KICK} kick {PLAYER} MLSAC Detection (VL:{VL})",
+                target.getString("penalties.actions.1"));
+        assertEquals("{BAN} ban {PLAYER} Cheating (MLSAC VL:{VL})",
+                target.getString("penalties.actions.2"));
+    }
+
+    @Test
+    void migratedLegacyActionMapIsNotBackfilledWithDefaultThresholds() throws Exception {
+        YamlConfiguration target = new YamlConfiguration();
+        target.set("ai.punishment.commands.155", "{KICK} kick {PLAYER} MLSAC Detection (VL:{VL})");
+        target.set("ai.punishment.commands.255", "{BAN} ban {PLAYER} Cheating (MLSAC VL:{VL})");
+
+        YamlConfiguration defaults = new YamlConfiguration();
+        defaults.set("penalties.actions.1", "{KICK} kick {PLAYER} MLSAC Detection (VL:{VL})");
+        defaults.set("penalties.actions.2", "{BAN} ban {PLAYER} Cheating (MLSAC VL:{VL})");
+
+        assertTrue(invokeMigrateLegacyDetectionSettings(target));
+        boolean changed = invokeCopyMissing(target, defaults);
+
+        assertFalse(changed);
+        assertEquals("{KICK} kick {PLAYER} MLSAC Detection (VL:{VL})",
+                target.getString("penalties.actions.155"));
+        assertEquals("{BAN} ban {PLAYER} Cheating (MLSAC VL:{VL})",
+                target.getString("penalties.actions.255"));
+        assertFalse(target.isSet("penalties.actions.1"));
+        assertFalse(target.isSet("penalties.actions.2"));
+    }
+
+    @Test
+    void copyMissingRepairsWrongListTypesWithDefaultResourceValue() throws Exception {
+        YamlConfiguration target = new YamlConfiguration();
+        target.set("alert-responses.troll.actions", "bad-value");
+
+        Map<String, Object> defaultAction = new LinkedHashMap<>();
+        defaultAction.put("type", "drop_weapon");
+        defaultAction.put("detections", 3);
+        defaultAction.put("message", "resource message");
+        YamlConfiguration defaults = new YamlConfiguration();
+        defaults.set("alert-responses.troll.actions", List.of(defaultAction));
+
+        boolean changed = invokeCopyMissing(target, defaults);
+
+        assertTrue(changed);
+        assertEquals(1, target.getMapList("alert-responses.troll.actions").size());
+        assertEquals("resource message",
+                target.getMapList("alert-responses.troll.actions").get(0).get("message"));
+    }
+
     private boolean invokeCopyMissing(FileConfiguration target, FileConfiguration defaults) throws Exception {
         Method method = ConfigSyncUtil.class.getDeclaredMethod(
                 "copyMissing",
@@ -58,5 +143,13 @@ class ConfigSyncUtilTest {
                 String.class);
         method.setAccessible(true);
         return (boolean) method.invoke(null, target, defaults, "");
+    }
+
+    private boolean invokeMigrateLegacyDetectionSettings(FileConfiguration target) throws Exception {
+        Method method = ConfigSyncUtil.class.getDeclaredMethod(
+                "migrateLegacyDetectionSettings",
+                FileConfiguration.class);
+        method.setAccessible(true);
+        return (boolean) method.invoke(null, target);
     }
 }
