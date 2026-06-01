@@ -437,11 +437,28 @@ public class BanAnimationEngine implements Listener {
      */
     private void savePlayerInventory(Player player) {
         List<ItemStack> items = new ArrayList<>();
+        
+        // Сначала добавляем броню (она должна выпасть первой)
+        if (player.getInventory().getHelmet() != null) {
+            items.add(player.getInventory().getHelmet().clone());
+        }
+        if (player.getInventory().getChestplate() != null) {
+            items.add(player.getInventory().getChestplate().clone());
+        }
+        if (player.getInventory().getLeggings() != null) {
+            items.add(player.getInventory().getLeggings().clone());
+        }
+        if (player.getInventory().getBoots() != null) {
+            items.add(player.getInventory().getBoots().clone());
+        }
+        
+        // Потом добавляем основной инвентарь
         for (ItemStack item : player.getInventory().getContents()) {
             if (item != null && item.getType() != Material.AIR) {
                 items.add(item.clone());
             }
         }
+        
         playerInventories.put(player.getUniqueId(), items);
         itemDropCounters.put(player.getUniqueId(), 0);
         droppedItems.put(player.getUniqueId(), new ArrayList<>());
