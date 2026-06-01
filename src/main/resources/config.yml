@@ -191,7 +191,9 @@ penalties:
   # Aggressive system: alert -> kick -> ban
   actions:
     1: "kick {PLAYER} MLSAC Detection (VL:{VL})"
-    2: "{ANIMATION} ban {PLAYER} Cheating (MLSAC VL:{VL})"
+    2: "kick {PLAYER} MLSAC Detection (VL:{VL})"
+    3: "kick {PLAYER} MLSAC Detection (VL:{VL})"
+    4: "{ANIMATION} ban {PLAYER} Cheating (MLSAC VL:{VL})"
 #
 #  Also you could use  1: "{CUSTOM_ALERT} &c{PLAYER} &7is suspicious &8(&fVL:&e{VL}&8, &fProb:&e{PROBABILITY}&8)"
 

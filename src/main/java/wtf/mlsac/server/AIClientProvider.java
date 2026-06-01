@@ -1,6 +1,6 @@
 /*
- * This file is part of MLSAC - AI powered Anti-Cheat
- * Copyright (C) 2026 MLSAC Team
+ * MLSAC is a GPLv3 licensed fork of a Minecraft anti-cheat system.
+ * This project is community-maintained and not affiliated with any single upstream repository.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -15,10 +15,11 @@
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  *
- * This file contains code derived from:
+ * This file is based on GPLv3 licensed work and includes modifications.
+ * Derived from:
  *   - SlothAC (© 2025 KaelusMC, https://github.com/KaelusMC/SlothAC)
  *   - Grim (© 2025 GrimAnticheat, https://github.com/GrimAnticheat/Grim)
- * All derived code is licensed under GPL-3.0.
+ *   - Client-side project (GPLv3: https://github.com/MLSAC/client-side)
  */
 
 package wtf.mlsac.server;
