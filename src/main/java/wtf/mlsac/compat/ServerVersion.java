@@ -34,6 +34,13 @@ public enum ServerVersion {
     V1_21(21, 0),
     V1_21_1(21, 1),
     V1_21_4(21, 4),
+    V1_21_5(21, 5),
+    V1_21_6(21, 6),
+    V1_21_7(21, 7),
+    V1_21_8(21, 8),
+    V1_21_9(21, 9),
+    V1_21_10(21, 10),
+    V1_21_11(21, 11),
     UNKNOWN(0, 0);
     private final int minor;
     private final int patch;

@@ -78,6 +78,6 @@ public class BanHandler implements ActionHandler {
 
     @Override
     public ActionType getActionType() {
-        return ActionType.BAN;
+        return ActionType.ANIMATION;
     }
 }

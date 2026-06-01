@@ -54,4 +54,12 @@ public interface IAIClient {
     String getSessionId();
 
     String getServerAddress();
+
+    default CompletableFuture<Long> measureLatency() {
+        return CompletableFuture.completedFuture(-1L);
+    }
+
+    default boolean isInStasisMode() {
+        return false;
+    }
 }

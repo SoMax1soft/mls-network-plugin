@@ -1,0 +1,110 @@
+# MLSAC Animation Engine v2.0 - 1.21.4 Optimized
+# Тема: Святое выжигание энергией солнца (Коллапс Сверхновой)
+# Длительность: 4.5 секунды (90 тиков)
+
+totalTicks: 90
+freezePlayer: true
+strikeLightningAtEnd: false
+stripPlayer: true
+itemDropIntervalTicks: 7
+customLevitationAmplifier: 3 
+
+# Плавное перемещение игрока вверх
+movement:
+  startTick: 1
+  endTick: 60
+  offsetX: 0.0
+  offsetY: 5.0 
+  offsetZ: 0.0
+  smooth: true
+
+stages:
+  # ==========================================
+  # СТЕЙДЖ 1: Золотая корона солнца (Вращающиеся кольца)
+  # ==========================================
+  - name: "Solar Crown"
+    startTick: 1
+    endTick: 50
+    particles:
+      - particleType: "DUST"
+        shape: "CIRCLE"
+        intervalTicks: 1
+        count: 20
+        radiusStart: 1.0
+        radiusEnd: 3.0
+        heightOffsetStart: 0.0
+        heightOffsetEnd: 1.5
+        isColored: true
+        red: 255
+        green: 215
+        blue: 0 
+        particleSize: 1.5
+        speed: 0.01
+    sounds:
+      - soundType: "ENTITY_WITHER_SPAWN"
+        playAtTick: 0
+        volume: 0.5
+        pitch: 1.8 
+        loop: false          # ОТКЛЮЧЕНО: Звук больше не будет спамить и накладываться
+
+  # ==========================================
+  # СТЕЙДЖ 2: Нарастание тепла (Огненная Сфера раздувается)
+  # ==========================================
+  - name: "Plasma Core"
+    startTick: 35
+    endTick: 85
+    particles:
+      - particleType: "DUST"
+        shape: "SPHERE"
+        intervalTicks: 1
+        count: 35
+        radiusStart: 1.0
+        radiusEnd: 5.0 
+        heightOffsetStart: 1.0 
+        heightOffsetEnd: 1.0
+        isColored: true
+        red: 255
+        green: 69
+        blue: 0 
+        particleSize: 1.6
+        speed: 0.0
+
+  # ==========================================
+  # СТЕЙДЖ 3: ФИНАЛ - Коллапс сферы внутрь игрока + аккуратные искры (85 - 90 тики)
+  # ==========================================
+  - name: "Supernova Collapse"
+    startTick: 85
+    endTick: 90
+    particles:
+      # ЭФФЕКТ 1: Все оранжево-желтые частицы резко засасывает внутрь игрока
+      - particleType: "DUST"
+        shape: "SPHERE"
+        intervalTicks: 5    
+        count: 50           
+        radiusStart: 5.0    
+        radiusEnd: 0.1      
+        heightOffsetStart: 1.0
+        heightOffsetEnd: 1.0
+        isColored: true
+        red: 255
+        green: 200
+        blue: 0             
+        particleSize: 1.3
+        speed: 0.0          
+
+      # ЭФФЕКТ 2: Аккуратное, небольшое облачко искр фейерверка в точке схлопывания
+      - particleType: "FIREWORKS_SPARK"
+        shape: "SPHERE"     
+        intervalTicks: 5    
+        count: 25           
+        radiusStart: 0.1    
+        radiusEnd: 0.8      
+        heightOffsetStart: 1.0
+        heightOffsetEnd: 1.0
+        speed: 0.1          
+
+    sounds:
+      - soundType: "ENTITY_GENERIC_EXPLODE"
+        playAtTick: 0
+        volume: 1.8
+        pitch: 1.4          

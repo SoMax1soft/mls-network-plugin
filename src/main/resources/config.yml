@@ -104,6 +104,18 @@ alerts:
   
   # Send alerts to console
   console: false
+  
+  # Sound settings for alerts
+  sound:
+    # Enable sound on alerts
+    enabled: true
+    # Sound to play (Minecraft sound name)
+    # Examples: BLOCK_NOTE_BLOCK_PLING, ENTITY_EXPERIENCE_ORB_PICKUP, BLOCK_ANVIL_LAND
+    type: "BLOCK_NOTE_BLOCK_PLING"
+    # Volume (0.0 - 1.0)
+    volume: 1.0
+    # Pitch (0.5 - 2.0)
+    pitch: 1.0
 
 # ┌───────────────────────────────────────────────────────────────────────────────┐
 # │                            VIOLATION SETTINGS                                 │
@@ -137,10 +149,11 @@ violation:
 # └───────────────────────────────────────────────────────────────────────────────┘
 # 
 # Available action prefixes:
-#   {BAN}          - Execute ban command
-#   {KICK}         - Execute kick command  
+#   {ANIMATION}    - Execute animation before command
 #   {CUSTOM_ALERT} - Send custom alert to moderators
 #   (no prefix)    - Execute raw command
+#
+# Legacy support: {BAN} and {KICK} prefixes still work as {ANIMATION} for backward compatibility
 #
 # Available placeholders:
 #   {PLAYER}      - Player name
@@ -156,17 +169,29 @@ penalties:
   min-probability: 0.01 # Do not change!
   
   # Ban animation settings
-  # Epic animation: levitation + purple/pink particles + lightning strike
+  # New data-driven animation engine with multiple presets and YAML customization
   animation:
+    # Enable ban animations
     enabled: true
-    # Duration in ticks (20 ticks = 1 second) - decreased for fast ban
-    duration: 80 # Do not change!
+    
+    # Animation type to use:
+    # Built-in presets:
+    #   - classic: Classic levitation with sphere (default, 80 ticks / 4 seconds)
+    #   - fire: Dramatic fire spiral and explosion (100 ticks / 5 seconds)
+    #   - ender: Mystical ender portal effect (90 ticks / 4.5 seconds)
+    #   - rainbow: Colorful rainbow spirals (100 ticks / 5 seconds)
+    #   - dramatic: Complex multi-stage with sounds (120 ticks / 6 seconds)
+    #   - ultimate: Full feature showcase (140 ticks / 7 seconds)
+    # Custom animations:
+    #   - Use filename from plugins/MLSAC/animations/ folder (without .yml)
+    #   - Example: "my_custom" will load "my_custom.yml"
+    type: "classic_ban"
   
   # Actions by violation level
   # Aggressive system: alert -> kick -> ban
   actions:
-    1: "{KICK} kick {PLAYER} MLSAC Detection (VL:{VL})"
-    2: "{BAN} ban {PLAYER} Cheating (MLSAC VL:{VL})"
+    1: "kick {PLAYER} MLSAC Detection (VL:{VL})"
+    2: "{ANIMATION} ban {PLAYER} Cheating (MLSAC VL:{VL})"
 #
 #  Also you could use  1: "{CUSTOM_ALERT} &c{PLAYER} &7is suspicious &8(&fVL:&e{VL}&8, &fProb:&e{PROBABILITY}&8)"
 
@@ -175,7 +200,7 @@ penalties:
 # └───────────────────────────────────────────────────────────────────────────────┘
 # Triggers on alerts.threshold hits. Uses rolling detection windows.
 alert-responses:
-  enabled: true
+  enabled: true # TURN ON OR OFF TO DISABLE OR ENABLE TROLL SYSTEM
 
   damage-reduction:
     window-seconds: 10

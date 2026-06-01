@@ -42,7 +42,7 @@ public class HitListener extends PacketListenerAbstract {
     private final Map<Integer, UUID> playerIdCache = new ConcurrentHashMap<>();
 
     public HitListener(ISessionManager sessionManager, AICheck aiCheck) {
-        super(PacketListenerPriority.NORMAL);
+        super(PacketListenerPriority.MONITOR);
         this.sessionManager = sessionManager;
         this.aiCheck = aiCheck;
     }

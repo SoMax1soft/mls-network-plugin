@@ -1,0 +1,139 @@
+# MLSAC Animation Engine v2.0 - 1.21.4 Optimized Configuration
+# Тема: Монохромное ДНК-восхождение и одиночный хлёсткий взрыв без стаканья
+# Длительность: 4.5 секунды (90 тиков)
+
+totalTicks: 90
+freezePlayer: true
+strikeLightningAtEnd: false
+stripPlayer: true
+itemDropIntervalTicks: 5
+customLevitationAmplifier: 2
+
+# Скорость подъема замедлена, чтобы игрок оставался строго внутри эффектов до конца
+movement:
+  startTick: 1
+  endTick: 75
+  offsetX: 0.0
+  offsetY: 4.0
+  offsetZ: 0.0
+  smooth: true
+
+stages:
+  # ==========================================
+  # СТЕЙДЖ 1: Подъем внутри Черно-Белой ДНК (1 - 90 тики)
+  # ==========================================
+  - name: "Monochrome DNA Ascension"
+    startTick: 1
+    endTick: 90
+    particles:
+      - particleType: "SMOKE"
+        shape: "HELIX"
+        intervalTicks: 1
+        count: 4
+        radiusStart: 1.5
+        radiusEnd: 1.0
+        heightOffsetStart: -2.0
+        heightOffsetEnd: 3.0
+        speed: 0.02
+    sounds:
+      - soundType: "BLOCK_PORTAL_AMBIENT"
+        playAtTick: 0
+        volume: 0.9
+        pitch: 0.5
+        loop: true
+        loopIntervalTicks: 12
+    particleTrail:
+      particleType: "DUST"
+      intervalTicks: 1
+      count: 4
+      isColored: true
+      red: 100
+      green: 100
+      blue: 100
+      particleSize: 1.2
+      offsetX: 0.2
+      offsetY: 0.5
+      offsetZ: 0.2
+
+  # ==========================================
+  # СТЕЙДЖ 2: Белая Сжимающаяся Сфера (40 - 85 тики)
+  # ==========================================
+  - name: "Converging White Sphere"
+    startTick: 40
+    endTick: 85
+    particles:
+      - particleType: "DUST"
+        shape: "SPHERE"
+        intervalTicks: 1
+        count: 30
+        radiusStart: 4.5
+        radiusEnd: 0.2     
+        heightOffsetStart: 1.0
+        heightOffsetEnd: 1.0
+        isColored: true
+        red: 255
+        green: 255
+        blue: 255
+        particleSize: 1.4
+        speed: 0.0
+    sounds:
+      - soundType: "ENTITY_WITHER_SPAWN"
+        playAtTick: 0
+        volume: 0.8
+        pitch: 1.5
+
+  # ==========================================
+  # СТЕЙДЖ 3: Вторая внутренняя серебряная ДНК (45 - 85 тики)
+  # ==========================================
+  - name: "Silver DNA Core"
+    startTick: 45
+    endTick: 85
+    particles:
+      - particleType: "DUST"
+        shape: "HELIX"
+        intervalTicks: 1
+        count: 3
+        radiusStart: 1.2
+        radiusEnd: 0.1
+        heightOffsetStart: -1.5
+        heightOffsetEnd: 1.5
+        isColored: true
+        red: 200
+        green: 200
+        blue: 200
+        particleSize: 1.1
+        speed: 0.04
+    sounds:
+      - soundType: "BLOCK_NOTE_BLOCK_PLING"
+        playAtTick: 0
+        volume: 0.6
+        pitch: 0.4
+        loop: true
+        loopIntervalTicks: 6
+
+  # ==========================================
+  # СТЕЙДЖ 4: Одиночный хлёсткий хлопок (85 - 90 тики)
+  # ==========================================
+  - name: "Instant White Flash"
+    startTick: 85
+    endTick: 90          
+    particles:
+      - particleType: "DUST"
+        shape: "EXPLOSION"   
+        intervalTicks: 5    # ВАЖНО: Спавнит частицы ТОЛЬКО 1 РАЗ за весь стейдж, убирая наслоение
+        count: 40           # 40 аккуратных единичных частиц
+        radiusStart: 0.1    
+        radiusEnd: 1.8      # Компактный, стильный радиус разлета
+        heightOffsetStart: 1.0
+        heightOffsetEnd: 1.0
+        isColored: true
+        red: 255            
+        green: 255
+        blue: 255
+        particleSize: 1.1   # Изящный размер, не бьющий по глазам
+        speed: 1.5          # Хорошая скорость для мгновенного, чёткого разлёта
+    sounds:
+      - soundType: "ENTITY_GENERIC_EXPLODE" 
+        playAtTick: 0
+        volume: 1.4
+        pitch: 1.3

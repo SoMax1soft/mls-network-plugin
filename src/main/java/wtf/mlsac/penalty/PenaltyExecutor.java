@@ -47,8 +47,13 @@ public class PenaltyExecutor {
         this.placeholders = new PlaceholderProcessor();
         this.handlers = new EnumMap<>(ActionType.class);
         this.alertHandler = new AlertHandler(plugin);
-        handlers.put(ActionType.BAN, new BanHandler(plugin));
-        handlers.put(ActionType.KICK, new KickHandler(plugin));
+        
+        // ANIMATION handler (also handles legacy {BAN} and {KICK})
+        BanHandler animationHandler = new BanHandler(plugin);
+        handlers.put(ActionType.ANIMATION, animationHandler);
+        handlers.put(ActionType.BAN, animationHandler);  // Legacy support
+        handlers.put(ActionType.KICK, animationHandler); // Legacy support
+        
         handlers.put(ActionType.CUSTOM_ALERT, alertHandler);
         handlers.put(ActionType.RAW, new RawHandler(plugin));
     }
@@ -75,9 +80,9 @@ public class PenaltyExecutor {
         alertHandler.setConsoleAlerts(enabled);
     }
     public void setAnimationEnabled(boolean enabled) {
-        ActionHandler banHandler = handlers.get(ActionType.BAN);
-        if (banHandler instanceof BanHandler) {
-            ((BanHandler) banHandler).setAnimationEnabled(enabled);
+        ActionHandler animationHandler = handlers.get(ActionType.ANIMATION);
+        if (animationHandler instanceof BanHandler) {
+            ((BanHandler) animationHandler).setAnimationEnabled(enabled);
         }
     }
     public ActionParser getParser() {
@@ -87,9 +92,9 @@ public class PenaltyExecutor {
         return placeholders;
     }
     public void shutdown() {
-        ActionHandler banHandler = handlers.get(ActionType.BAN);
-        if (banHandler instanceof BanHandler) {
-            ((BanHandler) banHandler).shutdown();
+        ActionHandler animationHandler = handlers.get(ActionType.ANIMATION);
+        if (animationHandler instanceof BanHandler) {
+            ((BanHandler) animationHandler).shutdown();
         }
     }
 }

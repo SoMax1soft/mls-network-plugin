@@ -59,22 +59,45 @@ import wtf.mlsac.compat.EffectCompat;
 import wtf.mlsac.compat.ParticleCompat;
 import wtf.mlsac.scheduler.ScheduledTask;
 import wtf.mlsac.scheduler.SchedulerManager;
+import wtf.mlsac.penalty.engine.AnimationPresets;
 import java.util.Set;
 
+/**
+ * Legacy BanAnimation class - сохранена для обратной совместимости.
+ * Для новых анимаций используйте BanAnimationEngine с конфигурациями.
+ */
 public class BanAnimation implements Listener {
     private final JavaPlugin plugin;
     private final Map<UUID, String> pendingBans = new ConcurrentHashMap<>();
     private final Set<UUID> animatingPlayers = ConcurrentHashMap.newKeySet();
     private static final int LEVITATION_DURATION = 60;
     private static final int TOTAL_ANIMATION_TICKS = 80;
-    private static final double LEVITATION_HEIGHT = 2.0;
+    private BanAnimationEngine engine;
+    private boolean useEngine = false;
 
     public BanAnimation(JavaPlugin plugin) {
+        this(plugin, false);
+    }
+
+    public BanAnimation(JavaPlugin plugin, boolean useNewEngine) {
         this.plugin = plugin;
-        Bukkit.getPluginManager().registerEvents(this, plugin);
+        this.useEngine = useNewEngine;
+        
+        if (useNewEngine) {
+            // Используем новый движок с классической анимацией
+            this.engine = new BanAnimationEngine(plugin, AnimationPresets.createClassicBanAnimation());
+        } else {
+            // Регистрируем события только для legacy режима
+            Bukkit.getPluginManager().registerEvents(this, plugin);
+        }
     }
 
     public void playAnimation(Player player, String banCommand, PenaltyContext context) {
+        if (useEngine) {
+            engine.playAnimation(player, banCommand);
+            return;
+        }
+        
         if (player == null)
             return;
         if (SchedulerManager.getServerType() == wtf.mlsac.scheduler.ServerType.FOLIA || !Bukkit.isPrimaryThread()) {
@@ -251,20 +274,26 @@ public class BanAnimation implements Listener {
         return 1 - (1 - t) * (1 - t);
     }
 
+    public boolean isAnimating(UUID playerId) {
+        if (useEngine) {
+            return engine.isAnimating(Bukkit.getPlayer(playerId));
+        }
+        return animatingPlayers.contains(playerId);
+    }
+
+    public boolean isAnimating(Player player) {
+        if (useEngine) {
+            return engine.isAnimating(player);
+        }
+        return player != null && animatingPlayers.contains(player.getUniqueId());
+    }
+
     private void executeBanCommand(String command) {
         if (SchedulerManager.getServerType() == wtf.mlsac.scheduler.ServerType.FOLIA || !Bukkit.isPrimaryThread()) {
             SchedulerManager.getAdapter().runSync(() -> Bukkit.dispatchCommand(Bukkit.getConsoleSender(), command));
             return;
         }
         Bukkit.dispatchCommand(Bukkit.getConsoleSender(), command);
-    }
-
-    public boolean isAnimating(UUID playerId) {
-        return animatingPlayers.contains(playerId);
-    }
-
-    public boolean isAnimating(Player player) {
-        return player != null && animatingPlayers.contains(player.getUniqueId());
     }
 
     private void cancelInventoryMutation(Player player, Cancellable event) {
@@ -431,8 +460,12 @@ public class BanAnimation implements Listener {
     }
 
     public void shutdown() {
-        HandlerList.unregisterAll(this);
-        animatingPlayers.clear();
-        pendingBans.clear();
+        if (useEngine) {
+            engine.shutdown();
+        } else {
+            HandlerList.unregisterAll(this);
+            animatingPlayers.clear();
+            pendingBans.clear();
+        }
     }
 }

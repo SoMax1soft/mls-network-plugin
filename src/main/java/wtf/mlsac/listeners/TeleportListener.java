@@ -23,20 +23,36 @@
 
 
 package wtf.mlsac.listeners;
+import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerTeleportEvent;
+import wtf.mlsac.Main;
 import wtf.mlsac.checks.AICheck;
+import wtf.mlsac.penalty.engine.AnimationManager;
+
 public class TeleportListener implements Listener {
     private final AICheck aiCheck;
-    public TeleportListener(AICheck aiCheck) {
+    private final Main plugin;
+    
+    public TeleportListener(AICheck aiCheck, Main plugin) {
         this.aiCheck = aiCheck;
+        this.plugin = plugin;
     }
+    
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onTeleport(PlayerTeleportEvent event) {
-        if (aiCheck != null) {
-            aiCheck.onTeleport(event.getPlayer());
+        if (aiCheck == null) return;
+        
+        Player player = event.getPlayer();
+        
+        // Не сбрасываем данные если игрок анимируется (плавное перемещение во время бан-анимации)
+        AnimationManager animationManager = plugin.getAnimationManager();
+        if (animationManager != null && animationManager.isAnimating(player)) {
+            return;
         }
+        
+        aiCheck.onTeleport(player);
     }
 }

@@ -150,6 +150,7 @@ public final class ParticleCompat {
         try {
             world.spawnParticle(particle, loc, count, dx, dy, dz, speed);
         } catch (Exception e) {
+            // Silently fail - particle spawning errors are not critical
         }
     }
     public static <T> void spawnParticle(World world, Particle particle, Location loc,
@@ -161,6 +162,7 @@ public final class ParticleCompat {
         try {
             world.spawnParticle(particle, loc, count, dx, dy, dz, speed, data);
         } catch (Exception e) {
+            // Silently fail - particle spawning errors are not critical
         }
     }
     static void clearCache() {

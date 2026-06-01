@@ -46,7 +46,7 @@ public class RotationListener extends PacketListenerAbstract {
     private final Map<UUID, Boolean> lastOnGroundByPlayer = new ConcurrentHashMap<>();
 
     public RotationListener(ISessionManager sessionManager, AICheck aiCheck) {
-        super(PacketListenerPriority.NORMAL);
+        super(PacketListenerPriority.MONITOR);
         this.sessionManager = sessionManager;
         this.aiCheck = aiCheck;
     }
@@ -61,6 +61,12 @@ public class RotationListener extends PacketListenerAbstract {
             if (player == null) {
                 return;
             }
+            // NOTE: We intentionally process cancelled packets as well.
+            // Another plugin (e.g. a fly-guard or movement AC) may cancel the
+            // flying packet, but we still need the rotation data for our AI
+            // check and session collector. Cancellation only affects whether
+            // the server *applies* the movement — it doesn't mean we should
+            // ignore the player's actual mouse input.
             WrapperPlayClientPlayerFlying packet = new WrapperPlayClientPlayerFlying(event);
             if (isOnePointSeventeenDuplicate(player, packet)) {
                 return;

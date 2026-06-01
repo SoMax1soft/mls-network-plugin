@@ -24,8 +24,9 @@
 
 package wtf.mlsac.penalty;
 public enum ActionType {
-    BAN("{BAN}"),
-    KICK("{KICK}"),
+    ANIMATION("{ANIMATION}"),
+    BAN("{BAN}"),           // Legacy - works as ANIMATION
+    KICK("{KICK}"),         // Legacy - works as ANIMATION
     CUSTOM_ALERT("{CUSTOM_ALERT}"),
     RAW(null);
     private final String prefix;
@@ -42,6 +43,10 @@ public enum ActionType {
         String trimmed = command.trim();
         for (ActionType type : values()) {
             if (type.prefix != null && trimmed.startsWith(type.prefix)) {
+                // Legacy support: {BAN} and {KICK} work as {ANIMATION}
+                if (type == BAN || type == KICK) {
+                    return ANIMATION;
+                }
                 return type;
             }
         }
@@ -55,12 +60,24 @@ public enum ActionType {
         if (trimmed.startsWith(prefix)) {
             return trimmed.substring(prefix.length()).trim();
         }
+        // Legacy support: also strip {BAN} and {KICK} prefixes
+        if (this == ANIMATION) {
+            if (trimmed.startsWith("{BAN}")) {
+                return trimmed.substring(5).trim();
+            }
+            if (trimmed.startsWith("{KICK}")) {
+                return trimmed.substring(6).trim();
+            }
+        }
         return trimmed;
     }
     public boolean isConsoleCommand() {
-        return this == BAN || this == KICK || this == RAW;
+        return this == ANIMATION || this == BAN || this == KICK || this == RAW;
     }
     public boolean isPunishment() {
-        return this == BAN || this == KICK;
+        return this == ANIMATION || this == BAN || this == KICK;
+    }
+    public boolean isAnimation() {
+        return this == ANIMATION || this == BAN || this == KICK;
     }
 }

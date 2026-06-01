@@ -2,6 +2,9 @@ prefix: '&#F1F1F1▍ &#D8D8D8M&#BFBFBFL&#A6A6A6S&#8D8D8DA&#747474C &r'
 
 alerts-enabled: '&fAlerts &eenabled'
 alerts-disabled: '&fAlerts &cdisabled'
+monitor-enabled: '&fMonitor mode &aenabled &7- all detections will be shown'
+monitor-disabled: '&fMonitor mode &cdisabled'
+monitor-format: '&#F1F1F1▍ &#D8D8D8M&#BFBFBFL&#A6A6A6S&#8D8D8DA&#747474C &r&#81FFC2[{MODEL}]&f &f{PLAYER} &7- {PROBABILITY_COLORED}'
 # Local alert shown on the server where the violation was detected.
 alert-format: '&#81FFC2[{MODEL}]&f &f{PLAYER} &7Failed check &#E5396A(&#E5396AA&#E6366Ai&#E7346Am&#E83169-&#E92F69A&#EA2C69i: &f{PROBABILITY}&#E5396A)&f
   &#E5396A(&#E5396AB&#E6366Au&#E7346Af&#E83169f&#E92F69e&#EA2C69r: &f{BUFFER}&#E5396A)&f'
@@ -59,6 +62,7 @@ usage-profile: '&7  /mlsac profile <player> - View player profile'
 usage-kicklist: '&7  /mlsac kicklist [page] - View kick history'
 usage-falsepositive: '&7  /mlsac falsepositive restore <player> - Export 5,000 ticks
   to CSV'
+usage-status: '&7  /mlsac status - Check API connection, latency, and daily stats'
 
 suspects-teleport: '&fTeleported to &b{PLAYER}'
 suspects-teleport-spectator: '&fTeleported to &b{PLAYER}&f in &2Spectator mode'
@@ -73,6 +77,3 @@ profile-info:
 - '&7Sens: &f{SENS}%'
 - '&7Client: &f{CLIENT}'
 - '&7Detections (>80%): &f{DETECTIONS}'
-interserver-action-format: '&b[InterServer] &c{PLAYER} &7| &eAction: &f{ACTION} &7|
-  &6Prob: &f{PROBABILITY} &7| &6Buffer: &f{BUFFER} &7| &cVL: &f{VL} &7| &dModel: &f{MODEL}
-  &7| &bServer: &f{SERVER}'

@@ -108,6 +108,8 @@ public class CommandHandler implements CommandExecutor, TabCompleter {
                 return handleStop(sender, args);
             case "alerts":
                 return handleAlerts(sender);
+            case "monitor":
+                return handleMonitor(sender);
             case "prob":
                 return handleProb(sender, args);
             case "reload":
@@ -126,6 +128,10 @@ public class CommandHandler implements CommandExecutor, TabCompleter {
                 return handleProfile(sender, args);
             case "falsepositive":
                 return handleFalsePositive(sender, args);
+            case "status":
+                return handleStatus(sender);
+            case "animation":
+                return handleAnimation(sender, args);
             default:
                 sender.sendMessage(getPrefix() + msg("unknown-command", "{ARGS}", args[0]));
                 sendUsage(sender);
@@ -158,6 +164,20 @@ public class CommandHandler implements CommandExecutor, TabCompleter {
             return true;
         }
         alertManager.toggleAlerts(player);
+        return true;
+    }
+
+    private boolean handleMonitor(CommandSender sender) {
+        if (!(sender instanceof Player)) {
+            sender.sendMessage(getPrefix() + msg("players-only"));
+            return true;
+        }
+        Player player = (Player) sender;
+        if (!player.hasPermission(Permissions.ALERTS) && !player.hasPermission(Permissions.ADMIN)) {
+            player.sendMessage(getPrefix() + msg("no-permission"));
+            return true;
+        }
+        alertManager.toggleMonitor(player);
         return true;
     }
 
@@ -249,6 +269,20 @@ public class CommandHandler implements CommandExecutor, TabCompleter {
             return true;
         }
         plugin.reloadPluginConfig();
+        
+        // Перезагрузка анимаций
+        wtf.mlsac.penalty.engine.AnimationManager animationManager = plugin.getAnimationManager();
+        if (animationManager != null) {
+            try {
+                animationManager.reload();
+                sender.sendMessage(getPrefix() + ColorUtil.colorize("&aАнимации перезагружены! &7(" + 
+                    animationManager.getAvailableAnimations().size() + " анимаций)"));
+            } catch (Exception e) {
+                sender.sendMessage(getPrefix() + ColorUtil.colorize("&cОшибка при перезагрузке анимаций!"));
+                plugin.getLogger().severe("Failed to reload animations: " + e.getMessage());
+            }
+        }
+        
         sender.sendMessage(getPrefix() + msg("config-reloaded"));
         return true;
     }
@@ -300,20 +334,24 @@ public class CommandHandler implements CommandExecutor, TabCompleter {
         if (args.length > 1) {
             try {
                 page = Integer.parseInt(args[1]);
-            } catch (NumberFormatException ignored) {}
+            } catch (NumberFormatException ignored) {
+            }
         }
 
         int pageSize = 10;
         int maxPage = (int) Math.ceil((double) kicks.size() / pageSize);
-        if (page < 1) page = 1;
-        if (page > maxPage) page = maxPage;
+        if (page < 1)
+            page = 1;
+        if (page > maxPage)
+            page = maxPage;
 
-        sender.sendMessage(getPrefix() + msg("kicklist-header", "{PAGE}", String.valueOf(page), "{MAX_PAGE}", String.valueOf(maxPage)));
+        sender.sendMessage(getPrefix()
+                + msg("kicklist-header", "{PAGE}", String.valueOf(page), "{MAX_PAGE}", String.valueOf(maxPage)));
         sender.sendMessage(ColorUtil.colorize("&7─────────────────────────────────"));
-        
+
         int start = (page - 1) * pageSize;
         int end = Math.min(start + pageSize, kicks.size());
-        
+
         for (int i = start; i < end; i++) {
             ViolationManager.KickRecord kick = kicks.get(i);
             sender.sendMessage(ColorUtil.colorize(String.format(
@@ -571,22 +609,29 @@ public class CommandHandler implements CommandExecutor, TabCompleter {
         sender.sendMessage(msg("usage-stop"));
         sender.sendMessage(msg("usage-datastatus"));
         sender.sendMessage(msg("usage-alerts"));
+        sender.sendMessage(ColorUtil.colorize("&7  /mlsac monitor - Toggle monitor mode (show all detections)"));
         sender.sendMessage(msg("usage-prob"));
         sender.sendMessage(msg("usage-suspects"));
         sender.sendMessage(msg("usage-punish"));
         sender.sendMessage(msg("usage-profile"));
-        sender.sendMessage(msg("usage-reload"));
-        sender.sendMessage(ColorUtil.colorize("&7  /mlsac reinstall - Add missing fields to config, messages, menu, and holograms"));
+        sender.sendMessage(ColorUtil.colorize("&7  /mlsac reload - Reload config and animations"));
+        sender.sendMessage(ColorUtil.colorize("&7  /mlsac status - Check API connection, latency, and daily stats"));
+        sender.sendMessage(ColorUtil.colorize("&7  /mlsac animation test <player> <animation> - Test ban animation"));
+        sender.sendMessage(ColorUtil.colorize("&7  /mlsac animation list - List available animations"));
+        sender.sendMessage(ColorUtil.colorize("&7  /mlsac animation reload - Reload only animations"));
+        sender.sendMessage(ColorUtil
+                .colorize("&7  /mlsac reinstall - Add missing fields to config, messages, menu, and holograms"));
         sender.sendMessage(ColorUtil.colorize("&7  /mlsac kicklist [page] - Список киков от AI античита"));
-        sender.sendMessage(ColorUtil.colorize("&7  /mlsac falsepositive restore <player> - Сохранить 5000 тиков игрока в CSV"));
+        sender.sendMessage(
+                ColorUtil.colorize("&7  /mlsac falsepositive restore <player> - Сохранить 5000 тиков игрока в CSV"));
     }
 
     @Override
     public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
         List<String> completions = new ArrayList<>();
         if (args.length == 1) {
-            List<String> commands = Arrays.asList("start", "stop", "datastatus", "alerts", "prob", "reload",
-                    "reinstall", "kicklist", "suspects", "punish", "profile", "falsepositive");
+            List<String> commands = Arrays.asList("start", "stop", "datastatus", "alerts", "monitor", "prob", "reload",
+                    "reinstall", "kicklist", "suspects", "punish", "profile", "falsepositive", "status", "animation");
             completions.addAll(filterStartsWith(commands, args[0]));
         } else if (args.length == 2) {
             String subCommand = args[0].toLowerCase();
@@ -597,6 +642,8 @@ public class CommandHandler implements CommandExecutor, TabCompleter {
                 completions.addAll(filterStartsWith(targets, args[1]));
             } else if (subCommand.equals("falsepositive")) {
                 completions.add("restore");
+            } else if (subCommand.equals("animation")) {
+                completions.addAll(filterStartsWith(Arrays.asList("test", "list", "reload"), args[1]));
             }
         } else if (args.length == 3) {
             String subCommand = args[0].toLowerCase();
@@ -607,11 +654,21 @@ public class CommandHandler implements CommandExecutor, TabCompleter {
                         .map(Label::name)
                         .collect(Collectors.toList());
                 completions.addAll(filterStartsWith(labels, args[2]));
+            } else if (subCommand.equalsIgnoreCase("animation") && args[1].equalsIgnoreCase("test")) {
+                completions.addAll(filterStartsWith(getOnlinePlayerNames(), args[2]));
             }
         } else if (args.length == 4) {
             if (args[0].equalsIgnoreCase("start")) {
                 if (args[3].isEmpty() || args[3].startsWith("\"")) {
                     completions.add("\"comment\"");
+                }
+            } else if (args[0].equalsIgnoreCase("animation") && args[1].equalsIgnoreCase("test")) {
+                wtf.mlsac.penalty.engine.AnimationManager animationManager = plugin.getAnimationManager();
+                if (animationManager != null) {
+                    completions.addAll(filterStartsWith(
+                        new ArrayList<>(animationManager.getAvailableAnimations()), 
+                        args[3]
+                    ));
                 }
             }
         }
@@ -638,5 +695,221 @@ public class CommandHandler implements CommandExecutor, TabCompleter {
         probTasks.clear();
         probTracking.clear();
         reinstallConfirmations.clear();
+    }
+
+    private boolean handleStatus(CommandSender sender) {
+        if (!sender.hasPermission(Permissions.ADMIN)) {
+            sender.sendMessage(getPrefix() + msg("no-permission"));
+            return true;
+        }
+
+        sender.sendMessage(ColorUtil.colorize("&8=== &7&lMLSAC STATUS &8==="));
+
+        // API Connection Status
+        wtf.mlsac.server.AIClientProvider provider = plugin.getAiClientProvider();
+        wtf.mlsac.server.IAIClient client = provider != null ? provider.get() : null;
+
+        if (client == null) {
+            sender.sendMessage(ColorUtil.colorize("&7API: &cNot initialized"));
+        } else {
+            boolean connected = client.isConnected();
+            boolean limitExceeded = client.isLimitExceeded();
+            boolean serverError = client.isServerErrorState();
+            boolean stasisMode = client.isInStasisMode();
+
+            String status;
+            if (stasisMode) {
+                status = "&eStasis Mode (Rate Limited)";
+            } else if (connected && !limitExceeded && !serverError) {
+                status = "&aConnected";
+            } else if (limitExceeded) {
+                status = "&eRate Limited";
+            } else if (serverError) {
+                status = "&cServer Error";
+            } else {
+                status = "&cDisconnected";
+            }
+
+            sender.sendMessage(ColorUtil.colorize("&7API: " + status));
+            sender.sendMessage(ColorUtil.colorize(
+                    "&7Backend: &f" + (client.getServerAddress() != null ? client.getServerAddress() : "N/A")));
+        }
+
+        // Daily Statistics
+        wtf.mlsac.stats.DailyStats stats = plugin.getDailyStats();
+        if (stats != null) {
+            sender.sendMessage(ColorUtil.colorize("&7Today's Detections: &f" + stats.getTodayDetections()));
+            sender.sendMessage(ColorUtil.colorize("&7Today's Requests: &f" + stats.getTodayRequests()));
+        }
+
+        // Latency Test
+        if (client != null && client.isConnected() && !client.isInStasisMode()) {
+            java.util.List<java.util.concurrent.CompletableFuture<Long>> latencyTests = new java.util.ArrayList<>();
+            for (int i = 0; i < 5; i++) {
+                latencyTests.add(client.measureLatency());
+            }
+
+            java.util.concurrent.CompletableFuture
+                    .allOf(latencyTests.toArray(new java.util.concurrent.CompletableFuture[0]))
+                    .thenAccept(v -> {
+                        java.util.List<Long> results = new java.util.ArrayList<>();
+                        for (java.util.concurrent.CompletableFuture<Long> future : latencyTests) {
+                            try {
+                                Long latency = future.get();
+                                if (latency > 0) {
+                                    results.add(latency);
+                                }
+                            } catch (Exception ignored) {
+                            }
+                        }
+
+                        if (results.isEmpty()) {
+                            sender.sendMessage(ColorUtil.colorize("&7Average Latency: &cFailed to measure"));
+                        } else {
+                            long sum = 0;
+                            for (Long l : results) {
+                                sum += l;
+                            }
+                            long avg = sum / results.size();
+
+                            String latencyColor;
+                            if (avg < 50) {
+                                latencyColor = "&a";
+                            } else if (avg < 150) {
+                                latencyColor = "&e";
+                            } else {
+                                latencyColor = "&c";
+                            }
+
+                            sender.sendMessage(ColorUtil.colorize("&7Average Latency: " + latencyColor + avg + "ms &7("
+                                    + results.size() + "/5 successful)"));
+                        }
+                    })
+                    .exceptionally(ex -> {
+                        sender.sendMessage(ColorUtil.colorize("&7Average Latency: &cError during test"));
+                        return null;
+                    });
+        } else {
+            sender.sendMessage(ColorUtil.colorize("&7Average Latency: &cAPI not available"));
+        }
+
+        return true;
+    }
+    
+    private boolean handleAnimation(CommandSender sender, String[] args) {
+        if (!sender.hasPermission(Permissions.ADMIN)) {
+            sender.sendMessage(getPrefix() + msg("no-permission"));
+            return true;
+        }
+        
+        if (args.length < 2) {
+            sender.sendMessage(getPrefix() + ColorUtil.colorize("&cИспользование:"));
+            sender.sendMessage(ColorUtil.colorize("&7  /mlsac animation test <игрок> <анимация> - Тест анимации"));
+            sender.sendMessage(ColorUtil.colorize("&7  /mlsac animation list - Список доступных анимаций"));
+            sender.sendMessage(ColorUtil.colorize("&7  /mlsac animation reload - Перезагрузить анимации"));
+            return true;
+        }
+        
+        String subCmd = args[1].toLowerCase();
+        
+        switch (subCmd) {
+            case "test":
+                return handleAnimationTest(sender, args);
+            case "list":
+                return handleAnimationList(sender);
+            case "reload":
+                return handleAnimationReload(sender);
+            default:
+                sender.sendMessage(getPrefix() + ColorUtil.colorize("&cНеизвестная подкоманда: " + args[1]));
+                return true;
+        }
+    }
+    
+    private boolean handleAnimationTest(CommandSender sender, String[] args) {
+        if (args.length < 4) {
+            sender.sendMessage(getPrefix() + ColorUtil.colorize("&cИспользование: /mlsac animation test <игрок> <анимация>"));
+            return true;
+        }
+        
+        String playerName = args[2];
+        String animationName = args[3];
+        
+        Player target = Bukkit.getPlayer(playerName);
+        if (target == null) {
+            sender.sendMessage(getPrefix() + msg("player-not-found", "{PLAYER}", playerName));
+            return true;
+        }
+        
+        wtf.mlsac.penalty.engine.AnimationManager animationManager = plugin.getAnimationManager();
+        if (animationManager == null) {
+            sender.sendMessage(getPrefix() + ColorUtil.colorize("&cAnimation Manager не инициализирован!"));
+            return true;
+        }
+        
+        if (!animationManager.hasAnimation(animationName)) {
+            sender.sendMessage(getPrefix() + ColorUtil.colorize("&cАнимация &f" + animationName + " &cне найдена!"));
+            sender.sendMessage(ColorUtil.colorize("&7Используйте &f/mlsac animation list &7для списка доступных анимаций."));
+            return true;
+        }
+        
+        // Тестовая команда (не выполняется)
+        String testCommand = "say " + target.getName() + " прошел тест анимации " + animationName;
+        
+        boolean success = animationManager.playAnimation(target, animationName, testCommand);
+        
+        if (success) {
+            sender.sendMessage(getPrefix() + ColorUtil.colorize("&aЗапущена анимация &f" + animationName + " &aдля игрока &f" + target.getName()));
+            sender.sendMessage(ColorUtil.colorize("&7Это тестовый режим - команда бана не будет выполнена."));
+        } else {
+            sender.sendMessage(getPrefix() + ColorUtil.colorize("&cНе удалось запустить анимацию!"));
+        }
+        
+        return true;
+    }
+    
+    private boolean handleAnimationList(CommandSender sender) {
+        wtf.mlsac.penalty.engine.AnimationManager animationManager = plugin.getAnimationManager();
+        if (animationManager == null) {
+            sender.sendMessage(getPrefix() + ColorUtil.colorize("&cAnimation Manager не инициализирован!"));
+            return true;
+        }
+        
+        java.util.Set<String> animations = animationManager.getAvailableAnimations();
+        
+        sender.sendMessage(ColorUtil.colorize("&8=== &7&lДОСТУПНЫЕ АНИМАЦИИ &8==="));
+        sender.sendMessage(ColorUtil.colorize("&7Всего анимаций: &f" + animations.size()));
+        sender.sendMessage(ColorUtil.colorize("&7Текущая по умолчанию: &a" + animationManager.getDefaultAnimationName()));
+        sender.sendMessage(ColorUtil.colorize("&7─────────────────────────────────"));
+        
+        for (String name : animations) {
+            boolean isDefault = name.equals(animationManager.getDefaultAnimationName());
+            String prefix = isDefault ? "&a● " : "&7• ";
+            sender.sendMessage(ColorUtil.colorize(prefix + "&f" + name + (isDefault ? " &7(по умолчанию)" : "")));
+        }
+        
+        sender.sendMessage(ColorUtil.colorize("&7─────────────────────────────────"));
+        sender.sendMessage(ColorUtil.colorize("&7Используйте &f/mlsac animation test <игрок> <анимация> &7для теста"));
+        
+        return true;
+    }
+    
+    private boolean handleAnimationReload(CommandSender sender) {
+        wtf.mlsac.penalty.engine.AnimationManager animationManager = plugin.getAnimationManager();
+        if (animationManager == null) {
+            sender.sendMessage(getPrefix() + ColorUtil.colorize("&cAnimation Manager не инициализирован!"));
+            return true;
+        }
+        
+        try {
+            animationManager.reload();
+            sender.sendMessage(getPrefix() + ColorUtil.colorize("&aАнимации успешно перезагружены!"));
+            sender.sendMessage(ColorUtil.colorize("&7Загружено анимаций: &f" + animationManager.getAvailableAnimations().size()));
+        } catch (Exception e) {
+            sender.sendMessage(getPrefix() + ColorUtil.colorize("&cОшибка при перезагрузке анимаций!"));
+            plugin.getLogger().severe("Failed to reload animations: " + e.getMessage());
+            e.printStackTrace();
+        }
+        
+        return true;
     }
 }

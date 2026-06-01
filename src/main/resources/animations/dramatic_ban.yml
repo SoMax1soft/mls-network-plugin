@@ -1,0 +1,133 @@
+# MLSAC Animation Engine v2.0 - 1.21.4 Custom Palette Config
+# Тема: Оранжевое окружение, белая ДНК и замедленный подъем для идеального тайминга
+# Длительность: 4.5 секунды (90 тиков)
+
+totalTicks: 90
+freezePlayer: true
+strikeLightningAtEnd: false
+stripPlayer: true
+itemDropIntervalTicks: 4
+customLevitationAmplifier: 3 
+
+# ЗАМЕДЛЕННЫЙ ПОДЪЕМ: Игрок плавно летит вверх до 75 тика, оставаясь внутри эффектов
+movement:
+  startTick: 1
+  endTick: 75         # Увеличили время подъема, теперь скорость взлета ниже
+  offsetX: 0.0
+  offsetY: 5.0        # Высота подъема (5 блоков)
+  smooth: true        # Мягкий разгон и торможение в верхней точке
+
+stages:
+  # ==========================================
+  # СТЕЙДЖ 1: БЕЛАЯ ДНК И ОРАНЖЕВОЕ ОКРУЖЕНИЕ (1 - 90 тики)
+  # ==========================================
+  - name: "Pillar Core & DNA"
+    startTick: 1
+    endTick: 90
+    particles:
+      # ЭФФЕКТ 1: Центральная спираль ДНК — ЧИСТО БЕЛАЯ
+      - particleType: "DUST"
+        shape: "RISING_SPIRAL"
+        intervalTicks: 1
+        count: 4 
+        radiusStart: 0.6  
+        radiusEnd: 0.6    
+        heightOffsetStart: -2.0
+        heightOffsetEnd: 4.0
+        isColored: true
+        red: 255
+        green: 255
+        blue: 255         
+        particleSize: 1.3
+        speed: 0.04
+
+      # ЭФФЕКТ 2: Внешнее кольцевое окружение — ОРАНЖЕВОЕ
+      - particleType: "DUST"
+        shape: "HELIX"
+        intervalTicks: 1
+        count: 4
+        radiusStart: 1.4  
+        radiusEnd: 1.4
+        heightOffsetStart: -2.0
+        heightOffsetEnd: 4.0
+        isColored: true
+        red: 255
+        green: 140
+        blue: 0           
+        particleSize: 1.2
+        speed: 0.03
+
+    sounds:
+      - soundType: "BLOCK_PORTAL_AMBIENT"
+        playAtTick: 0
+        volume: 1.0
+        pitch: 0.5 
+        loop: true
+        loopIntervalTicks: 12
+
+    # Оранжевый шлейф под ногами, подстраховывающий медленный взлет
+    particleTrail:
+      particleType: "DUST" 
+      intervalTicks: 1   
+      count: 4            
+      radiusStart: 0.4
+      radiusEnd: 1.0
+      heightOffsetStart: -4.0 
+      heightOffsetEnd: 1.0
+      isColored: true
+      red: 255
+      green: 110
+      blue: 0             
+      particleSize: 1.3
+      speed: 0.02
+
+  # ==========================================
+  # СТЕЙДЖ 2: КУЛЬМИНАЦИЯ - СЖИМАЮЩАЯСЯ ОРАНЖЕВАЯ СФЕРА (40 - 85 тики)
+  # ==========================================
+  # Теперь игрок на 40-75 тиках медленно плывет прямо внутри сжимающегося купола
+  - name: "Collapsing Orange Sphere"
+    startTick: 40
+    endTick: 85
+    particles:
+      - particleType: "DUST"
+        shape: "SPHERE"
+        intervalTicks: 1  
+        count: 45         
+        radiusStart: 5.0  
+        radiusEnd: 0.1    # Закрывается прямо на замедлившемся игроке
+        heightOffsetStart: 1.0
+        heightOffsetEnd: 1.0
+        isColored: true
+        red: 255
+        green: 120
+        blue: 0           
+        particleSize: 1.4 
+        speed: 0.0        
+    sounds:
+      - soundType: "ENTITY_WITHER_SPAWN"
+        playAtTick: 0
+        volume: 0.9
+        pitch: 1.3
+
+  # ==========================================
+  # СТЕЙДЖ 3: ФИНАЛ - ОБЪЁМНАЯ ГУСТАЯ ДЫМКА ВВЕРХУ (85 - 90 тики)
+  # ==========================================
+  - name: "Heavy Smoke Out"
+    startTick: 85
+    endTick: 90
+    particles:
+      - particleType: "SMOKE" 
+        shape: "SPHERE" 
+        intervalTicks: 1
+        count: 75         
+        radiusStart: 0.1  
+        radiusEnd: 2.0    
+        heightOffsetStart: 0.2 
+        heightOffsetEnd: 2.2
+        speed: 0.01       
+
+    sounds:
+      - soundType: "BLOCK_GLASS_BREAK" 
+        playAtTick: 0
+        volume: 1.3
+        pitch: 1.5

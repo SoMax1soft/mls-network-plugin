@@ -40,6 +40,10 @@ public class Config {
     private final String aiApiKey;
     private final double aiAlertThreshold;
     private final boolean aiConsoleAlerts;
+    private final boolean alertSoundEnabled;
+    private final String alertSoundType;
+    private final float alertSoundVolume;
+    private final float alertSoundPitch;
     private final double aiBufferFlag;
     private final double aiBufferResetOnFlag;
     private final double aiBufferMultiplier;
@@ -100,6 +104,10 @@ public class Config {
     public static final String DEFAULT_AI_API_KEY = "";
     public static final double DEFAULT_AI_ALERT_THRESHOLD = 0.5;
     public static final boolean DEFAULT_AI_CONSOLE_ALERTS = true;
+    public static final boolean DEFAULT_ALERT_SOUND_ENABLED = true;
+    public static final String DEFAULT_ALERT_SOUND_TYPE = "BLOCK_NOTE_BLOCK_PLING";
+    public static final float DEFAULT_ALERT_SOUND_VOLUME = 1.0f;
+    public static final float DEFAULT_ALERT_SOUND_PITCH = 1.0f;
     public static final double DEFAULT_AI_BUFFER_FLAG = 50.0;
     public static final double DEFAULT_AI_BUFFER_RESET_ON_FLAG = 25.0;
     public static final double DEFAULT_AI_BUFFER_MULTIPLIER = 100.0;
@@ -155,6 +163,10 @@ public class Config {
         this.aiApiKey = DEFAULT_AI_API_KEY;
         this.aiAlertThreshold = DEFAULT_AI_ALERT_THRESHOLD;
         this.aiConsoleAlerts = DEFAULT_AI_CONSOLE_ALERTS;
+        this.alertSoundEnabled = DEFAULT_ALERT_SOUND_ENABLED;
+        this.alertSoundType = DEFAULT_ALERT_SOUND_TYPE;
+        this.alertSoundVolume = DEFAULT_ALERT_SOUND_VOLUME;
+        this.alertSoundPitch = DEFAULT_ALERT_SOUND_PITCH;
         this.aiBufferFlag = DEFAULT_AI_BUFFER_FLAG;
         this.aiBufferResetOnFlag = DEFAULT_AI_BUFFER_RESET_ON_FLAG;
         this.aiBufferMultiplier = DEFAULT_AI_BUFFER_MULTIPLIER;
@@ -222,6 +234,10 @@ public class Config {
     public Config(JavaPlugin plugin, Logger logger) {
         plugin.saveDefaultConfig();
         FileConfiguration config = plugin.getConfig();
+        
+        // Проверяем и добавляем отсутствующие поля анимации
+        ensureAnimationFields(plugin, config);
+        
         this.debug = config.getBoolean("debug", DEFAULT_DEBUG);
         this.preHitTicks = PRE_HIT_TICKS;
         this.postHitTicks = POST_HIT_TICKS;
@@ -237,6 +253,10 @@ public class Config {
         this.aiAlertThreshold = clampThreshold(alertThreshold, "alerts.threshold", logger);
         this.aiConsoleAlerts = config.getBoolean("alerts.console",
                 config.getBoolean("ai.alert.console", DEFAULT_AI_CONSOLE_ALERTS));
+        this.alertSoundEnabled = config.getBoolean("alerts.sound.enabled", DEFAULT_ALERT_SOUND_ENABLED);
+        this.alertSoundType = config.getString("alerts.sound.type", DEFAULT_ALERT_SOUND_TYPE);
+        this.alertSoundVolume = (float) config.getDouble("alerts.sound.volume", DEFAULT_ALERT_SOUND_VOLUME);
+        this.alertSoundPitch = (float) config.getDouble("alerts.sound.pitch", DEFAULT_ALERT_SOUND_PITCH);
         this.aiBufferFlag = config.getDouble("violation.threshold",
                 config.getDouble("ai.buffer.flag", DEFAULT_AI_BUFFER_FLAG));
         this.aiBufferResetOnFlag = config.getDouble("violation.reset-value",
@@ -264,6 +284,8 @@ public class Config {
                     int vl = Integer.parseInt(key);
                     String cmd = cmdSection.getString(key);
                     if (cmd != null && !cmd.isEmpty()) {
+                        // Migrate legacy {BAN} and {KICK} to {ANIMATION}
+                        cmd = migrateLegacyPrefixes(cmd);
                         punishmentCommands.put(vl, cmd);
                     }
                 } catch (NumberFormatException ignored) {
@@ -466,6 +488,29 @@ public class Config {
         }
         return value;
     }
+    
+    /**
+     * Миграция legacy префиксов {BAN} и {KICK} в {ANIMATION}
+     */
+    private String migrateLegacyPrefixes(String command) {
+        if (command == null) {
+            return null;
+        }
+        
+        String trimmed = command.trim();
+        
+        // Заменяем {BAN} на {ANIMATION}
+        if (trimmed.startsWith("{BAN}")) {
+            return "{ANIMATION}" + trimmed.substring(5);
+        }
+        
+        // Заменяем {KICK} на {ANIMATION}
+        if (trimmed.startsWith("{KICK}")) {
+            return "{ANIMATION}" + trimmed.substring(6);
+        }
+        
+        return command;
+    }
 
     public boolean isDebug() {
         return debug;
@@ -505,6 +550,22 @@ public class Config {
 
     public boolean isAiConsoleAlerts() {
         return aiConsoleAlerts;
+    }
+
+    public boolean isAlertSoundEnabled() {
+        return alertSoundEnabled;
+    }
+
+    public String getAlertSoundType() {
+        return alertSoundType;
+    }
+
+    public float getAlertSoundVolume() {
+        return alertSoundVolume;
+    }
+
+    public float getAlertSoundPitch() {
+        return alertSoundPitch;
     }
 
     public double getAiBufferFlag() {
@@ -836,6 +897,41 @@ public class Config {
 
         public String getMessage() {
             return message;
+        }
+    }
+    
+    /**
+     * Проверяет и добавляет отсутствующие поля анимации в config.yml
+     */
+    private void ensureAnimationFields(JavaPlugin plugin, FileConfiguration config) {
+        boolean needsSave = false;
+        
+        // Проверяем наличие секции penalties.animation
+        if (!config.contains("penalties.animation")) {
+            config.set("penalties.animation.enabled", true);
+            config.set("penalties.animation.type", "classic_ban");
+            needsSave = true;
+            plugin.getLogger().info("Added missing animation configuration to config.yml");
+        } else {
+            // Проверяем отдельные поля
+            if (!config.contains("penalties.animation.enabled")) {
+                config.set("penalties.animation.enabled", true);
+                needsSave = true;
+            }
+            if (!config.contains("penalties.animation.type")) {
+                config.set("penalties.animation.type", "classic_ban");
+                needsSave = true;
+            }
+        }
+        
+        // Сохраняем конфиг если были изменения
+        if (needsSave) {
+            try {
+                config.save(new java.io.File(plugin.getDataFolder(), "config.yml"));
+                plugin.getLogger().info("Updated config.yml with new animation fields");
+            } catch (Exception e) {
+                plugin.getLogger().warning("Failed to save updated config.yml: " + e.getMessage());
+            }
         }
     }
 }

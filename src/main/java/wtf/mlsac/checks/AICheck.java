@@ -215,6 +215,12 @@ public class AICheck {
             final Player playerRef = player;
             final UUID playerUuid = player.getUniqueId();
             final String playerName = player.getName();
+            
+            // Increment request counter
+            if (plugin.getDailyStats() != null) {
+                plugin.getDailyStats().incrementRequests();
+            }
+            
             client.predict(serialized, playerUuid.toString(), playerName)
                     .subscribe(response -> {
                         processResponse(playerRef, playerUuid, playerName, data, response);
@@ -229,7 +235,14 @@ public class AICheck {
     }
 
     private boolean isClientAvailable() {
-        return clientProvider != null && clientProvider.isAvailable() && !clientProvider.isServerErrorState();
+        if (clientProvider == null) return false;
+        if (!clientProvider.isAvailable()) return false;
+        if (clientProvider.isServerErrorState()) return false;
+        
+        IAIClient client = clientProvider.get();
+        if (client != null && client.isInStasisMode()) return false;
+        
+        return true;
     }
 
     private void processResponse(Player playerRef, UUID playerUuid, String playerName, AIPlayerData data, AIResponse response) {
@@ -255,6 +268,11 @@ public class AICheck {
         }
 
         if (alertManager.shouldAlert(probability)) {
+            // Increment detection counter
+            if (plugin.getDailyStats() != null) {
+                plugin.getDailyStats().incrementDetections();
+            }
+            
             alertManager.sendAlert(playerName, probability, data.getBuffer(), modelName);
             IAIClient client = clientProvider.get();
             if (client != null) {
@@ -267,6 +285,9 @@ public class AICheck {
                     }
                 });
             }
+        } else {
+            // Send to monitor mode even if below alert threshold
+            alertManager.sendMonitorOnly(playerName, probability, modelName);
         }
 
         if (!isOnlyAlert && data.shouldFlag(config.getAiBufferFlag())) {

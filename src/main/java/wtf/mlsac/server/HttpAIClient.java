@@ -62,6 +62,7 @@ public class HttpAIClient implements IAIClient {
     private static final int READ_TIMEOUT_SECONDS = 30;
     private static final int WRITE_TIMEOUT_SECONDS = 30;
     private static final long PERIODIC_CHECK_INTERVAL_MS = 60000;
+    private static final long STASIS_CHECK_INTERVAL_MS = 300000; // 5 minutes
     private static final int DUPLICATE_NAME_WARNING_LIMIT = 3;
     private static final long DUPLICATE_NAME_WARNING_INTERVAL_MS = 30000;
     private static final int INTERSERVER_EVENT_CACHE_LIMIT = 512;
@@ -84,9 +85,11 @@ public class HttpAIClient implements IAIClient {
     private final AtomicReference<ScheduledTask> interserverEventTask = new AtomicReference<>();
     private final AtomicReference<ScheduledTask> periodicCheckTask = new AtomicReference<>();
     private final AtomicReference<ScheduledTask> reconnectTask = new AtomicReference<>();
+    private final AtomicReference<ScheduledTask> stasisCheckTask = new AtomicReference<>();
     private final AtomicBoolean connected = new AtomicBoolean(false);
     private final AtomicBoolean shuttingDown = new AtomicBoolean(false);
     private final AtomicBoolean interserverPollInFlight = new AtomicBoolean(false);
+    private final AtomicBoolean inStasisMode = new AtomicBoolean(false);
     private volatile boolean autoReconnectEnabled = true;
     private volatile String sessionId = null;
     private volatile boolean limitExceeded = false;
@@ -440,11 +443,14 @@ public class HttpAIClient implements IAIClient {
         if (pc != null) pc.cancel();
         ScheduledTask rt = reconnectTask.getAndSet(null);
         if (rt != null) rt.cancel();
+        ScheduledTask st = stasisCheckTask.getAndSet(null);
+        if (st != null) st.cancel();
 
         connected.set(false);
         sessionId = null;
         limitExceeded = false;
         serverErrorState = false;
+        inStasisMode.set(false);
 
         return CompletableFuture.runAsync(() -> {
             logger.info("[HTTP] Disconnected from server");
@@ -584,9 +590,9 @@ public class HttpAIClient implements IAIClient {
                         handleInterserverEvents(responseBody);
                         limitExceeded = false;
                         serverErrorState = false;
+                        exitStasisMode();
                     } else if (code == 429) {
-                        limitExceeded = true;
-                        logger.warning("[HTTP] Online limit exceeded - Predict blocked");
+                        handleRateLimitError();
                     } else if (code >= 500) {
                         logger.warning("[HTTP] ReportStats received server error " + code);
                         enterServerErrorState("ReportStats received HTTP " + code);
@@ -660,9 +666,9 @@ public class HttpAIClient implements IAIClient {
             if (response.isSuccessful()) {
                 limitExceeded = false;
                 serverErrorState = false;
+                exitStasisMode();
             } else if (code == 429) {
-                limitExceeded = true;
-                logger.warning("[HTTP] Online limit exceeded - Predict blocked");
+                handleRateLimitError();
             } else if (code >= 500) {
                 logger.warning("[HTTP] ReportStats received server error " + code);
                 enterServerErrorState("ReportStats received HTTP " + code);
@@ -698,9 +704,13 @@ public class HttpAIClient implements IAIClient {
             return io.reactivex.rxjava3.core.Observable.error(
                     new IllegalStateException("Not connected to HTTP server"));
         }
+        if (inStasisMode.get()) {
+            return io.reactivex.rxjava3.core.Observable.error(
+                    new IllegalStateException("API in stasis mode (rate limited)"));
+        }
         if (limitExceeded) {
             return io.reactivex.rxjava3.core.Observable.error(
-                    new IllegalStateException("Online limit exceeded, Predict blocked"));
+                    new IllegalStateException("Request limit | Upgrade tariff"));
         }
         if (isServerInErrorState()) {
             return io.reactivex.rxjava3.core.Observable.error(
@@ -819,9 +829,8 @@ public class HttpAIClient implements IAIClient {
             throw new RuntimeException("API key is invalid or corrupted");
         }
         if (code == 429) {
-            limitExceeded = true;
-            logger.warning("[HTTP] Online limit exceeded - Predict blocked");
-            throw new RuntimeException("Online limit exceeded");
+            handleRateLimitError();
+            throw new RuntimeException("Request limit");
         }
         if (code >= 500) {
             enterServerErrorState("Server error HTTP " + code + ": " + responseBody);
@@ -979,5 +988,124 @@ public class HttpAIClient implements IAIClient {
 
     public boolean isAutoReconnectEnabled() {
         return autoReconnectEnabled;
+    }
+
+    public boolean isInStasisMode() {
+        return inStasisMode.get();
+    }
+
+    private void handleRateLimitError() {
+        limitExceeded = true;
+        logger.warning("[HTTP] Request limit | Upgrade tariff - entering stasis mode");
+        enterStasisMode();
+    }
+
+    private void enterStasisMode() {
+        if (inStasisMode.compareAndSet(false, true)) {
+            logger.warning("[HTTP] Entering stasis mode - stopping all requests");
+            
+            // Stop all periodic tasks
+            ScheduledTask hb = heartbeatTask.getAndSet(null);
+            if (hb != null) hb.cancel();
+            ScheduledTask rs = reportStatsTask.getAndSet(null);
+            if (rs != null) rs.cancel();
+            ScheduledTask ie = interserverEventTask.getAndSet(null);
+            if (ie != null) ie.cancel();
+            ScheduledTask pc = periodicCheckTask.getAndSet(null);
+            if (pc != null) pc.cancel();
+            
+            // Start stasis check task (every 5 minutes)
+            startStasisCheck();
+        }
+    }
+
+    private void exitStasisMode() {
+        if (inStasisMode.compareAndSet(true, false)) {
+            logger.info("[HTTP] Exiting stasis mode - resuming normal operation");
+            
+            // Stop stasis check
+            ScheduledTask st = stasisCheckTask.getAndSet(null);
+            if (st != null) st.cancel();
+            
+            // Restart normal tasks
+            startHeartbeat();
+            startReportStats();
+            startInterserverEventPoll();
+            startPeriodicCheck();
+        }
+    }
+
+    private void startStasisCheck() {
+        ScheduledTask existing = stasisCheckTask.getAndSet(null);
+        if (existing != null) existing.cancel();
+
+        stasisCheckTask.set(SchedulerManager.getAdapter().runAsyncRepeating(() -> {
+            if (shuttingDown.get()) return;
+            checkApiAvailability();
+        }, 100, STASIS_CHECK_INTERVAL_MS / 50));
+    }
+
+    private void checkApiAvailability() {
+        if (debug) logger.info("[HTTP] Stasis check: testing API availability...");
+        
+        CompletableFuture.runAsync(() -> {
+            try {
+                String url = serverAddress + "/api/v1/heartbeat";
+                JsonObject json = createBasePayload();
+                addSession(json);
+                addOnline(json);
+
+                RequestBody body = jsonBody(json);
+                Request request = new Request.Builder()
+                        .url(url)
+                        .post(body)
+                        .header("X-API-Key", apiKey)
+                        .build();
+
+                try (Response response = httpClient.newCall(request).execute()) {
+                    int code = response.code();
+                    if (response.isSuccessful()) {
+                        logger.info("[HTTP] API is available again - exiting stasis mode");
+                        limitExceeded = false;
+                        exitStasisMode();
+                    } else if (code == 429) {
+                        if (debug) logger.info("[HTTP] Still rate limited, remaining in stasis mode");
+                    } else {
+                        if (debug) logger.warning("[HTTP] Stasis check failed with code: " + code);
+                    }
+                }
+            } catch (Exception e) {
+                if (debug) logger.warning("[HTTP] Stasis check error: " + e.getMessage());
+            }
+        }, httpExecutor);
+    }
+
+    public CompletableFuture<Long> measureLatency() {
+        return CompletableFuture.supplyAsync(() -> {
+            try {
+                String url = serverAddress + "/api/v1/heartbeat";
+                JsonObject json = createBasePayload();
+                addSession(json);
+                addOnline(json);
+
+                RequestBody body = jsonBody(json);
+                Request request = new Request.Builder()
+                        .url(url)
+                        .post(body)
+                        .header("X-API-Key", apiKey)
+                        .build();
+
+                long start = System.currentTimeMillis();
+                try (Response response = httpClient.newCall(request).execute()) {
+                    long end = System.currentTimeMillis();
+                    if (response.isSuccessful()) {
+                        return end - start;
+                    }
+                    return -1L;
+                }
+            } catch (Exception e) {
+                return -1L;
+            }
+        }, httpExecutor);
     }
 }

@@ -74,36 +74,54 @@ public class AimProcessor {
     }
 
     public TickData process(float yaw, float pitch) {
-        float deltaYaw = hasLastRotation ? normalizeAngle(yaw - lastYaw) : 0;
-        float deltaPitch = hasLastRotation ? pitch - lastPitch : 0;
+        if (!hasLastRotation) {
+            lastYaw = yaw;
+            lastPitch = pitch;
+            lastDeltaYaw = 0;
+            lastDeltaPitch = 0;
+            lastYawAccel = 0;
+            lastPitchAccel = 0;
+            currentYawAccel = 0;
+            currentPitchAccel = 0;
+            hasLastRotation = true;
+            return new TickData(0, 0, 0, 0, 0, 0, 0, 0);
+        }
+
+        float deltaYaw = normalizeAngle(yaw - lastYaw);
+        float deltaPitch = pitch - lastPitch;
         float deltaYawAbs = Math.abs(deltaYaw);
         float deltaPitchAbs = Math.abs(deltaPitch);
+        
         lastYawAccel = currentYawAccel;
         lastPitchAccel = currentPitchAccel;
-        currentYawAccel = deltaYawAbs - Math.abs(lastDeltaYaw);
-        currentPitchAccel = deltaPitchAbs - Math.abs(lastDeltaPitch);
+        
+        // SIGNED acceleration (matches V2 model, physics-accurate)
+        currentYawAccel = deltaYaw - lastDeltaYaw;
+        currentPitchAccel = deltaPitch - lastDeltaPitch;
+        
         float jerkYaw = currentYawAccel - lastYawAccel;
         float jerkPitch = currentPitchAccel - lastPitchAccel;
-        if (hasLastRotation) {
-            double divisorX = GcdMath.gcd(deltaYawAbs, lastXRot);
-            if (deltaYawAbs > 0 && deltaYawAbs < MAX_DELTA_FOR_GCD && divisorX > GcdMath.MINIMUM_DIVISOR) {
-                xRotMode.add(divisorX);
-                lastXRot = deltaYawAbs;
-            }
-            double divisorY = GcdMath.gcd(deltaPitchAbs, lastYRot);
-            if (deltaPitchAbs > 0 && deltaPitchAbs < MAX_DELTA_FOR_GCD && divisorY > GcdMath.MINIMUM_DIVISOR) {
-                yRotMode.add(divisorY);
-                lastYRot = deltaPitchAbs;
-            }
-            updateModes();
+        
+        double divisorX = GcdMath.gcd(deltaYawAbs, lastXRot);
+        if (deltaYawAbs > 0 && deltaYawAbs < MAX_DELTA_FOR_GCD && divisorX > GcdMath.MINIMUM_DIVISOR) {
+            xRotMode.add(divisorX);
+            lastXRot = deltaYawAbs;
         }
+        double divisorY = GcdMath.gcd(deltaPitchAbs, lastYRot);
+        if (deltaPitchAbs > 0 && deltaPitchAbs < MAX_DELTA_FOR_GCD && divisorY > GcdMath.MINIMUM_DIVISOR) {
+            yRotMode.add(divisorY);
+            lastYRot = deltaPitchAbs;
+        }
+        updateModes();
+        
         float gcdErrorYaw = calculateGcdError(deltaYaw, modeX);
         float gcdErrorPitch = calculateGcdError(deltaPitch, modeY);
+        
         lastYaw = yaw;
         lastPitch = pitch;
         lastDeltaYaw = deltaYaw;
         lastDeltaPitch = deltaPitch;
-        hasLastRotation = true;
+        
         return new TickData(deltaYaw, deltaPitch, currentYawAccel, currentPitchAccel,
                 jerkYaw, jerkPitch, gcdErrorYaw, gcdErrorPitch);
     }

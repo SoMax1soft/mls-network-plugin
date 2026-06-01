@@ -24,6 +24,7 @@
 package wtf.mlsac.alert;
 
 import org.bukkit.Bukkit;
+import org.bukkit.Sound;
 import org.bukkit.entity.Player;
 import wtf.mlsac.Main;
 import wtf.mlsac.Permissions;
@@ -42,6 +43,7 @@ import java.util.logging.Logger;
 public class AlertManager {
     private final Logger logger;
     private final Set<UUID> playersWithAlerts;
+    private final Set<UUID> playersWithMonitor;
     private final SchedulerAdapter scheduler;
     private Config config;
     private MessagesConfig messagesConfig;
@@ -51,6 +53,7 @@ public class AlertManager {
         this.messagesConfig = plugin.getMessagesConfig();
         this.logger = plugin.getLogger();
         this.playersWithAlerts = new CopyOnWriteArraySet<>();
+        this.playersWithMonitor = new CopyOnWriteArraySet<>();
         this.scheduler = SchedulerManager.getAdapter();
     }
 
@@ -72,6 +75,21 @@ public class AlertManager {
         } else {
             playersWithAlerts.add(uuid);
             String msg = ColorUtil.colorize(messagesConfig.getMessage("alerts-enabled"));
+            player.sendMessage(getPrefix() + msg);
+            return true;
+        }
+    }
+
+    public boolean toggleMonitor(Player player) {
+        UUID uuid = player.getUniqueId();
+        if (playersWithMonitor.contains(uuid)) {
+            playersWithMonitor.remove(uuid);
+            String msg = ColorUtil.colorize(messagesConfig.getMessage("monitor-disabled"));
+            player.sendMessage(getPrefix() + msg);
+            return false;
+        } else {
+            playersWithMonitor.add(uuid);
+            String msg = ColorUtil.colorize(messagesConfig.getMessage("monitor-enabled"));
             player.sendMessage(getPrefix() + msg);
             return true;
         }
@@ -100,6 +118,17 @@ public class AlertManager {
     public void sendAlert(String suspectName, double probability, double buffer, String modelName) {
         String message = formatAlertMessage(suspectName, probability, buffer, modelName);
         sendMessageToAlertSubscribers(message, config.isAiConsoleAlerts() ? ColorUtil.stripColors(message) : null);
+        
+        // Send to monitor mode players (all detections)
+        sendMonitorMessage(suspectName, probability, modelName);
+        
+        // Play sound for alert subscribers
+        playAlertSound();
+    }
+
+    public void sendMonitorOnly(String suspectName, double probability, String modelName) {
+        // Only send to monitor mode (no alerts, no sound)
+        sendMonitorMessage(suspectName, probability, modelName);
     }
 
     public void sendAlert(String suspectName, double probability, double buffer, int vl) {
@@ -109,6 +138,12 @@ public class AlertManager {
     public void sendAlert(String suspectName, double probability, double buffer, int vl, String modelName) {
         String message = formatAlertMessage(suspectName, probability, buffer, vl, modelName);
         sendMessageToAlertSubscribers(message, config.isAiConsoleAlerts() ? ColorUtil.stripColors(message) : null);
+        
+        // Send to monitor mode players (all detections)
+        sendMonitorMessage(suspectName, probability, modelName);
+        
+        // Play sound for alert subscribers
+        playAlertSound();
     }
 
     public void sendInterServerEvent(String type, String sourceServerName, String suspectName, double probability,
@@ -213,6 +248,108 @@ public class AlertManager {
 
     public void handlePlayerQuit(Player player) {
         playersWithAlerts.remove(player.getUniqueId());
+        playersWithMonitor.remove(player.getUniqueId());
+    }
+
+    private void sendMonitorMessage(String suspectName, double probability, String modelName) {
+        if (playersWithMonitor.isEmpty()) {
+            return;
+        }
+        
+        String coloredProb = getColoredProbability(probability);
+        String modelDisplay = modelName != null ? config.getModelDisplayName(modelName) : "Unknown";
+        String template = messagesConfig.getMessage("monitor-format");
+        String messageText = template
+                .replace("{MODEL}", modelDisplay)
+                .replace("{PLAYER}", suspectName)
+                .replace("{PROBABILITY_COLORED}", coloredProb);
+        final String message = ColorUtil.colorize(messageText);
+        
+        if (SchedulerManager.getServerType() == ServerType.FOLIA) {
+            for (UUID uuid : playersWithMonitor) {
+                Player player = Bukkit.getPlayer(uuid);
+                if (player != null && player.isOnline()) {
+                    scheduler.runEntitySync(player, () -> {
+                        if (player.isOnline() && canReceiveAlerts(player)) {
+                            player.sendMessage(message);
+                        }
+                    });
+                }
+            }
+            return;
+        }
+
+        scheduler.runSync(() -> {
+            for (UUID uuid : playersWithMonitor) {
+                Player player = Bukkit.getPlayer(uuid);
+                if (player != null && player.isOnline() && canReceiveAlerts(player)) {
+                    player.sendMessage(message);
+                }
+            }
+        });
+    }
+
+    private String getColoredProbability(double probability) {
+        int percent = (int) (probability * 100);
+        String color;
+        
+        if (percent >= 90) {
+            color = "&#FF0000"; // Красный
+        } else if (percent >= 80) {
+            color = "&#FF4500"; // Оранжево-красный
+        } else if (percent >= 70) {
+            color = "&#FFA500"; // Оранжевый
+        } else if (percent >= 60) {
+            color = "&#FFD700"; // Золотой
+        } else if (percent >= 50) {
+            color = "&#FFFF00"; // Желтый
+        } else if (percent >= 40) {
+            color = "&#90EE90"; // Светло-зеленый
+        } else {
+            color = "&#00FF00"; // Зеленый
+        }
+        
+        return color + percent + "%";
+    }
+
+    private void playAlertSound() {
+        if (!config.isAlertSoundEnabled()) {
+            return;
+        }
+        
+        Sound sound;
+        try {
+            sound = Sound.valueOf(config.getAlertSoundType());
+        } catch (IllegalArgumentException e) {
+            logger.warning("Invalid sound type: " + config.getAlertSoundType());
+            return;
+        }
+        
+        float volume = config.getAlertSoundVolume();
+        float pitch = config.getAlertSoundPitch();
+        
+        if (SchedulerManager.getServerType() == ServerType.FOLIA) {
+            for (UUID uuid : playersWithAlerts) {
+                Player player = Bukkit.getPlayer(uuid);
+                if (player != null && player.isOnline()) {
+                    scheduler.runEntitySync(player, () -> {
+                        if (player.isOnline()) {
+                            player.playSound(player.getLocation(), sound, volume, pitch);
+                        }
+                    });
+                }
+            }
+            return;
+        }
+
+        scheduler.runSync(() -> {
+            for (UUID uuid : playersWithAlerts) {
+                Player player = Bukkit.getPlayer(uuid);
+                if (player != null && player.isOnline()) {
+                    player.playSound(player.getLocation(), sound, volume, pitch);
+                }
+            }
+        });
     }
 
     public boolean shouldAlert(double probability) {

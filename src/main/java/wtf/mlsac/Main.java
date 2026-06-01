@@ -77,6 +77,8 @@ public final class Main extends JavaPlugin {
     private AnalyticsClient analyticsClient;
     private DetectionResponseManager detectionResponseManager;
     private CombatPenaltyListener combatPenaltyListener;
+    private wtf.mlsac.stats.DailyStats dailyStats;
+    private wtf.mlsac.penalty.engine.AnimationManager animationManager;
 
     @Override
     public void onLoad() {
@@ -139,6 +141,10 @@ public final class Main extends JavaPlugin {
         this.aiCheck = new AICheck(this, config, aiClientProvider, alertManager, violationManager);
         this.violationManager.setAICheck(aiCheck);
         this.detectionResponseManager = new DetectionResponseManager(this, config);
+        
+        // Инициализация Animation Manager
+        this.animationManager = new wtf.mlsac.penalty.engine.AnimationManager(this);
+        this.animationManager.initialize();
 
         this.hologramManager = new HologramManager(this, aiCheck);
         this.hologramManager.start();
@@ -156,10 +162,12 @@ public final class Main extends JavaPlugin {
         this.hitListener = new HitListener(sessionManager, aiCheck);
         this.rotationListener = new RotationListener(sessionManager, aiCheck);
         this.analyticsClient = new AnalyticsClient(config.getServerAddress(), getLogger());
+        this.dailyStats = new wtf.mlsac.stats.DailyStats(this);
+        this.dailyStats.initialize();
         this.playerListener = new PlayerListener(this, aiCheck, alertManager, violationManager,
                 sessionManager instanceof SessionManager ? (SessionManager) sessionManager : null, tickListener,
                 hologramManager, rotationListener, analyticsClient);
-        this.teleportListener = new TeleportListener(aiCheck);
+        this.teleportListener = new TeleportListener(aiCheck, this);
         this.combatPenaltyListener = new CombatPenaltyListener(detectionResponseManager);
         this.tickListener.setHitListener(hitListener);
         this.playerListener.setHitListener(hitListener);
@@ -209,6 +217,9 @@ public final class Main extends JavaPlugin {
         if (violationManager != null) {
             violationManager.shutdown();
         }
+        if (animationManager != null) {
+            animationManager.shutdown();
+        }
         if (commandHandler != null) {
             commandHandler.cleanup();
         }
@@ -230,6 +241,9 @@ public final class Main extends JavaPlugin {
         }
         if (analyticsClient != null) {
             analyticsClient.shutdown();
+        }
+        if (dailyStats != null) {
+            dailyStats.shutdown();
         }
         if (PacketEvents.getAPI() != null && PacketEvents.getAPI().isInitialized()) {
             try {
@@ -357,6 +371,10 @@ public final class Main extends JavaPlugin {
     public ViolationManager getViolationManager() {
         return violationManager;
     }
+    
+    public wtf.mlsac.penalty.engine.AnimationManager getAnimationManager() {
+        return animationManager;
+    }
 
     public AIClientProvider getAiClientProvider() {
         return aiClientProvider;
@@ -372,6 +390,10 @@ public final class Main extends JavaPlugin {
 
     public DetectionResponseManager getDetectionResponseManager() {
         return detectionResponseManager;
+    }
+
+    public wtf.mlsac.stats.DailyStats getDailyStats() {
+        return dailyStats;
     }
 
     public void debug(String message) {
