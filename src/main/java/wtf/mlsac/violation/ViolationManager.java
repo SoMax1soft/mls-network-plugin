@@ -20,6 +20,9 @@
  *   - SlothAC (© 2025 KaelusMC, https://github.com/KaelusMC/SlothAC)
  *   - Grim (© 2025 GrimAnticheat, https://github.com/GrimAnticheat/Grim)
  *   - Client-side project (GPLv3: https://github.com/MLSAC/client-side)
+ *
+ * Modifications:
+ *   - Modified by SoMax1soft for the MLSAC.NET project in 2026.
  */
 
 package wtf.mlsac.violation;
