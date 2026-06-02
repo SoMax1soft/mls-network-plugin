@@ -54,6 +54,7 @@ public class Config {
     private final double aiPunishmentMinProbability;
     private final Map<Integer, String> punishmentCommands;
     private final boolean animationEnabled;
+    private final String animationType;
 
     private final boolean liteBansEnabled;
     private final String liteBansDbHost;
@@ -115,6 +116,7 @@ public class Config {
     public static final double DEFAULT_AI_BUFFER_DECREASE = 0.25;
     public static final double DEFAULT_AI_PUNISHMENT_MIN_PROBABILITY = 0.85;
     public static final boolean DEFAULT_ANIMATION_ENABLED = true;
+    public static final String DEFAULT_ANIMATION_TYPE = "classic_ban";
     public static final int DEFAULT_AI_SEQUENCE = 40;
     public static final int DEFAULT_AI_STEP = 10;
 
@@ -177,6 +179,7 @@ public class Config {
         this.aiPunishmentMinProbability = DEFAULT_AI_PUNISHMENT_MIN_PROBABILITY;
         this.punishmentCommands = new HashMap<>();
         this.animationEnabled = DEFAULT_ANIMATION_ENABLED;
+        this.animationType = DEFAULT_ANIMATION_TYPE;
 
         this.liteBansEnabled = DEFAULT_LITEBANS_ENABLED;
         this.liteBansDbHost = DEFAULT_LITEBANS_DB_HOST;
@@ -274,6 +277,7 @@ public class Config {
                 config.getDouble("ai.punishment.min-probability", DEFAULT_AI_PUNISHMENT_MIN_PROBABILITY));
         this.aiPunishmentMinProbability = clampThreshold(punishmentMinProb, "penalties.min-probability", logger);
         this.animationEnabled = config.getBoolean("penalties.animation.enabled", DEFAULT_ANIMATION_ENABLED);
+        this.animationType = config.getString("penalties.animation.type", DEFAULT_ANIMATION_TYPE);
         this.punishmentCommands = new HashMap<>();
         ConfigurationSection cmdSection = config.getConfigurationSection("penalties.actions");
         if (cmdSection == null) {
@@ -599,6 +603,10 @@ public class Config {
 
     public boolean isAnimationEnabled() {
         return animationEnabled;
+    }
+
+    public String getAnimationType() {
+        return animationType;
     }
 
     public String getPunishmentCommand(int vl) {
