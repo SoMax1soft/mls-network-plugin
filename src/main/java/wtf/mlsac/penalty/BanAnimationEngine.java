@@ -85,8 +85,9 @@ public class BanAnimationEngine implements Listener {
     }
 
     public void playAnimation(Player player, String banCommand) {
-        if (player == null) return;
-        
+        if (player == null)
+            return;
+
         if (SchedulerManager.getServerType() == wtf.mlsac.scheduler.ServerType.FOLIA || !Bukkit.isPrimaryThread()) {
             SchedulerManager.getAdapter().runEntitySync(player, () -> startAnimation(player, banCommand));
             return;
@@ -101,7 +102,8 @@ public class BanAnimationEngine implements Listener {
         }
 
         UUID playerId = player.getUniqueId();
-        if (animatingPlayers.contains(playerId)) return;
+        if (animatingPlayers.contains(playerId))
+            return;
 
         // ВАЖНЫЙ ЛОГ: Начало анимации
         plugin.getLogger().info("=== STARTING ANIMATION ===");
@@ -118,13 +120,13 @@ public class BanAnimationEngine implements Listener {
         player.closeInventory();
         forceInventoryResync(player);
 
-        if (config.freezePlayer) freezePlayer(player);
-        
-        // Раздевание игрока
+        if (config.freezePlayer)
+            freezePlayer(player);
+
         if (config.stripPlayer) {
-            stripPlayerArmor(player);
             savePlayerInventory(player);
-            clearPlayerInventory(player); // Очищаем инвентарь после сохранения
+            stripPlayerArmor(player);
+            clearPlayerInventory(player);
         }
 
         final int[] tick = { 0 };
@@ -139,21 +141,22 @@ public class BanAnimationEngine implements Listener {
                 }
 
                 tick[0]++;
-                
+
                 // Debug: Log every 20 ticks
                 if (tick[0] % 20 == 0) {
                     plugin.getLogger().info("Animation tick: " + tick[0] + "/" + config.totalTicks);
                 }
-                
+
                 Location baseLoc = player.getLocation();
-                
+
                 // Выкидывание предметов с динамическим интервалом
                 if (config.stripPlayer) {
                     dropNextItemDynamic(player, tick[0], config.totalTicks);
                 }
-                
+
                 // Перемещение игрока
-                if (config.movement != null && tick[0] >= config.movement.startTick && tick[0] <= config.movement.endTick) {
+                if (config.movement != null && tick[0] >= config.movement.startTick
+                        && tick[0] <= config.movement.endTick) {
                     movePlayer(player, tick[0]);
                 }
 
@@ -165,13 +168,15 @@ public class BanAnimationEngine implements Listener {
 
                 if (tick[0] >= config.totalTicks) {
                     plugin.getLogger().info("=== ANIMATION COMPLETE === (tick " + tick[0] + ")");
-                    if (config.strikeLightningAtEnd) baseLoc.getWorld().strikeLightningEffect(baseLoc);
+                    if (config.strikeLightningAtEnd)
+                        baseLoc.getWorld().strikeLightningEffect(baseLoc);
                     taskRef[0].cancel();
                     cleanup(player);
                     executeBanCommand(banCommand);
                 }
-            } catch (Exception e) {
+            } catch (Throwable e) {
                 plugin.getLogger().severe("ERROR IN ANIMATION ENGINE: " + e.getMessage());
+                e.printStackTrace();
                 taskRef[0].cancel();
                 cleanup(player);
                 executeBanCommand(banCommand);
@@ -183,10 +188,11 @@ public class BanAnimationEngine implements Listener {
         int stageTick = currentTick - stage.startTick;
         int stageDuration = stage.endTick - stage.startTick;
         double progress = stageDuration <= 0 ? 1.0 : (double) stageTick / stageDuration;
-        
+
         // Отладка: логируем первый тик стейджа
         if (stageTick == 0) {
-            plugin.getLogger().info("Starting stage: " + stage.name + " with " + stage.particles.size() + " particle effects");
+            plugin.getLogger()
+                    .info("Starting stage: " + stage.name + " with " + stage.particles.size() + " particle effects");
         }
 
         // Обработка звуков
@@ -197,7 +203,7 @@ public class BanAnimationEngine implements Listener {
                 baseLoc.getWorld().playSound(baseLoc, s.soundType, s.volume, s.pitch);
             }
         }
-        
+
         // Обработка тайтлов
         for (TitleConfig t : stage.titles) {
             if (stageTick == t.showAtTick) {
@@ -210,14 +216,14 @@ public class BanAnimationEngine implements Listener {
                 }
             }
         }
-        
+
         // Обработка молний
         for (Integer lightningTick : stage.lightningTicks) {
             if (stageTick == lightningTick) {
                 baseLoc.getWorld().strikeLightningEffect(baseLoc);
             }
         }
-        
+
         // Обработка следа из частиц
         if (stage.particleTrail != null && stageTick % stage.particleTrail.intervalTicks == 0) {
             spawnParticleTrail(player, stage.particleTrail);
@@ -225,12 +231,14 @@ public class BanAnimationEngine implements Listener {
 
         // Обработка частиц
         for (ParticleEffectConfig p : stage.particles) {
-            if (stageTick % p.intervalTicks != 0) continue;
+            if (stageTick % p.intervalTicks != 0)
+                continue;
 
             // Отладка: логируем попытку спавна частиц
             if (stageTick == 0 || stageTick % 20 == 0) {
-                plugin.getLogger().info("Spawning particles: type=" + (p.particleType != null ? p.particleType.name() : "NULL") + 
-                                       ", shape=" + p.shape + ", count=" + p.count);
+                plugin.getLogger()
+                        .info("Spawning particles: type=" + (p.particleType != null ? p.particleType.name() : "NULL") +
+                                ", shape=" + p.shape + ", count=" + p.count);
             }
 
             // Линейная интерполяция (Lerp) радиуса и высоты
@@ -283,13 +291,11 @@ public class BanAnimationEngine implements Listener {
     private Object prepareParticleData(ParticleEffectConfig p) {
         if (p.isColored && (p.particleType == Particle.REDSTONE || p.particleType.name().equals("DUST"))) {
             return new Particle.DustOptions(
-                Color.fromRGB(
-                    Math.max(0, Math.min(255, p.red)),
-                    Math.max(0, Math.min(255, p.green)),
-                    Math.max(0, Math.min(255, p.blue))
-                ),
-                p.particleSize
-            );
+                    Color.fromRGB(
+                            Math.max(0, Math.min(255, p.red)),
+                            Math.max(0, Math.min(255, p.green)),
+                            Math.max(0, Math.min(255, p.blue))),
+                    p.particleSize);
         }
         return null;
     }
@@ -302,18 +308,17 @@ public class BanAnimationEngine implements Listener {
             plugin.getLogger().warning("Attempted to spawn null particle type!");
             return;
         }
-        
+
         // Отправляем частицы через PacketEvents - более оптимально
         // Отправляем только игрокам в радиусе 64 блоков
         ParticlePacketCompat.sendParticleInRadius(
-            loc,
-            p.particleType,
-            p.count,
-            p.offsetX, p.offsetY, p.offsetZ,
-            p.speed,
-            64.0, // радиус видимости
-            data
-        );
+                loc,
+                p.particleType,
+                p.count,
+                p.offsetX, p.offsetY, p.offsetZ,
+                p.speed,
+                64.0, // радиус видимости
+                data);
     }
 
     /**
@@ -322,10 +327,9 @@ public class BanAnimationEngine implements Listener {
     private void spawnRisingSpiral(Location center, double radius, int tick, ParticleEffectConfig p, Object data) {
         double angle = Math.toRadians((tick * 20) % 360);
         Location loc = center.clone().add(
-            Math.cos(angle) * radius,
-            0,
-            Math.sin(angle) * radius
-        );
+                Math.cos(angle) * radius,
+                0,
+                Math.sin(angle) * radius);
         spawnParticle(loc, p, data);
     }
 
@@ -337,13 +341,12 @@ public class BanAnimationEngine implements Listener {
         for (int i = 0; i < particleCount; i++) {
             double phi = Math.acos(1 - 2.0 * i / particleCount);
             double theta = Math.PI * (1 + Math.sqrt(5)) * i + Math.toRadians(tick * 4);
-            
+
             Location loc = center.clone().add(
-                radius * Math.sin(phi) * Math.cos(theta),
-                radius * Math.cos(phi),
-                radius * Math.sin(phi) * Math.sin(theta)
-            );
-            
+                    radius * Math.sin(phi) * Math.cos(theta),
+                    radius * Math.cos(phi),
+                    radius * Math.sin(phi) * Math.sin(theta));
+
             // Для сферы спавним по 1 частице за раз
             ParticleEffectConfig singleParticle = new ParticleEffectConfig();
             singleParticle.particleType = p.particleType;
@@ -352,7 +355,7 @@ public class BanAnimationEngine implements Listener {
             singleParticle.offsetX = p.offsetX;
             singleParticle.offsetY = p.offsetY;
             singleParticle.offsetZ = p.offsetZ;
-            
+
             spawnParticle(loc, singleParticle, data);
         }
     }
@@ -363,11 +366,10 @@ public class BanAnimationEngine implements Listener {
     private void spawnExplosion(Location center, double radius, ParticleEffectConfig p, Object data) {
         for (int i = 0; i < p.count; i++) {
             Vector randomDir = new Vector(
-                Math.random() * 2 - 1,
-                Math.random() * 2 - 1,
-                Math.random() * 2 - 1
-            ).normalize().multiply(radius);
-            
+                    Math.random() * 2 - 1,
+                    Math.random() * 2 - 1,
+                    Math.random() * 2 - 1).normalize().multiply(radius);
+
             spawnParticle(center.clone().add(randomDir), p, data);
         }
     }
@@ -375,23 +377,22 @@ public class BanAnimationEngine implements Listener {
     /**
      * Двойная спираль (ДНК-эффект)
      */
-    private void spawnHelix(Location center, double radius, double height, int tick, ParticleEffectConfig p, Object data) {
+    private void spawnHelix(Location center, double radius, double height, int tick, ParticleEffectConfig p,
+            Object data) {
         double angle = Math.toRadians((tick * 15) % 360);
-        
+
         // Первая спираль
         Location loc1 = center.clone().add(
-            Math.cos(angle) * radius,
-            0,
-            Math.sin(angle) * radius
-        );
+                Math.cos(angle) * radius,
+                0,
+                Math.sin(angle) * radius);
         spawnParticle(loc1, p, data);
-        
+
         // Вторая спираль (противоположная)
         Location loc2 = center.clone().add(
-            Math.cos(angle + Math.PI) * radius,
-            0,
-            Math.sin(angle + Math.PI) * radius
-        );
+                Math.cos(angle + Math.PI) * radius,
+                0,
+                Math.sin(angle + Math.PI) * radius);
         spawnParticle(loc2, p, data);
     }
 
@@ -403,11 +404,10 @@ public class BanAnimationEngine implements Listener {
         for (int i = 0; i < points; i++) {
             double angle = 2 * Math.PI * i / points + Math.toRadians(tick * 2);
             Location loc = center.clone().add(
-                Math.cos(angle) * radius,
-                0,
-                Math.sin(angle) * radius
-            );
-            
+                    Math.cos(angle) * radius,
+                    0,
+                    Math.sin(angle) * radius);
+
             ParticleEffectConfig singleParticle = new ParticleEffectConfig();
             singleParticle.particleType = p.particleType;
             singleParticle.count = 1;
@@ -415,7 +415,7 @@ public class BanAnimationEngine implements Listener {
             singleParticle.offsetX = p.offsetX;
             singleParticle.offsetY = p.offsetY;
             singleParticle.offsetZ = p.offsetZ;
-            
+
             spawnParticle(loc, singleParticle, data);
         }
     }
@@ -425,19 +425,22 @@ public class BanAnimationEngine implements Listener {
         PotionEffectType slowness = EffectCompat.getSlowness();
         PotionEffectType jumpBoost = EffectCompat.getJumpBoost();
         PotionEffectType levitation = EffectCompat.getLevitation();
-        
+
         int levitationAmplifier = config.customLevitationAmplifier >= 0 ? config.customLevitationAmplifier : 1;
 
-        if (slowness != null) EffectCompat.applyEffect(player, slowness, config.totalTicks + 40, 255, false, false);
-        if (jumpBoost != null) EffectCompat.applyEffect(player, jumpBoost, config.totalTicks + 40, 128, false, false);
-        if (levitation != null) EffectCompat.applyEffect(player, levitation, config.totalTicks, levitationAmplifier, false, false);
+        if (slowness != null)
+            EffectCompat.applyEffect(player, slowness, config.totalTicks + 40, 255, false, false);
+        if (jumpBoost != null)
+            EffectCompat.applyEffect(player, jumpBoost, config.totalTicks + 40, 128, false, false);
+        if (levitation != null)
+            EffectCompat.applyEffect(player, levitation, config.totalTicks, levitationAmplifier, false, false);
 
         if (player.getGameMode() != GameMode.CREATIVE && player.getGameMode() != GameMode.SPECTATOR) {
-            player.setAllowFlight(false); 
+            player.setAllowFlight(false);
             player.setFlying(false);
         }
     }
-    
+
     /**
      * Снятие брони с игрока
      */
@@ -448,13 +451,13 @@ public class BanAnimationEngine implements Listener {
         player.getInventory().setBoots(null);
         player.updateInventory();
     }
-    
+
     /**
      * Сохранение инвентаря игрока для постепенного выкидывания
      */
     private void savePlayerInventory(Player player) {
         List<ItemStack> items = new ArrayList<>();
-        
+
         // Сначала добавляем броню (она должна выпасть первой)
         if (player.getInventory().getHelmet() != null) {
             items.add(player.getInventory().getHelmet().clone());
@@ -468,19 +471,19 @@ public class BanAnimationEngine implements Listener {
         if (player.getInventory().getBoots() != null) {
             items.add(player.getInventory().getBoots().clone());
         }
-        
+
         // Потом добавляем основной инвентарь
         for (ItemStack item : player.getInventory().getContents()) {
             if (item != null && item.getType() != Material.AIR) {
                 items.add(item.clone());
             }
         }
-        
+
         playerInventories.put(player.getUniqueId(), items);
         itemDropCounters.put(player.getUniqueId(), 0);
         droppedItems.put(player.getUniqueId(), new ArrayList<>());
     }
-    
+
     /**
      * Очистка инвентаря игрока после сохранения
      */
@@ -488,37 +491,39 @@ public class BanAnimationEngine implements Listener {
         player.getInventory().clear();
         player.updateInventory();
     }
-    
+
     /**
      * Выкидывание следующего предмета из инвентаря
      */
     private void dropNextItem(Player player) {
         UUID uuid = player.getUniqueId();
         List<ItemStack> items = playerInventories.get(uuid);
-        if (items == null || items.isEmpty()) return;
-        
+        if (items == null || items.isEmpty())
+            return;
+
         Integer counter = itemDropCounters.get(uuid);
-        if (counter == null || counter >= items.size()) return;
-        
+        if (counter == null || counter >= items.size())
+            return;
+
         ItemStack item = items.get(counter);
         Location dropLoc = player.getLocation().add(0, 1, 0);
-        
+
         // Выкидываем предмет
         Item droppedItem = player.getWorld().dropItemNaturally(dropLoc, item);
         droppedItem.setPickupDelay(Integer.MAX_VALUE); // Нельзя подобрать
-        
+
         // Сохраняем ссылку на выпавший предмет для последующего удаления
         List<Item> dropped = droppedItems.get(uuid);
         if (dropped != null) {
             dropped.add(droppedItem);
         }
-        
+
         // Звук подбора ресурсов
         player.getWorld().playSound(dropLoc, Sound.ENTITY_ITEM_PICKUP, 0.5f, 1.0f);
-        
+
         itemDropCounters.put(uuid, counter + 1);
     }
-    
+
     /**
      * Динамическое выкидывание предметов - ускоряется к концу анимации
      * Гарантирует что все предметы будут выкинуты до конца анимации
@@ -526,102 +531,105 @@ public class BanAnimationEngine implements Listener {
     private void dropNextItemDynamic(Player player, int currentTick, int totalTicks) {
         UUID uuid = player.getUniqueId();
         List<ItemStack> items = playerInventories.get(uuid);
-        if (items == null || items.isEmpty()) return;
-        
+        if (items == null || items.isEmpty())
+            return;
+
         Integer counter = itemDropCounters.get(uuid);
-        if (counter == null || counter >= items.size()) return;
-        
+        if (counter == null || counter >= items.size())
+            return;
+
         int remainingItems = items.size() - counter;
         int remainingTicks = totalTicks - currentTick;
-        
+
         // Если предметов не осталось или времени нет - выходим
-        if (remainingItems <= 0 || remainingTicks <= 0) return;
-        
+        if (remainingItems <= 0 || remainingTicks <= 0)
+            return;
+
         // Вычисляем нужный интервал чтобы все предметы успели выпасть
         // Добавляем небольшой запас (80% времени) для надежности
-        int optimalInterval = Math.max(1, (int)(remainingTicks * 0.8 / remainingItems));
-        
+        int optimalInterval = Math.max(1, (int) (remainingTicks * 0.8 / remainingItems));
+
         // Используем минимальный интервал из конфига или вычисленного
         int interval = Math.min(config.itemDropIntervalTicks, optimalInterval);
-        
+
         // Если пора выкидывать предмет
         if (currentTick % interval == 0) {
             ItemStack item = items.get(counter);
             Location dropLoc = player.getLocation().add(0, 1, 0);
-            
+
             // Выкидываем предмет (можно подобрать сразу после анимации)
             Item droppedItem = player.getWorld().dropItemNaturally(dropLoc, item);
             droppedItem.setPickupDelay(20); // Небольшая задержка 1 секунда
-            
+
             // Сохраняем ссылку на выпавший предмет
             List<Item> dropped = droppedItems.get(uuid);
             if (dropped != null) {
                 dropped.add(droppedItem);
             }
-            
+
             // Звук подбора ресурсов
             player.getWorld().playSound(dropLoc, Sound.ENTITY_ITEM_PICKUP, 0.5f, 1.0f);
-            
+
             itemDropCounters.put(uuid, counter + 1);
         }
     }
-    
+
     /**
      * Перемещение игрока в пространстве
      */
     private void movePlayer(Player player, int currentTick) {
-        if (config.movement == null) return;
-        
+        if (config.movement == null)
+            return;
+
         Location startLoc = playerStartLocations.get(player.getUniqueId());
-        if (startLoc == null) return;
-        
+        if (startLoc == null)
+            return;
+
         int movementDuration = config.movement.endTick - config.movement.startTick;
         int movementTick = currentTick - config.movement.startTick;
-        
+
         if (config.movement.smooth && movementDuration > 0) {
             // Плавное перемещение с интерполяцией
             double progress = (double) movementTick / movementDuration;
             double x = startLoc.getX() + config.movement.offsetX * progress;
             double y = startLoc.getY() + config.movement.offsetY * progress;
             double z = startLoc.getZ() + config.movement.offsetZ * progress;
-            
+
             Location newLoc = new Location(startLoc.getWorld(), x, y, z, startLoc.getYaw(), startLoc.getPitch());
             player.teleport(newLoc);
         } else if (movementTick == 0) {
             // Мгновенное перемещение в начале
-            Location newLoc = startLoc.clone().add(config.movement.offsetX, config.movement.offsetY, config.movement.offsetZ);
+            Location newLoc = startLoc.clone().add(config.movement.offsetX, config.movement.offsetY,
+                    config.movement.offsetZ);
             player.teleport(newLoc);
         }
     }
-    
+
     /**
      * След из частиц за игроком (оптимизировано через PacketEvents)
      */
     private void spawnParticleTrail(Player player, ParticleTrailConfig trail) {
         Location loc = player.getLocation();
-        
+
         Object particleData = null;
         if (trail.isColored && (trail.particleType == Particle.REDSTONE || trail.particleType.name().equals("DUST"))) {
             particleData = new Particle.DustOptions(
-                Color.fromRGB(
-                    Math.max(0, Math.min(255, trail.red)),
-                    Math.max(0, Math.min(255, trail.green)),
-                    Math.max(0, Math.min(255, trail.blue))
-                ),
-                trail.particleSize
-            );
+                    Color.fromRGB(
+                            Math.max(0, Math.min(255, trail.red)),
+                            Math.max(0, Math.min(255, trail.green)),
+                            Math.max(0, Math.min(255, trail.blue))),
+                    trail.particleSize);
         }
-        
+
         // Отправляем через PacketEvents
         ParticlePacketCompat.sendParticleInRadius(
-            loc,
-            trail.particleType,
-            trail.count,
-            trail.offsetX, trail.offsetY, trail.offsetZ,
-            0.0,
-            64.0,
-            particleData
-        );
+                loc,
+                trail.particleType,
+                trail.count,
+                trail.offsetX, trail.offsetY, trail.offsetZ,
+                0.0,
+                64.0,
+                particleData);
     }
 
     private void unfreezePlayer(Player player) {
@@ -630,23 +638,25 @@ public class BanAnimationEngine implements Listener {
     }
 
     private void cleanup(Player player) {
-        UUID uuid = player.getUniqueId(); 
-        animatingPlayers.remove(uuid); 
+        UUID uuid = player.getUniqueId();
+        animatingPlayers.remove(uuid);
         pendingBans.remove(uuid);
         playerInventories.remove(uuid);
         itemDropCounters.remove(uuid);
         playerStartLocations.remove(uuid);
-        
+
         // НЕ удаляем выпавшие предметы - они остаются на земле
         droppedItems.remove(uuid);
-        
-        if (player.isOnline()) unfreezePlayer(player);
+
+        if (player.isOnline())
+            unfreezePlayer(player);
     }
 
     private void handleQuit(UUID playerId) {
         if (animatingPlayers.remove(playerId)) {
             String cmd = pendingBans.remove(playerId);
-            if (cmd != null) executeBanCommand(cmd);
+            if (cmd != null)
+                executeBanCommand(cmd);
         }
     }
 
@@ -658,143 +668,156 @@ public class BanAnimationEngine implements Listener {
         Bukkit.dispatchCommand(Bukkit.getConsoleSender(), command);
     }
 
-    public boolean isAnimating(Player player) { 
-        return player != null && animatingPlayers.contains(player.getUniqueId()); 
+    public boolean isAnimating(Player player) {
+        return player != null && animatingPlayers.contains(player.getUniqueId());
     }
 
-    private void cancelInventoryMutation(Player player, Cancellable event) { 
-        event.setCancelled(true); 
-        forceInventoryResync(player); 
+    private void cancelInventoryMutation(Player player, Cancellable event) {
+        event.setCancelled(true);
+        forceInventoryResync(player);
     }
 
     private void forceInventoryResync(Player player) {
-        if (player == null || !player.isOnline()) return;
+        if (player == null || !player.isOnline())
+            return;
         player.updateInventory();
-        SchedulerManager.getAdapter().runEntitySyncDelayed(player, () -> { 
-            if (player.isOnline()) player.updateInventory(); 
+        SchedulerManager.getAdapter().runEntitySyncDelayed(player, () -> {
+            if (player.isOnline())
+                player.updateInventory();
         }, 1L);
     }
 
-    @EventHandler(priority = EventPriority.MONITOR) 
-    public void onPlayerQuit(PlayerQuitEvent e) { 
-        handleQuit(e.getPlayer().getUniqueId()); 
+    @EventHandler(priority = EventPriority.MONITOR)
+    public void onPlayerQuit(PlayerQuitEvent e) {
+        handleQuit(e.getPlayer().getUniqueId());
     }
 
-    @EventHandler(priority = EventPriority.LOWEST) 
+    @EventHandler(priority = EventPriority.LOWEST)
     public void onPlayerMove(PlayerMoveEvent e) {
         if (isAnimating(e.getPlayer())) {
             Location from = e.getFrom(), to = e.getTo();
             if (to != null && (from.getX() != to.getX() || from.getZ() != to.getZ())) {
-                Location newTo = to.clone(); 
-                newTo.setX(from.getX()); 
-                newTo.setZ(from.getZ()); 
+                Location newTo = to.clone();
+                newTo.setX(from.getX());
+                newTo.setZ(from.getZ());
                 e.setTo(newTo);
             }
         }
     }
 
-    @EventHandler(priority = EventPriority.HIGHEST) 
-    public void onPlayerInteract(PlayerInteractEvent e) { 
-        if (isAnimating(e.getPlayer())) cancelInventoryMutation(e.getPlayer(), e); 
+    @EventHandler(priority = EventPriority.HIGHEST)
+    public void onPlayerInteract(PlayerInteractEvent e) {
+        if (isAnimating(e.getPlayer()))
+            cancelInventoryMutation(e.getPlayer(), e);
     }
 
-    @EventHandler(priority = EventPriority.HIGHEST) 
-    public void onPlayerCommand(PlayerCommandPreprocessEvent e) { 
-        if (isAnimating(e.getPlayer())) e.setCancelled(true); 
+    @EventHandler(priority = EventPriority.HIGHEST)
+    public void onPlayerCommand(PlayerCommandPreprocessEvent e) {
+        if (isAnimating(e.getPlayer()))
+            e.setCancelled(true);
     }
 
-    @EventHandler(priority = EventPriority.HIGHEST) 
-    public void onPlayerDropItem(PlayerDropItemEvent e) { 
-        if (isAnimating(e.getPlayer())) { 
-            cancelInventoryMutation(e.getPlayer(), e); 
-            e.getItemDrop().remove(); 
-        } 
-    }
-
-    @EventHandler(priority = EventPriority.HIGHEST) 
-    public void onInventoryClick(InventoryClickEvent e) { 
-        if (e.getWhoClicked() instanceof Player && isAnimating((Player) e.getWhoClicked())) 
-            cancelInventoryMutation((Player) e.getWhoClicked(), e); 
-    }
-
-    @EventHandler(priority = EventPriority.HIGHEST) 
-    public void onInventoryDrag(InventoryDragEvent e) { 
-        if (e.getWhoClicked() instanceof Player && isAnimating((Player) e.getWhoClicked())) 
-            cancelInventoryMutation((Player) e.getWhoClicked(), e); 
-    }
-
-    @EventHandler(priority = EventPriority.HIGHEST) 
-    public void onSwapHandItems(PlayerSwapHandItemsEvent e) { 
-        if (isAnimating(e.getPlayer())) cancelInventoryMutation(e.getPlayer(), e); 
-    }
-
-    @EventHandler(priority = EventPriority.HIGHEST) 
-    public void onPlayerItemHeld(PlayerItemHeldEvent e) { 
-        if (isAnimating(e.getPlayer())) cancelInventoryMutation(e.getPlayer(), e); 
-    }
-
-    @EventHandler(priority = EventPriority.HIGHEST) 
-    public void onInventoryOpen(InventoryOpenEvent e) { 
-        if (e.getPlayer() instanceof Player && isAnimating((Player) e.getPlayer())) 
-            cancelInventoryMutation((Player) e.getPlayer(), e); 
-    }
-
-    @EventHandler(priority = EventPriority.HIGHEST) 
-    public void onBlockBreak(BlockBreakEvent e) { 
-        if (isAnimating(e.getPlayer())) cancelInventoryMutation(e.getPlayer(), e); 
-    }
-
-    @EventHandler(priority = EventPriority.HIGHEST) 
-    public void onBlockPlace(BlockPlaceEvent e) { 
-        if (isAnimating(e.getPlayer())) cancelInventoryMutation(e.getPlayer(), e); 
-    }
-
-    @EventHandler(priority = EventPriority.HIGHEST) 
-    public void onEntityDamage(EntityDamageByEntityEvent e) {
-        if (e.getDamager() instanceof Player && isAnimating((Player) e.getDamager())) e.setCancelled(true);
-        if (e.getEntity() instanceof Player && isAnimating((Player) e.getEntity())) e.setCancelled(true);
-    }
-
-    @EventHandler(priority = EventPriority.HIGHEST) 
-    public void onAttemptPickupItem(PlayerAttemptPickupItemEvent e) { 
-        if (isAnimating(e.getPlayer())) e.setCancelled(true); 
-    }
-
-    @EventHandler(priority = EventPriority.HIGHEST) 
-    public void onItemPickup(EntityPickupItemEvent e) { 
-        if (e.getEntity() instanceof Player && isAnimating((Player) e.getEntity())) e.setCancelled(true); 
-    }
-
-    @EventHandler(priority = EventPriority.HIGHEST) 
-    public void onPlayerDeath(PlayerDeathEvent e) {
-        Player p = e.getEntity();
-        if (isAnimating(p)) { 
-            e.getDrops().clear(); 
-            e.setDroppedExp(0); 
-            e.setKeepInventory(true); 
-            e.setKeepLevel(true); 
-            forceInventoryResync(p); 
+    @EventHandler(priority = EventPriority.HIGHEST)
+    public void onPlayerDropItem(PlayerDropItemEvent e) {
+        if (isAnimating(e.getPlayer())) {
+            cancelInventoryMutation(e.getPlayer(), e);
+            e.getItemDrop().remove();
         }
     }
-    
+
+    @EventHandler(priority = EventPriority.HIGHEST)
+    public void onInventoryClick(InventoryClickEvent e) {
+        if (e.getWhoClicked() instanceof Player && isAnimating((Player) e.getWhoClicked()))
+            cancelInventoryMutation((Player) e.getWhoClicked(), e);
+    }
+
+    @EventHandler(priority = EventPriority.HIGHEST)
+    public void onInventoryDrag(InventoryDragEvent e) {
+        if (e.getWhoClicked() instanceof Player && isAnimating((Player) e.getWhoClicked()))
+            cancelInventoryMutation((Player) e.getWhoClicked(), e);
+    }
+
+    @EventHandler(priority = EventPriority.HIGHEST)
+    public void onSwapHandItems(PlayerSwapHandItemsEvent e) {
+        if (isAnimating(e.getPlayer()))
+            cancelInventoryMutation(e.getPlayer(), e);
+    }
+
+    @EventHandler(priority = EventPriority.HIGHEST)
+    public void onPlayerItemHeld(PlayerItemHeldEvent e) {
+        if (isAnimating(e.getPlayer()))
+            cancelInventoryMutation(e.getPlayer(), e);
+    }
+
+    @EventHandler(priority = EventPriority.HIGHEST)
+    public void onInventoryOpen(InventoryOpenEvent e) {
+        if (e.getPlayer() instanceof Player && isAnimating((Player) e.getPlayer()))
+            cancelInventoryMutation((Player) e.getPlayer(), e);
+    }
+
+    @EventHandler(priority = EventPriority.HIGHEST)
+    public void onBlockBreak(BlockBreakEvent e) {
+        if (isAnimating(e.getPlayer()))
+            cancelInventoryMutation(e.getPlayer(), e);
+    }
+
+    @EventHandler(priority = EventPriority.HIGHEST)
+    public void onBlockPlace(BlockPlaceEvent e) {
+        if (isAnimating(e.getPlayer()))
+            cancelInventoryMutation(e.getPlayer(), e);
+    }
+
+    @EventHandler(priority = EventPriority.HIGHEST)
+    public void onEntityDamage(EntityDamageByEntityEvent e) {
+        if (e.getDamager() instanceof Player && isAnimating((Player) e.getDamager()))
+            e.setCancelled(true);
+        if (e.getEntity() instanceof Player && isAnimating((Player) e.getEntity()))
+            e.setCancelled(true);
+    }
+
+    @EventHandler(priority = EventPriority.HIGHEST)
+    public void onAttemptPickupItem(PlayerAttemptPickupItemEvent e) {
+        if (isAnimating(e.getPlayer()))
+            e.setCancelled(true);
+    }
+
+    @EventHandler(priority = EventPriority.HIGHEST)
+    public void onItemPickup(EntityPickupItemEvent e) {
+        if (e.getEntity() instanceof Player && isAnimating((Player) e.getEntity()))
+            e.setCancelled(true);
+    }
+
+    @EventHandler(priority = EventPriority.HIGHEST)
+    public void onPlayerDeath(PlayerDeathEvent e) {
+        Player p = e.getEntity();
+        if (isAnimating(p)) {
+            e.getDrops().clear();
+            e.setDroppedExp(0);
+            e.setKeepInventory(true);
+            e.setKeepLevel(true);
+            forceInventoryResync(p);
+        }
+    }
+
     @EventHandler(priority = EventPriority.HIGHEST)
     public void onArmorStandManipulate(org.bukkit.event.player.PlayerArmorStandManipulateEvent e) {
         if (isAnimating(e.getPlayer())) {
             e.setCancelled(true);
         }
     }
-    
+
     @EventHandler(priority = EventPriority.HIGHEST)
     public void onInventoryClose(org.bukkit.event.inventory.InventoryCloseEvent e) {
         if (e.getPlayer() instanceof Player && isAnimating((Player) e.getPlayer())) {
             // Принудительно закрываем инвентарь
             Player p = (Player) e.getPlayer();
             SchedulerManager.getAdapter().runEntitySyncDelayed(p, () -> {
-                if (p.isOnline()) p.closeInventory();
+                if (p.isOnline())
+                    p.closeInventory();
             }, 1L);
         }
     }
-    
+
     @EventHandler(priority = EventPriority.HIGHEST)
     public void onInventoryMoveItem(org.bukkit.event.inventory.InventoryMoveItemEvent e) {
         // Проверяем все онлайн игроков которые анимируются
@@ -802,11 +825,13 @@ public class BanAnimationEngine implements Listener {
             Player p = Bukkit.getPlayer(uuid);
             if (p != null && p.isOnline()) {
                 // Если событие связано с инвентарем анимирующегося игрока
-                if (e.getSource().getHolder() instanceof Player && ((Player) e.getSource().getHolder()).getUniqueId().equals(uuid)) {
+                if (e.getSource().getHolder() instanceof Player
+                        && ((Player) e.getSource().getHolder()).getUniqueId().equals(uuid)) {
                     e.setCancelled(true);
                     return;
                 }
-                if (e.getDestination().getHolder() instanceof Player && ((Player) e.getDestination().getHolder()).getUniqueId().equals(uuid)) {
+                if (e.getDestination().getHolder() instanceof Player
+                        && ((Player) e.getDestination().getHolder()).getUniqueId().equals(uuid)) {
                     e.setCancelled(true);
                     return;
                 }
@@ -814,12 +839,12 @@ public class BanAnimationEngine implements Listener {
         }
     }
 
-    public void shutdown() { 
-        HandlerList.unregisterAll(this); 
-        
+    public void shutdown() {
+        HandlerList.unregisterAll(this);
+
         // НЕ удаляем выпавшие предметы при выключении - они остаются на земле
-        
-        animatingPlayers.clear(); 
+
+        animatingPlayers.clear();
         pendingBans.clear();
         playerInventories.clear();
         itemDropCounters.clear();

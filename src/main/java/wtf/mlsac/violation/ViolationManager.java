@@ -182,9 +182,6 @@ public class ViolationManager {
     }
 
     public void handleFlag(Player player, double probability, double buffer) {
-        if (probability < config.getAiPunishmentMinProbability()) {
-            return;
-        }
         UUID uuid = player.getUniqueId();
         long now = System.currentTimeMillis();
         int newVl = incrementViolationLevel(uuid);

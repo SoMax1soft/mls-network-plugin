@@ -52,9 +52,9 @@ public class Config {
     private final double aiBufferResetOnFlag;
     private final double aiBufferMultiplier;
     private final double aiBufferDecrease;
+    private final double aiBufferDecreaseThreshold;
     private final int aiSequence;
     private final int aiStep;
-    private final double aiPunishmentMinProbability;
     private final Map<Integer, String> punishmentCommands;
     private final boolean animationEnabled;
     private final String animationType;
@@ -117,7 +117,7 @@ public class Config {
     public static final double DEFAULT_AI_BUFFER_RESET_ON_FLAG = 25.0;
     public static final double DEFAULT_AI_BUFFER_MULTIPLIER = 100.0;
     public static final double DEFAULT_AI_BUFFER_DECREASE = 0.25;
-    public static final double DEFAULT_AI_PUNISHMENT_MIN_PROBABILITY = 0.85;
+    public static final double DEFAULT_AI_BUFFER_DECREASE_THRESHOLD = 0.10;
     public static final boolean DEFAULT_ANIMATION_ENABLED = true;
     public static final String DEFAULT_ANIMATION_TYPE = "classic_ban";
     public static final int DEFAULT_AI_SEQUENCE = 40;
@@ -177,9 +177,9 @@ public class Config {
         this.aiBufferResetOnFlag = DEFAULT_AI_BUFFER_RESET_ON_FLAG;
         this.aiBufferMultiplier = DEFAULT_AI_BUFFER_MULTIPLIER;
         this.aiBufferDecrease = DEFAULT_AI_BUFFER_DECREASE;
+        this.aiBufferDecreaseThreshold = DEFAULT_AI_BUFFER_DECREASE_THRESHOLD;
         this.aiSequence = DEFAULT_AI_SEQUENCE;
         this.aiStep = DEFAULT_AI_STEP;
-        this.aiPunishmentMinProbability = DEFAULT_AI_PUNISHMENT_MIN_PROBABILITY;
         this.punishmentCommands = new HashMap<>();
         this.animationEnabled = DEFAULT_ANIMATION_ENABLED;
         this.animationType = DEFAULT_ANIMATION_TYPE;
@@ -270,15 +270,18 @@ public class Config {
                 config.getDouble("ai.buffer.reset-on-flag", DEFAULT_AI_BUFFER_RESET_ON_FLAG));
         this.aiBufferMultiplier = config.getDouble("violation.multiplier",
                 config.getDouble("ai.buffer.multiplier", DEFAULT_AI_BUFFER_MULTIPLIER));
-        this.aiBufferDecrease = config.getDouble("violation.decay",
-                config.getDouble("ai.buffer.decrease", DEFAULT_AI_BUFFER_DECREASE));
+        if (config.isConfigurationSection("violation.decay")) {
+            this.aiBufferDecreaseThreshold = config.getDouble("violation.decay.threshold", DEFAULT_AI_BUFFER_DECREASE_THRESHOLD);
+            this.aiBufferDecrease = config.getDouble("violation.decay.amount", DEFAULT_AI_BUFFER_DECREASE);
+        } else {
+            this.aiBufferDecreaseThreshold = config.getDouble("violation.decay.threshold", DEFAULT_AI_BUFFER_DECREASE_THRESHOLD);
+            this.aiBufferDecrease = config.getDouble("violation.decay",
+                    config.getDouble("ai.buffer.decrease", DEFAULT_AI_BUFFER_DECREASE));
+        }
         this.aiSequence = config.getInt("detection.sample-size",
                 config.getInt("ai.sequence", DEFAULT_AI_SEQUENCE));
         this.aiStep = config.getInt("detection.sample-interval",
                 config.getInt("ai.step", DEFAULT_AI_STEP));
-        double punishmentMinProb = config.getDouble("penalties.min-probability",
-                config.getDouble("ai.punishment.min-probability", DEFAULT_AI_PUNISHMENT_MIN_PROBABILITY));
-        this.aiPunishmentMinProbability = clampThreshold(punishmentMinProb, "penalties.min-probability", logger);
         this.animationEnabled = config.getBoolean("penalties.animation.enabled", DEFAULT_ANIMATION_ENABLED);
         this.animationType = config.getString("penalties.animation.type", DEFAULT_ANIMATION_TYPE);
         this.punishmentCommands = new HashMap<>();
@@ -592,16 +595,16 @@ public class Config {
         return aiBufferDecrease;
     }
 
+    public double getAiBufferDecreaseThreshold() {
+        return aiBufferDecreaseThreshold;
+    }
+
     public int getAiSequence() {
         return aiSequence;
     }
 
     public int getAiStep() {
         return aiStep;
-    }
-
-    public double getAiPunishmentMinProbability() {
-        return aiPunishmentMinProbability;
     }
 
     public boolean isAnimationEnabled() {

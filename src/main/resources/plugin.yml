@@ -22,7 +22,7 @@ commands:
       /mlsac kicklist - View kick history
       /mlsac punish <player> - Execute max punishment
     permission: mlsac.admin
-    aliases: [ml]
+    aliases: [ml, mls]
 
 permissions:
   mlsac.admin:
@@ -41,7 +41,4 @@ permissions:
     default: op
   mlsac.reload:
     description: Allows config reload
-    default: op
-  mlsac.collect:
-    description: Allows data collection
     default: op

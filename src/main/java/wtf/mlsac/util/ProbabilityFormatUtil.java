@@ -27,7 +27,8 @@ public final class ProbabilityFormatUtil {
             Function<Double, String> formatter) {
         return template
                 .replace("{AVG}", formatter.apply(data.getAverageProbability()))
-                .replace("{LAST-FAST}", formatter.apply(data.getLastProbability("fast")))
+                .replace("{LAST-FAST}", formatter.apply(data.getLastProbabilityContains("fast")))
+                .replace("{FAST}", formatter.apply(data.getLastProbabilityContains("fast")))
                 .replace("{LAST-PRO}", formatter.apply(data.getLastProbability("pro")))
                 .replace("{LAST-ULTRA}", formatter.apply(data.getLastProbability("ultra")))
                 .replace("{AVG-FAST}", formatter.apply(data.getAverageProbability("fast")))

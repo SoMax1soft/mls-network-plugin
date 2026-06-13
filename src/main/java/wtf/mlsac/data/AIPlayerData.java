@@ -85,9 +85,6 @@ public class AIPlayerData {
         TickData tickData = aimProcessor.process(yaw, pitch);
         lock.writeLock().lock();
         try {
-            if (tickBuffer.size() >= sequence) {
-                tickBuffer.pollFirst();
-            }
             tickBuffer.addLast(tickData);
             if (tickHistory.size() >= MAX_TICK_HISTORY) {
                 tickHistory.pollFirst();
@@ -138,7 +135,6 @@ public class AIPlayerData {
         }
     }
 
-
     public boolean shouldSendData(int step, int sequence) {
         lock.readLock().lock();
         try {
@@ -165,7 +161,6 @@ public class AIPlayerData {
             lock.readLock().unlock();
         }
     }
-
 
     public void resetStepCounter() {
         lock.writeLock().lock();
@@ -257,12 +252,12 @@ public class AIPlayerData {
         }
     }
 
-    public void updateBuffer(double probability, double multiplier, double decreaseAmount, double threshold) {
-        updateBuffer(probability, null, multiplier, decreaseAmount, threshold);
+    public void updateBuffer(double probability, double multiplier, double decreaseAmount, double threshold, double decreaseThreshold) {
+        updateBuffer(probability, null, multiplier, decreaseAmount, threshold, decreaseThreshold);
     }
 
     public void updateBuffer(double probability, String modelName, double multiplier, double decreaseAmount,
-            double threshold) {
+            double threshold, double decreaseThreshold) {
         lock.writeLock().lock();
         try {
             this.lastProbability = probability;
@@ -285,7 +280,7 @@ public class AIPlayerData {
             if (probability > 0.8) {
                 this.highProbabilityDetections++;
             }
-            this.buffer = BufferCalculator.updateBuffer(buffer, probability, multiplier, decreaseAmount, threshold);
+            this.buffer = BufferCalculator.updateBuffer(buffer, probability, multiplier, decreaseAmount, threshold, decreaseThreshold);
         } finally {
             lock.writeLock().unlock();
         }
@@ -351,6 +346,21 @@ public class AIPlayerData {
         lock.readLock().lock();
         try {
             return lastProbabilitiesByModel.getOrDefault(normalizeModelName(modelName), 0.0D);
+        } finally {
+            lock.readLock().unlock();
+        }
+    }
+
+    public double getLastProbabilityContains(String substring) {
+        lock.readLock().lock();
+        try {
+            String search = normalizeModelName(substring);
+            for (Map.Entry<String, Double> entry : lastProbabilitiesByModel.entrySet()) {
+                if (entry.getKey().contains(search)) {
+                    return entry.getValue();
+                }
+            }
+            return 0.0D;
         } finally {
             lock.readLock().unlock();
         }

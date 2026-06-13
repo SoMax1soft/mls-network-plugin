@@ -78,7 +78,7 @@ class ConfigSyncUtilTest {
     @Test
     void copyMissingAddsDefaultNumericMapWhenWholeSectionIsMissing() throws Exception {
         YamlConfiguration target = new YamlConfiguration();
-        target.set("penalties.min-probability", 0.01);
+        target.set("penalties.animation.enabled", true);
 
         YamlConfiguration defaults = new YamlConfiguration();
         defaults.set("penalties.actions.1", "{KICK} kick {PLAYER} MLSAC Detection (VL:{VL})");

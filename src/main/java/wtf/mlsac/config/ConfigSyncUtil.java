@@ -112,8 +112,27 @@ public final class ConfigSyncUtil {
         changed |= copyLegacyIfMissing(target, "ai.buffer.flag", "violation.threshold");
         changed |= copyLegacyIfMissing(target, "ai.buffer.reset-on-flag", "violation.reset-value");
         changed |= copyLegacyIfMissing(target, "ai.buffer.multiplier", "violation.multiplier");
-        changed |= copyLegacyIfMissing(target, "ai.buffer.decrease", "violation.decay");
-        changed |= copyLegacyIfMissing(target, "ai.punishment.min-probability", "penalties.min-probability");
+        
+        // Migrate legacy decay format (double) to section (threshold, amount)
+        if (target.isSet("ai.buffer.decrease") && (target.isDouble("ai.buffer.decrease") || target.isInt("ai.buffer.decrease"))) {
+            if (!target.isSet("violation.decay")) {
+                double val = target.getDouble("ai.buffer.decrease");
+                target.set("violation.decay.amount", val);
+                target.set("violation.decay.threshold", 0.10);
+                changed = true;
+            }
+            target.set("ai.buffer.decrease", null);
+            changed = true;
+        }
+        
+        if (target.isSet("violation.decay") && (target.isDouble("violation.decay") || target.isInt("violation.decay"))) {
+            double val = target.getDouble("violation.decay");
+            target.set("violation.decay", null);
+            target.set("violation.decay.amount", val);
+            target.set("violation.decay.threshold", 0.10);
+            changed = true;
+        }
+
         changed |= copyLegacySectionIfMissing(target, "ai.models", "detection.models");
         changed |= copyLegacySectionIfMissing(target, "ai.punishment.commands", "penalties.actions");
 

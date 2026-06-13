@@ -266,7 +266,7 @@ public class AICheck {
 
         if (!isOnlyAlert) {
             data.updateBuffer(probability, modelName, config.getAiBufferMultiplier(),
-                    config.getAiBufferDecrease(), config.getAiAlertThreshold());
+                    config.getAiBufferDecrease(), config.getAiAlertThreshold(), config.getAiBufferDecreaseThreshold());
         } else {
             plugin.debug("[AI] Only-alert mode for model " + modelName + ", skipping buffer/punishment");
         }

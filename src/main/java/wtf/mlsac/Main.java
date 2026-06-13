@@ -87,8 +87,6 @@ public final class Main extends JavaPlugin {
     @Override
     public void onLoad() {
         VersionAdapter.init(getLogger());
-        // PacketEvents loading moved to onEnable to avoid ClassLoader issues with
-        // PlugMan
     }
 
     @Override
@@ -105,7 +103,6 @@ public final class Main extends JavaPlugin {
         }
 
         try {
-            // Check if API is already set (reloading)
             if (PacketEvents.getAPI() == null || !PacketEvents.getAPI().isLoaded()) {
                 PacketEvents.setAPI(SpigotPacketEventsBuilder.build(this));
                 PacketEvents.getAPI().getSettings()
@@ -145,8 +142,7 @@ public final class Main extends JavaPlugin {
         this.aiCheck = new AICheck(this, config, aiClientProvider, alertManager, violationManager);
         this.violationManager.setAICheck(aiCheck);
         this.detectionResponseManager = new DetectionResponseManager(this, config);
-        
-        // Инициализация Animation Manager
+
         this.animationManager = new wtf.mlsac.penalty.engine.AnimationManager(this);
         this.animationManager.initialize();
 
@@ -191,7 +187,7 @@ public final class Main extends JavaPlugin {
             command.setExecutor(commandHandler);
             command.setTabCompleter(commandHandler);
         }
-        getLogger().info("MLSAC enabled successfully!");
+        getLogger().info("MLS enabled successfully!");
         getLogger().info("Data collector: ENABLED (output: " + config.getOutputDirectory() + ")");
         if (config.isAiEnabled()) {
             getLogger().info("AI detection: ENABLED (threshold: " + config.getAiAlertThreshold() + ")");
@@ -212,7 +208,6 @@ public final class Main extends JavaPlugin {
             hologramManager.stop();
         }
         if (sessionManager != null) {
-            getLogger().info("Stopping all active sessions...");
             sessionManager.stopAllSessions();
         }
         if (aiCheck != null) {
@@ -263,8 +258,6 @@ public final class Main extends JavaPlugin {
             PacketEvents.getAPI().terminate();
         }
         SchedulerManager.reset();
-
-        getLogger().info("MLSAC disabled successfully!");
     }
 
     public void reloadPluginConfig() {
@@ -375,7 +368,7 @@ public final class Main extends JavaPlugin {
     public ViolationManager getViolationManager() {
         return violationManager;
     }
-    
+
     public wtf.mlsac.penalty.engine.AnimationManager getAnimationManager() {
         return animationManager;
     }

@@ -39,17 +39,21 @@ public class BufferCalculator {
         return Math.max(0.0, currentBuffer - decreaseAmount);
     }
     public static double updateBuffer(double currentBuffer, double probability, 
-                                       double multiplier, double decreaseAmount, double threshold) {
+                                       double multiplier, double decreaseAmount, double threshold, double decreaseThreshold) {
         if (probability > threshold) {
             return currentBuffer + calculateBufferIncrease(probability, multiplier, threshold);
-        } else if (probability < LOW_PROBABILITY_THRESHOLD) {
+        } else if (probability < decreaseThreshold) {
             return calculateBufferDecrease(currentBuffer, decreaseAmount);
         }
         return currentBuffer;
     }
     public static double updateBuffer(double currentBuffer, double probability, 
+                                       double multiplier, double decreaseAmount, double threshold) {
+        return updateBuffer(currentBuffer, probability, multiplier, decreaseAmount, threshold, LOW_PROBABILITY_THRESHOLD);
+    }
+    public static double updateBuffer(double currentBuffer, double probability, 
                                        double multiplier, double decreaseAmount) {
-        return updateBuffer(currentBuffer, probability, multiplier, decreaseAmount, 0.5);
+        return updateBuffer(currentBuffer, probability, multiplier, decreaseAmount, 0.5, LOW_PROBABILITY_THRESHOLD);
     }
     public static boolean shouldFlag(double buffer, double flagThreshold) {
         return buffer >= flagThreshold;

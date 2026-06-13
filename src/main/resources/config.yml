@@ -24,7 +24,7 @@ outputDirectory: "data"
 # The plugin checks MLSAC backend every 5 minutes and downloads the correct Java 17/21 build into plugins/update.
 # Restart the server to apply a downloaded update.
 updates:
-  enabled: true
+  enabled: false
 
 # ┌───────────────────────────────────────────────────────────────────────────────┐
 # │                            DETECTION SETTINGS                                 │
@@ -72,7 +72,7 @@ detection:
       only-alert: false # Stable model - punishments enabled
     pro:
       name: "Pro"
-      only-alert: false # Newest model - punishments enabled
+      only-alert: true # Newest model - punishments enabled
     ultra:
       name: "Ultra"
       only-alert: true # Model in development - testing mode - no punishments
@@ -129,12 +129,15 @@ violation:
   # reset-value is should be /2 of threshold
   reset-value: 20  
   # Buffer increase multiplier: (probability - threshold) * multiplier
-  # Example: prob 1.0 with threshold 0.70 = (1.0 - 0.70) * 33.33 = 10 buffer
-  multiplier: 100.0
+  # Example: prob 1.я0 with threshold 0.70 = (1.0 - 0.70) * 33.33 = 10 buffer
+  multiplier: 110.0
   
-  # Buffer decay when probability < 0.1 (low probability threshold)
-  # Do not change unless you know what you are doing
-  decay: 0.35
+  # Buffer decay settings
+  decay:
+    # Buffer decay when probability is less than this value
+    threshold: 0.10
+    # Amount of buffer to reduce
+    amount: 0.65
   # VL decay settings (reset VL when player is not in combat)
   # Protects legitimate players from random false positives
   vl-decay:
@@ -164,10 +167,6 @@ violation:
 # Legacy placeholders also supported: <player>, <vl>, <probability>, <buffer>
 #
 penalties:
-  # Minimum probability required for penalty execution (lowered for aggressiveness)
-  # Do not change unless you know what you are doing
-  min-probability: 0.01 # Do not change!
-  
   # Ban animation settings
   # New data-driven animation engine with multiple presets and YAML customization
   animation:

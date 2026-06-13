@@ -10,7 +10,7 @@ nametags:
   pro-format: '&6P&f{RESULT}%'
   ultra-format: '&cU&f{RESULT}%'
   history-limit: 8
-  update-interval-ticks: 5
+  update-interval-ticks: 1
   view-distance: 48
   max-targets-per-viewer: 16
   entity-id-cache-limit: 256
