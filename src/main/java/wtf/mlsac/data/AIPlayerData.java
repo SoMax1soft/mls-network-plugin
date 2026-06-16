@@ -85,6 +85,9 @@ public class AIPlayerData {
         TickData tickData = aimProcessor.process(yaw, pitch);
         lock.writeLock().lock();
         try {
+            if (tickBuffer.size() >= sequence) {
+                tickBuffer.pollFirst();
+            }
             tickBuffer.addLast(tickData);
             if (tickHistory.size() >= MAX_TICK_HISTORY) {
                 tickHistory.pollFirst();

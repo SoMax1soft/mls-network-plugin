@@ -97,10 +97,10 @@ server-identity:
     # Required for dashboard event history, Redis event storage, Discord webhooks, and Telegram webhooks.
     events-enabled: true
     # Minimum model probability for sending alert events to the API.
-    alert-threshold: 0.75
+    alert-threshold: 0.80
 alerts:
   # Probability threshold for sending alerts (0.0 - 1.0) - lowered for early notification
-  threshold: 0.75
+  threshold: 0.80
   
   # Send alerts to console
   console: false

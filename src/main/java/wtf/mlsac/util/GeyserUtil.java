@@ -32,10 +32,14 @@ import org.geysermc.geyser.api.GeyserApi;
 
 import java.util.UUID;
 import java.util.logging.Logger;
+import java.lang.reflect.Method;
 
 public class GeyserUtil {
 
     private static boolean geyserAvailable = false;
+    private static boolean floodgateAvailable = false;
+    private static Object floodgateApiInstance = null;
+    private static Method isFloodgatePlayerMethod = null;
 
     static {
         try {
@@ -44,22 +48,43 @@ public class GeyserUtil {
         } catch (ClassNotFoundException e) {
             geyserAvailable = false;
         }
+
+        try {
+            Class<?> floodgateApiClass = Class.forName("org.geysermc.floodgate.api.FloodgateApi");
+            Method getInstanceMethod = floodgateApiClass.getMethod("getInstance");
+            floodgateApiInstance = getInstanceMethod.invoke(null);
+            isFloodgatePlayerMethod = floodgateApiClass.getMethod("isFloodgatePlayer", UUID.class);
+            floodgateAvailable = true;
+        } catch (Exception e) {
+            floodgateAvailable = false;
+        }
     }
 
     public static boolean isBedrockPlayer(UUID uuid) {
-        if (!geyserAvailable) {
-            return false;
+        if (geyserAvailable) {
+            try {
+                GeyserApi api = GeyserApi.api();
+                if (api != null && api.isBedrockPlayer(uuid)) {
+                    return true;
+                }
+            } catch (Exception ignored) {
+            }
+        }
+        
+        if (floodgateAvailable && floodgateApiInstance != null && isFloodgatePlayerMethod != null) {
+            try {
+                Object result = isFloodgatePlayerMethod.invoke(floodgateApiInstance, uuid);
+                if (result instanceof Boolean && (Boolean) result) {
+                    return true;
+                }
+            } catch (Exception ignored) {
+            }
         }
 
-        try {
-            GeyserApi api = GeyserApi.api();
-            return api != null && api.isBedrockPlayer(uuid);
-        } catch (Exception e) {
-            return false;
-        }
+        return false;
     }
 
     public static boolean isGeyserAvailable() {
-        return geyserAvailable;
+        return geyserAvailable || floodgateAvailable;
     }
 }

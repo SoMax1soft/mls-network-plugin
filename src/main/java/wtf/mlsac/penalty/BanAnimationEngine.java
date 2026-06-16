@@ -171,14 +171,14 @@ public class BanAnimationEngine implements Listener {
                     if (config.strikeLightningAtEnd)
                         baseLoc.getWorld().strikeLightningEffect(baseLoc);
                     taskRef[0].cancel();
-                    cleanup(player);
+                    cleanup(playerId);
                     executeBanCommand(banCommand);
                 }
             } catch (Throwable e) {
                 plugin.getLogger().severe("ERROR IN ANIMATION ENGINE: " + e.getMessage());
                 e.printStackTrace();
                 taskRef[0].cancel();
-                cleanup(player);
+                cleanup(playerId);
                 executeBanCommand(banCommand);
             }
         }, 0L, 1L);
@@ -459,21 +459,38 @@ public class BanAnimationEngine implements Listener {
         List<ItemStack> items = new ArrayList<>();
 
         // Сначала добавляем броню (она должна выпасть первой)
-        if (player.getInventory().getHelmet() != null) {
-            items.add(player.getInventory().getHelmet().clone());
+        ItemStack helmet = player.getInventory().getHelmet();
+        if (helmet != null && helmet.getType() != Material.AIR) {
+            items.add(helmet.clone());
         }
-        if (player.getInventory().getChestplate() != null) {
-            items.add(player.getInventory().getChestplate().clone());
+        ItemStack chestplate = player.getInventory().getChestplate();
+        if (chestplate != null && chestplate.getType() != Material.AIR) {
+            items.add(chestplate.clone());
         }
-        if (player.getInventory().getLeggings() != null) {
-            items.add(player.getInventory().getLeggings().clone());
+        ItemStack leggings = player.getInventory().getLeggings();
+        if (leggings != null && leggings.getType() != Material.AIR) {
+            items.add(leggings.clone());
         }
-        if (player.getInventory().getBoots() != null) {
-            items.add(player.getInventory().getBoots().clone());
+        ItemStack boots = player.getInventory().getBoots();
+        if (boots != null && boots.getType() != Material.AIR) {
+            items.add(boots.clone());
         }
 
-        // Потом добавляем основной инвентарь
-        for (ItemStack item : player.getInventory().getContents()) {
+        // Вторая рука
+        ItemStack offHand = player.getInventory().getItemInOffHand();
+        if (offHand != null && offHand.getType() != Material.AIR) {
+            items.add(offHand.clone());
+        }
+
+        // Предмет на курсоре
+        ItemStack cursorItem = player.getItemOnCursor();
+        if (cursorItem != null && cursorItem.getType() != Material.AIR) {
+            items.add(cursorItem.clone());
+        }
+
+        // Потом добавляем основной инвентарь (слоты 0-35)
+        for (int i = 0; i < 36; i++) {
+            ItemStack item = player.getInventory().getItem(i);
             if (item != null && item.getType() != Material.AIR) {
                 items.add(item.clone());
             }
@@ -489,6 +506,8 @@ public class BanAnimationEngine implements Listener {
      */
     private void clearPlayerInventory(Player player) {
         player.getInventory().clear();
+        player.getInventory().setItemInOffHand(null);
+        player.setItemOnCursor(null);
         player.updateInventory();
     }
 
@@ -637,8 +656,32 @@ public class BanAnimationEngine implements Listener {
         EffectCompat.removeEffect(player, EffectCompat.getJumpBoost());
     }
 
-    private void cleanup(Player player) {
-        UUID uuid = player.getUniqueId();
+    private void dropAllRemainingItems(UUID uuid) {
+        List<ItemStack> items = playerInventories.get(uuid);
+        Integer counter = itemDropCounters.get(uuid);
+        Location loc = playerStartLocations.get(uuid);
+
+        if (loc == null) {
+            Player p = Bukkit.getPlayer(uuid);
+            if (p != null) {
+                loc = p.getLocation();
+            }
+        }
+
+        if (items != null && counter != null && loc != null) {
+            for (int i = counter; i < items.size(); i++) {
+                ItemStack item = items.get(i);
+                if (item != null && item.getType() != Material.AIR) {
+                    loc.getWorld().dropItemNaturally(loc, item);
+                }
+            }
+            itemDropCounters.put(uuid, items.size());
+        }
+    }
+
+    private void cleanup(UUID uuid) {
+        dropAllRemainingItems(uuid);
+
         animatingPlayers.remove(uuid);
         pendingBans.remove(uuid);
         playerInventories.remove(uuid);
@@ -648,13 +691,15 @@ public class BanAnimationEngine implements Listener {
         // НЕ удаляем выпавшие предметы - они остаются на земле
         droppedItems.remove(uuid);
 
-        if (player.isOnline())
+        Player player = Bukkit.getPlayer(uuid);
+        if (player != null && player.isOnline())
             unfreezePlayer(player);
     }
 
     private void handleQuit(UUID playerId) {
-        if (animatingPlayers.remove(playerId)) {
-            String cmd = pendingBans.remove(playerId);
+        if (animatingPlayers.contains(playerId)) {
+            String cmd = pendingBans.get(playerId);
+            cleanup(playerId);
             if (cmd != null)
                 executeBanCommand(cmd);
         }

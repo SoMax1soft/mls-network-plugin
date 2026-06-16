@@ -119,22 +119,17 @@ public class AnimationConfigLoader {
 
         // Загрузка стейджей
         if (yaml.contains("stages")) {
-            plugin.getLogger().info("Found 'stages' section in YAML");
             List<?> stagesList = yaml.getList("stages");
             if (stagesList != null) {
-                plugin.getLogger().info("Stages list size: " + stagesList.size());
                 for (Object stageObj : stagesList) {
-                    plugin.getLogger().info("Processing stage object type: " + stageObj.getClass().getName());
                     if (stageObj instanceof ConfigurationSection) {
                         ConfigurationSection stageSection = (ConfigurationSection) stageObj;
                         BanAnimationConfig.StageConfig stage = loadStage(stageSection);
                         if (stage != null) {
                             config.stages.add(stage);
-                            plugin.getLogger().info("Successfully loaded stage: " + stage.name);
                         }
                     } else if (stageObj instanceof Map) {
                         // Попытка обработать как Map (альтернативный формат)
-                        plugin.getLogger().info("Stage is a Map, attempting to convert...");
                         @SuppressWarnings("unchecked")
                         Map<String, Object> stageMap = (Map<String, Object>) stageObj;
                         ConfigurationSection stageSection = convertMapToSection(yaml, stageMap);
@@ -142,7 +137,6 @@ public class AnimationConfigLoader {
                             BanAnimationConfig.StageConfig stage = loadStage(stageSection);
                             if (stage != null) {
                                 config.stages.add(stage);
-                                plugin.getLogger().info("Successfully loaded stage from Map: " + stage.name);
                             }
                         }
                     } else {
@@ -204,21 +198,16 @@ public class AnimationConfigLoader {
 
         // Загрузка частиц
         if (section.contains("particles")) {
-            plugin.getLogger().info("Stage '" + stage.name + "' has 'particles' section");
             List<?> particlesList = section.getList("particles");
             if (particlesList != null) {
-                plugin.getLogger().info("Particles list size: " + particlesList.size());
                 for (Object particleObj : particlesList) {
-                    plugin.getLogger().info("Processing particle object type: " + particleObj.getClass().getName());
                     if (particleObj instanceof ConfigurationSection) {
                         ConfigurationSection particleSection = (ConfigurationSection) particleObj;
                         BanAnimationConfig.ParticleEffectConfig particle = loadParticle(particleSection);
                         if (particle != null) {
                             stage.particles.add(particle);
-                            plugin.getLogger().info("Successfully loaded particle");
                         }
                     } else if (particleObj instanceof Map) {
-                        plugin.getLogger().info("Particle is a Map, attempting to convert...");
                         @SuppressWarnings("unchecked")
                         Map<String, Object> particleMap = (Map<String, Object>) particleObj;
                         ConfigurationSection particleSection = convertMapToSection(section, particleMap);
@@ -226,7 +215,6 @@ public class AnimationConfigLoader {
                             BanAnimationConfig.ParticleEffectConfig particle = loadParticle(particleSection);
                             if (particle != null) {
                                 stage.particles.add(particle);
-                                plugin.getLogger().info("Successfully loaded particle from Map");
                             }
                         }
                     } else {
@@ -236,16 +224,12 @@ public class AnimationConfigLoader {
             } else {
                 plugin.getLogger().warning("Particles list is null for stage: " + stage.name);
             }
-        } else {
-            plugin.getLogger().info("Stage '" + stage.name + "' has no 'particles' section");
         }
 
         // Загрузка звуков
         if (section.contains("sounds")) {
-            plugin.getLogger().info("Stage '" + stage.name + "' has 'sounds' section");
             List<?> soundsList = section.getList("sounds");
             if (soundsList != null) {
-                plugin.getLogger().info("Sounds list size: " + soundsList.size());
                 for (Object soundObj : soundsList) {
                     if (soundObj instanceof ConfigurationSection) {
                         ConfigurationSection soundSection = (ConfigurationSection) soundObj;
@@ -340,8 +324,6 @@ public class AnimationConfigLoader {
             if (trail.particleType == null) {
                 trail.particleType = Particle.FLAME;
             }
-        } else {
-            plugin.getLogger().info("Loaded trail particle type: " + particleTypeName + " -> " + trail.particleType.name());
         }
         
         trail.intervalTicks = section.getInt("intervalTicks", 2);
@@ -376,8 +358,6 @@ public class AnimationConfigLoader {
                 plugin.getLogger().severe("CRITICAL: Cannot resolve any particle type! Animation will not work.");
                 particle.particleType = Particle.FLAME; // Last resort
             }
-        } else {
-            plugin.getLogger().info("Loaded particle type: " + particleTypeName + " -> " + particle.particleType.name());
         }
 
         // Форма
