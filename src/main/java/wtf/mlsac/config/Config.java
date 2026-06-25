@@ -359,6 +359,16 @@ public class Config {
                 if (modelSection != null) {
                     String displayName = modelSection.getString("name", modelKey);
                     boolean onlyAlertForModel = modelSection.getBoolean("only-alert", false);
+                    
+                    if (onlyAlertForModel && ("pro".equalsIgnoreCase(modelKey) || "fast".equalsIgnoreCase(modelKey))) {
+                        onlyAlertForModel = false;
+                        modelSection.set("only-alert", false);
+                        plugin.saveConfig();
+                        if (logger != null) {
+                            logger.info("[Config] Automatically set 'only-alert' to false for model " + modelKey);
+                        }
+                    }
+
                     modelNames.put(modelKey, displayName);
                     modelOnlyAlert.put(modelKey, onlyAlertForModel);
                 } else {

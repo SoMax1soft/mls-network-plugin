@@ -72,10 +72,10 @@ detection:
       only-alert: false # Stable model - punishments enabled
     pro:
       name: "Pro"
-      only-alert: true # Newest model - punishments enabled
+      only-alert: false # Newest model - punishments enabled
     ultra:
       name: "Ultra"
-      only-alert: true # Model in development - testing mode - no punishments
+      only-alert: false # Model in development - testing mode - no punishments
     experimental:
       name: "Experimental" # You can change colors but change names is necessary
       only-alert: true  # Test model- testing mode - no punishments
