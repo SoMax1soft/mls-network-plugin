@@ -95,17 +95,16 @@ public class AimProcessor {
         float deltaPitch = pitch - lastPitch;
         float deltaYawAbs = Math.abs(deltaYaw);
         float deltaPitchAbs = Math.abs(deltaPitch);
-        
+
         lastYawAccel = currentYawAccel;
         lastPitchAccel = currentPitchAccel;
-        
-        // SIGNED acceleration (matches V2 model, physics-accurate)
+
         currentYawAccel = deltaYaw - lastDeltaYaw;
         currentPitchAccel = deltaPitch - lastDeltaPitch;
-        
+
         float jerkYaw = currentYawAccel - lastYawAccel;
         float jerkPitch = currentPitchAccel - lastPitchAccel;
-        
+
         double divisorX = GcdMath.gcd(deltaYawAbs, lastXRot);
         if (deltaYawAbs > 0 && deltaYawAbs < MAX_DELTA_FOR_GCD && divisorX > GcdMath.MINIMUM_DIVISOR) {
             xRotMode.add(divisorX);
@@ -117,15 +116,15 @@ public class AimProcessor {
             lastYRot = deltaPitchAbs;
         }
         updateModes();
-        
+
         float gcdErrorYaw = calculateGcdError(deltaYaw, modeX);
         float gcdErrorPitch = calculateGcdError(deltaPitch, modeY);
-        
+
         lastYaw = yaw;
         lastPitch = pitch;
         lastDeltaYaw = deltaYaw;
         lastDeltaPitch = deltaPitch;
-        
+
         return new TickData(deltaYaw, deltaPitch, currentYawAccel, currentPitchAccel,
                 jerkYaw, jerkPitch, gcdErrorYaw, gcdErrorPitch);
     }

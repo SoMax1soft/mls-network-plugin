@@ -9,10 +9,144 @@ import java.io.File;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
+import java.util.Collections;
 import java.util.List;
+import java.util.Set;
 
 public final class ConfigSyncUtil {
+    private static final String SCHEMA_VERSION_KEY = "_schema-version";
+    // Paths preserved across a config schema wipe. Anything else is regenerated from defaults.
+    private static final Set<String> CONFIG_PRESERVED_PATHS = Collections.unmodifiableSet(
+            new java.util.LinkedHashSet<>(java.util.Arrays.asList(
+                    "detection.api-key",
+                    "detection.enabled",
+                    "penalties.actions")));
+
     private ConfigSyncUtil() {
+    }
+
+    /**
+     * One-shot schema wipe. If the bundled {@value #SCHEMA_VERSION_KEY} differs from the value in
+     * the user's config.yml (or it's missing), the user's config is regenerated from defaults —
+     * but {@link #CONFIG_PRESERVED_PATHS} (API key, detection on/off, penalties.actions) are kept.
+     * Designed for breaking schema changes (e.g. b44's switch from detection-counts to buffer values).
+     */
+    public static boolean migrateConfigSchemaIfNeeded(JavaPlugin plugin) {
+        File configFile = new File(plugin.getDataFolder(), "config.yml");
+        if (!configFile.exists()) {
+            return false;
+        }
+        try (InputStream bundledStream = plugin.getResource("config.yml")) {
+            if (bundledStream == null) {
+                return false;
+            }
+            YamlConfiguration bundled = YamlConfiguration.loadConfiguration(
+                    new InputStreamReader(bundledStream, StandardCharsets.UTF_8));
+            String bundledSchema = bundled.getString(SCHEMA_VERSION_KEY);
+            if (bundledSchema == null || bundledSchema.isEmpty()) {
+                return false;
+            }
+
+            YamlConfiguration existing = YamlConfiguration.loadConfiguration(configFile);
+            String existingSchema = existing.getString(SCHEMA_VERSION_KEY);
+            if (bundledSchema.equals(existingSchema)) {
+                return false;
+            }
+
+            java.util.Map<String, Object> preserved = new java.util.LinkedHashMap<>();
+            for (String path : CONFIG_PRESERVED_PATHS) {
+                if (!existing.isSet(path)) {
+                    continue;
+                }
+                ConfigurationSection section = existing.getConfigurationSection(path);
+                if (section != null) {
+                    preserved.put(path, section.getValues(true));
+                } else {
+                    preserved.put(path, existing.get(path));
+                }
+            }
+
+            if (!configFile.delete()) {
+                plugin.getLogger().warning("Schema migration: failed to delete old config.yml");
+                return false;
+            }
+            plugin.saveResource("config.yml", false);
+            YamlConfiguration fresh = YamlConfiguration.loadConfiguration(configFile);
+
+            for (java.util.Map.Entry<String, Object> entry : preserved.entrySet()) {
+                String path = entry.getKey();
+                Object value = entry.getValue();
+                if (value instanceof java.util.Map) {
+                    fresh.set(path, null);
+                    fresh.createSection(path, (java.util.Map<?, ?>) value);
+                } else {
+                    fresh.set(path, value);
+                }
+            }
+
+            fresh.save(configFile);
+            plugin.reloadConfig();
+            plugin.getLogger().info("Schema migration (" + existingSchema + " -> " + bundledSchema
+                    + "): config.yml regenerated; preserved " + preserved.keySet());
+            return true;
+        } catch (Exception exception) {
+            plugin.getLogger().warning("Schema migration failed for config.yml: " + exception.getMessage());
+            return false;
+        }
+    }
+
+    /**
+     * Wipe-and-replace messages.yml the moment ANY bundled key is missing from the user's file.
+     * Cheaper than per-key patching: message templates change format together, so a partial sync
+     * tends to leave the file inconsistent.
+     */
+    public static boolean wipeMessagesIfAnyKeyMissing(JavaPlugin plugin) {
+        File messagesFile = new File(plugin.getDataFolder(), "messages.yml");
+        if (!messagesFile.exists()) {
+            plugin.saveResource("messages.yml", false);
+            return true;
+        }
+        try (InputStream bundledStream = plugin.getResource("messages.yml")) {
+            if (bundledStream == null) {
+                return false;
+            }
+            YamlConfiguration bundled = YamlConfiguration.loadConfiguration(
+                    new InputStreamReader(bundledStream, StandardCharsets.UTF_8));
+            YamlConfiguration existing = YamlConfiguration.loadConfiguration(messagesFile);
+            String missing = firstMissingLeafKey(bundled, existing, "");
+            if (missing == null) {
+                return false;
+            }
+            if (!messagesFile.delete()) {
+                plugin.getLogger().warning("messages.yml wipe failed: cannot delete file");
+                return false;
+            }
+            plugin.saveResource("messages.yml", false);
+            plugin.getLogger().info("messages.yml fully regenerated (missing key: " + missing + ")");
+            return true;
+        } catch (Exception exception) {
+            plugin.getLogger().warning("Failed to wipe messages.yml: " + exception.getMessage());
+            return false;
+        }
+    }
+
+    private static String firstMissingLeafKey(FileConfiguration bundled, FileConfiguration existing, String path) {
+        ConfigurationSection section = path.isEmpty() ? bundled : bundled.getConfigurationSection(path);
+        if (section == null) {
+            return null;
+        }
+        for (String key : section.getKeys(false)) {
+            String full = path.isEmpty() ? key : path + "." + key;
+            if (bundled.getConfigurationSection(full) != null) {
+                String nested = firstMissingLeafKey(bundled, existing, full);
+                if (nested != null) {
+                    return nested;
+                }
+            } else if (!existing.isSet(full)) {
+                return full;
+            }
+        }
+        return null;
     }
 
     public static boolean syncPluginConfig(JavaPlugin plugin) {

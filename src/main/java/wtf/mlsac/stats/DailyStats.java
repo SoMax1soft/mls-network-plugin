@@ -28,19 +28,34 @@
 package wtf.mlsac.stats;
 
 import org.bukkit.plugin.java.JavaPlugin;
+import wtf.mlsac.scheduler.ScheduledTask;
+import wtf.mlsac.scheduler.SchedulerManager;
 import java.io.File;
 import java.sql.*;
 import java.time.LocalDate;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.logging.Logger;
 
+/**
+ * Tracks per-day detection/request counters backed by SQLite.
+ *
+ * <p>Counters are lock-free {@link AtomicInteger}s because they are bumped from hot paths
+ * (the async HTTP response thread and the netty packet thread). The database, however, is a single
+ * {@link Connection} that is <em>not</em> thread-safe, so all DB access is serialised under
+ * {@link #dbLock} and kept off the increment path: writes happen on a periodic async flush, on the
+ * daily rollover, and on shutdown — never synchronously while handling a packet.
+ */
 public class DailyStats {
+    private static final long FLUSH_INTERVAL_TICKS = 600L; // ~30s
+
     private final JavaPlugin plugin;
     private final Logger logger;
-    private Connection connection;
+    private final Object dbLock = new Object();
     private final AtomicInteger todayDetections = new AtomicInteger(0);
     private final AtomicInteger todayRequests = new AtomicInteger(0);
-    private String currentDate;
+    private Connection connection;
+    private volatile String currentDate;
+    private ScheduledTask flushTask;
 
     public DailyStats(JavaPlugin plugin) {
         this.plugin = plugin;
@@ -49,22 +64,28 @@ public class DailyStats {
     }
 
     public void initialize() {
-        try {
-            File dataFolder = plugin.getDataFolder();
-            if (!dataFolder.exists()) {
-                dataFolder.mkdirs();
+        synchronized (dbLock) {
+            try {
+                File dataFolder = plugin.getDataFolder();
+                if (!dataFolder.exists()) {
+                    dataFolder.mkdirs();
+                }
+
+                String dbPath = new File(dataFolder, "stats.db").getAbsolutePath();
+                connection = DriverManager.getConnection("jdbc:sqlite:" + dbPath);
+
+                createTables();
+                loadTodayStats();
+
+                logger.info("[Stats] Database initialized");
+            } catch (SQLException e) {
+                logger.severe("[Stats] Failed to initialize database: " + e.getMessage());
+                return;
             }
-            
-            String dbPath = new File(dataFolder, "stats.db").getAbsolutePath();
-            connection = DriverManager.getConnection("jdbc:sqlite:" + dbPath);
-            
-            createTables();
-            loadTodayStats();
-            
-            logger.info("[Stats] Database initialized");
-        } catch (SQLException e) {
-            logger.severe("[Stats] Failed to initialize database: " + e.getMessage());
         }
+
+        flushTask = SchedulerManager.getAdapter()
+                .runAsyncRepeating(this::flush, FLUSH_INTERVAL_TICKS, FLUSH_INTERVAL_TICKS);
     }
 
     private void createTables() throws SQLException {
@@ -78,21 +99,20 @@ public class DailyStats {
         }
     }
 
+    /** Must be called while holding {@link #dbLock}. */
     private void loadTodayStats() {
-        String today = LocalDate.now().toString();
-        if (!today.equals(currentDate)) {
-            currentDate = today;
-            todayDetections.set(0);
-            todayRequests.set(0);
-        }
+        currentDate = LocalDate.now().toString();
+        todayDetections.set(0);
+        todayRequests.set(0);
 
         String sql = "SELECT detections, requests FROM daily_stats WHERE date = ?";
         try (PreparedStatement stmt = connection.prepareStatement(sql)) {
             stmt.setString(1, currentDate);
-            ResultSet rs = stmt.executeQuery();
-            if (rs.next()) {
-                todayDetections.set(rs.getInt("detections"));
-                todayRequests.set(rs.getInt("requests"));
+            try (ResultSet rs = stmt.executeQuery()) {
+                if (rs.next()) {
+                    todayDetections.set(rs.getInt("detections"));
+                    todayRequests.set(rs.getInt("requests"));
+                }
             }
         } catch (SQLException e) {
             logger.warning("[Stats] Failed to load today's stats: " + e.getMessage());
@@ -100,27 +120,46 @@ public class DailyStats {
     }
 
     public void incrementDetections() {
-        checkDateRollover();
+        rollOverIfNeeded();
         todayDetections.incrementAndGet();
-        saveStats();
     }
 
     public void incrementRequests() {
-        checkDateRollover();
+        rollOverIfNeeded();
         todayRequests.incrementAndGet();
-        saveStats();
     }
 
-    private void checkDateRollover() {
+    /**
+     * Resets the counters when the calendar day changes. The fast path is a lock-free compare on a
+     * {@code volatile} field; the lock is only taken on the rare day boundary, where the finished
+     * day is flushed before the counters reset.
+     */
+    private void rollOverIfNeeded() {
         String today = LocalDate.now().toString();
-        if (!today.equals(currentDate)) {
-            currentDate = today;
-            todayDetections.set(0);
-            todayRequests.set(0);
+        if (today.equals(currentDate)) {
+            return;
+        }
+        synchronized (dbLock) {
+            if (!today.equals(currentDate)) {
+                saveStatsLocked();
+                currentDate = today;
+                todayDetections.set(0);
+                todayRequests.set(0);
+            }
         }
     }
 
-    private void saveStats() {
+    private void flush() {
+        synchronized (dbLock) {
+            saveStatsLocked();
+        }
+    }
+
+    /** Must be called while holding {@link #dbLock}. */
+    private void saveStatsLocked() {
+        if (connection == null) {
+            return;
+        }
         String sql = "INSERT OR REPLACE INTO daily_stats (date, detections, requests) VALUES (?, ?, ?)";
         try (PreparedStatement stmt = connection.prepareStatement(sql)) {
             stmt.setString(1, currentDate);
@@ -133,23 +172,31 @@ public class DailyStats {
     }
 
     public int getTodayDetections() {
-        checkDateRollover();
+        rollOverIfNeeded();
         return todayDetections.get();
     }
 
     public int getTodayRequests() {
-        checkDateRollover();
+        rollOverIfNeeded();
         return todayRequests.get();
     }
 
     public void shutdown() {
-        if (connection != null) {
-            try {
-                saveStats();
-                connection.close();
-                logger.info("[Stats] Database closed");
-            } catch (SQLException e) {
-                logger.warning("[Stats] Error closing database: " + e.getMessage());
+        if (flushTask != null) {
+            flushTask.cancel();
+            flushTask = null;
+        }
+        synchronized (dbLock) {
+            if (connection != null) {
+                try {
+                    saveStatsLocked();
+                    connection.close();
+                    logger.info("[Stats] Database closed");
+                } catch (SQLException e) {
+                    logger.warning("[Stats] Error closing database: " + e.getMessage());
+                } finally {
+                    connection = null;
+                }
             }
         }
     }

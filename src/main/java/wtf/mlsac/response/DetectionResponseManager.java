@@ -7,12 +7,12 @@ import org.bukkit.inventory.ItemStack;
 import org.bukkit.util.Vector;
 import wtf.mlsac.Main;
 import wtf.mlsac.config.Config;
+import wtf.mlsac.data.AIPlayerData;
 import wtf.mlsac.util.ColorUtil;
 
-import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.Deque;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -21,35 +21,78 @@ import java.util.concurrent.ConcurrentHashMap;
 
 public class DetectionResponseManager {
     private final Main plugin;
-    private final Map<UUID, Deque<Long>> detectionHistory = new ConcurrentHashMap<>();
     private final Map<UUID, ActiveDamageReduction> damageReductions = new ConcurrentHashMap<>();
     private final Map<UUID, Map<String, Long>> trollCooldowns = new ConcurrentHashMap<>();
+    // Registry of troll behaviours keyed by config "type". Adding a new troll action means
+    // registering a handler here instead of extending a switch (OCP).
+    private final Map<String, TrollAction> trollActionHandlers = new HashMap<>();
     private Config config;
 
     public DetectionResponseManager(Main plugin, Config config) {
         this.plugin = plugin;
         this.config = config;
+        trollActionHandlers.put("shuffle_inventory", (player, action) -> {
+            shuffleInventory(player);
+            return true;
+        });
+        trollActionHandlers.put("drop_weapon", this::dropWeapon);
+        trollActionHandlers.put("launch", this::launch);
+    }
+
+    @FunctionalInterface
+    private interface TrollAction {
+        /** @return {@code true} if the action actually ran (so cooldown/message should apply) */
+        boolean apply(Player player, Config.TrollActionConfig action);
     }
 
     public void setConfig(Config config) {
         this.config = config;
         this.damageReductions.clear();
         this.trollCooldowns.clear();
-        this.detectionHistory.clear();
     }
 
-    public void registerDetection(Player player, double probability) {
-        if (!config.isAlertResponsesEnabled() || player == null || !player.isOnline()) {
+    /**
+     * Drives damage-reduction and troll triggers off the player's current violation buffer.
+     * Each configured stage / action fires once per upward crossing of its absolute buffer threshold
+     * — see {@link AIPlayerData#consumeBufferCrossing(String, double)} for the edge-detection contract.
+     */
+    public void onBufferUpdated(Player player, AIPlayerData data, double probability) {
+        if (player == null || !player.isOnline() || data == null || !config.isAlertResponsesEnabled()) {
+            return;
+        }
+        boolean damageReduction = config.isDamageReductionEnabled();
+        boolean troll = config.isTrollEnabled();
+        if (!damageReduction && !troll) {
             return;
         }
 
         long now = System.currentTimeMillis();
-        Deque<Long> timestamps = detectionHistory.computeIfAbsent(player.getUniqueId(), ignored -> new ArrayDeque<>());
-        timestamps.addLast(now);
-        pruneOldDetections(timestamps, now);
+        double buffer = data.getBuffer();
 
-        applyDamageReduction(player, timestamps, now);
-        applyTrollActions(player, timestamps, now, probability);
+        if (damageReduction) {
+            for (Config.DamageReductionStage stage : config.getDamageReductionStages()) {
+                String key = "dr-" + stage.getBufferThreshold();
+                if (data.consumeBufferCrossing(key, stage.getBufferThreshold())) {
+                    applyDamageReductionStage(player, stage, now);
+                }
+            }
+        }
+
+        if (troll) {
+            for (Config.TrollActionConfig action : config.getTrollActions()) {
+                String key = "troll-" + action.getType() + "-" + action.getBufferThreshold();
+                if (!data.consumeBufferCrossing(key, action.getBufferThreshold())) {
+                    continue;
+                }
+                if (!isCooldownReady(player.getUniqueId(), action, now)) {
+                    continue;
+                }
+                if (executeTrollAction(player, action)) {
+                    markCooldown(player.getUniqueId(), action, now);
+                    sendTrollMessage(player, action, buffer, probability);
+                }
+            }
+        }
     }
 
     public double getDamageMultiplier(UUID playerId) {
@@ -65,79 +108,33 @@ public class DetectionResponseManager {
         return Math.max(0.0, 1.0 - (reduction.reductionPercent / 100.0));
     }
 
-    public double getActiveReductionPercent(UUID playerId) {
-        ActiveDamageReduction reduction = damageReductions.get(playerId);
-        return reduction == null || reduction.expiresAt <= System.currentTimeMillis() ? 0.0 : reduction.reductionPercent;
-    }
-
     public void handlePlayerQuit(Player player) {
         UUID playerId = player.getUniqueId();
-        detectionHistory.remove(playerId);
         damageReductions.remove(playerId);
         trollCooldowns.remove(playerId);
     }
 
-    private void pruneOldDetections(Deque<Long> timestamps, long now) {
-        int maxWindowSeconds = Math.max(config.getDamageReductionWindowSeconds(), config.getTrollWindowSeconds());
-        long cutoff = now - (maxWindowSeconds * 1000L);
-        while (!timestamps.isEmpty() && timestamps.peekFirst() < cutoff) {
-            timestamps.removeFirst();
-        }
-    }
-
-    private void applyDamageReduction(Player player, Deque<Long> timestamps, long now) {
-        int detections = countDetectionsWithin(timestamps, now, config.getDamageReductionWindowSeconds());
-        Config.DamageReductionStage bestStage = null;
-        for (Config.DamageReductionStage stage : config.getDamageReductionStages()) {
-            if (detections >= stage.getDetections()) {
-                bestStage = stage;
-            }
-        }
-        if (bestStage == null) {
-            return;
-        }
-
-        long expiresAt = now + (bestStage.getDurationSeconds() * 1000L);
+    private void applyDamageReductionStage(Player player, Config.DamageReductionStage stage, long now) {
+        long expiresAt = now + (stage.getDurationSeconds() * 1000L);
         ActiveDamageReduction current = damageReductions.get(player.getUniqueId());
         if (current == null
-                || bestStage.getReductionPercent() > current.reductionPercent
+                || stage.getReductionPercent() > current.reductionPercent
                 || expiresAt > current.expiresAt) {
             damageReductions.put(player.getUniqueId(),
-                    new ActiveDamageReduction(bestStage.getReductionPercent(), expiresAt));
+                    new ActiveDamageReduction(stage.getReductionPercent(), expiresAt));
             plugin.debug("[Responses] Damage reduction applied to " + player.getName()
-                    + ": " + bestStage.getReductionPercent() + "% for " + bestStage.getDurationSeconds()
-                    + "s after " + detections + " detections");
-        }
-    }
-
-    private void applyTrollActions(Player player, Deque<Long> timestamps, long now, double probability) {
-        int detections = countDetectionsWithin(timestamps, now, config.getTrollWindowSeconds());
-        for (Config.TrollActionConfig action : config.getTrollActions()) {
-            if (detections < action.getDetections()) {
-                continue;
-            }
-            if (!isCooldownReady(player.getUniqueId(), action, now)) {
-                continue;
-            }
-            if (executeTrollAction(player, action)) {
-                markCooldown(player.getUniqueId(), action, now);
-                sendTrollMessage(player, action, detections, probability);
-            }
+                    + ": " + stage.getReductionPercent() + "% for " + stage.getDurationSeconds()
+                    + "s at buffer >= " + stage.getBufferThreshold());
         }
     }
 
     private boolean executeTrollAction(Player player, Config.TrollActionConfig action) {
-        String type = action.getType().toLowerCase(Locale.ROOT);
-        switch (type) {
-            case "shuffle_inventory":
-                shuffleInventory(player);
-                return true;
-            case "drop_weapon":
-                return dropWeapon(player, action);
-            default:
-                plugin.getLogger().warning("Unknown troll action type: " + action.getType());
-                return false;
+        TrollAction handler = trollActionHandlers.get(action.getType().toLowerCase(Locale.ROOT));
+        if (handler == null) {
+            plugin.getLogger().warning("Unknown troll action type: " + action.getType());
+            return false;
         }
+        return handler.apply(player, action);
     }
 
     private void shuffleInventory(Player player) {
@@ -168,6 +165,14 @@ public class DetectionResponseManager {
         return true;
     }
 
+    private boolean launch(Player player, Config.TrollActionConfig action) {
+        // Shove the player backwards (negative look direction) and up, reusing the velocity knobs.
+        Vector direction = player.getLocation().getDirection().normalize().multiply(-action.getHorizontalVelocity());
+        direction.setY(action.getVerticalVelocity());
+        player.setVelocity(direction);
+        return true;
+    }
+
     private boolean isSword(Material material) {
         String name = material.name();
         return name.endsWith("_SWORD");
@@ -190,29 +195,21 @@ public class DetectionResponseManager {
                 .put(action.getType().toLowerCase(Locale.ROOT), now);
     }
 
-    private void sendTrollMessage(Player player, Config.TrollActionConfig action, int detections, double probability) {
+    private void sendTrollMessage(Player player, Config.TrollActionConfig action, double buffer, double probability) {
         String template = action.getMessage();
         if (template == null || template.trim().isEmpty()) {
             return;
         }
+        String bufferStr = String.format(Locale.ROOT, "%.1f", buffer);
+        // {DETECTIONS} kept as alias for {BUFFER} so legacy message templates don't go dark.
         String message = ColorUtil.colorize(template
                 .replace("{PLAYER}", player.getName())
-                .replace("{DETECTIONS}", String.valueOf(detections))
-                .replace("{PROBABILITY}", String.format("%.2f", probability)));
+                .replace("{BUFFER}", bufferStr)
+                .replace("{DETECTIONS}", bufferStr)
+                .replace("{PROBABILITY}", String.format(Locale.ROOT, "%.2f", probability)));
         if (plugin.getAlertManager() != null) {
             plugin.getAlertManager().sendMessageToPermittedPlayers(message, null);
         }
-    }
-
-    private int countDetectionsWithin(Deque<Long> timestamps, long now, int windowSeconds) {
-        long cutoff = now - (windowSeconds * 1000L);
-        int count = 0;
-        for (Long timestamp : timestamps) {
-            if (timestamp >= cutoff) {
-                count++;
-            }
-        }
-        return count;
     }
 
     private static final class ActiveDamageReduction {

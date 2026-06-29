@@ -38,14 +38,28 @@ public class BufferCalculator {
     public static double calculateBufferDecrease(double currentBuffer, double decreaseAmount) {
         return Math.max(0.0, currentBuffer - decreaseAmount);
     }
-    public static double updateBuffer(double currentBuffer, double probability, 
+    public static double updateBuffer(double currentBuffer, double probability,
                                        double multiplier, double decreaseAmount, double threshold, double decreaseThreshold) {
         if (probability > threshold) {
             return currentBuffer + calculateBufferIncrease(probability, multiplier, threshold);
         } else if (probability < decreaseThreshold) {
-            return calculateBufferDecrease(currentBuffer, decreaseAmount);
+            return calculateBufferDecrease(currentBuffer,
+                    scaledDecrease(probability, decreaseAmount, decreaseThreshold));
         }
         return currentBuffer;
+    }
+
+    /**
+     * Buffer removed when the probability is below the decay threshold. Scales linearly from 0
+     * (at the threshold) up to {@code maxAmount} (at probability 0) - the more confident the model
+     * is that the player is legit, the more violation buffer is cleared.
+     */
+    public static double scaledDecrease(double probability, double maxAmount, double decreaseThreshold) {
+        if (decreaseThreshold <= 0.0) {
+            return maxAmount;
+        }
+        double clampedProbability = Math.max(0.0, Math.min(decreaseThreshold, probability));
+        return maxAmount * (decreaseThreshold - clampedProbability) / decreaseThreshold;
     }
     public static double updateBuffer(double currentBuffer, double probability, 
                                        double multiplier, double decreaseAmount, double threshold) {

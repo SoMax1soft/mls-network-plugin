@@ -7,12 +7,15 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
+import wtf.mlsac.Main;
 import wtf.mlsac.response.DetectionResponseManager;
 
 public class CombatPenaltyListener implements Listener {
+    private final Main plugin;
     private final DetectionResponseManager detectionResponseManager;
 
-    public CombatPenaltyListener(DetectionResponseManager detectionResponseManager) {
+    public CombatPenaltyListener(Main plugin, DetectionResponseManager detectionResponseManager) {
+        this.plugin = plugin;
         this.detectionResponseManager = detectionResponseManager;
     }
 
@@ -28,7 +31,11 @@ public class CombatPenaltyListener implements Listener {
             return;
         }
 
-        event.setDamage(event.getDamage() * multiplier);
+        double original = event.getDamage();
+        event.setDamage(original * multiplier);
+        plugin.debug("[Responses] Damage reduction applied to " + attacker.getName()
+                + ": " + String.format(java.util.Locale.ROOT, "%.2f -> %.2f (x%.2f)",
+                        original, original * multiplier, multiplier));
     }
 
     private Player resolveAttacker(Entity damager) {

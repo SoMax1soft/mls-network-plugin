@@ -7,7 +7,10 @@
       "Bash(git push *)",
       "Bash(./gradlew build *)",
       "Bash(git add *)",
-      "Bash(git commit -m 'perf: replace NametagManager+PacketHologramManager with optimized single HologramManager *)"
+      "Bash(git commit -m 'perf: replace NametagManager+PacketHologramManager with optimized single HologramManager *)",
+      "Bash(xargs grep *)",
+      "Bash(./gradlew compileJava --console=plain)",
+      "Bash(./gradlew test *)"
     ]
   }
 }

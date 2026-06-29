@@ -52,11 +52,14 @@ import wtf.mlsac.util.ProbabilityFormatUtil;
 import wtf.mlsac.violation.ViolationManager;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
+import java.util.function.BiConsumer;
 import java.util.stream.Collectors;
 
 import com.github.retrooper.packetevents.PacketEvents;
@@ -73,6 +76,13 @@ public class CommandHandler implements CommandExecutor, TabCompleter {
     private final Map<String, Long> reinstallConfirmations = new ConcurrentHashMap<>();
     private static final long REINSTALL_CONFIRM_WINDOW_MILLIS = TimeUnit.SECONDS.toMillis(3);
 
+    /**
+     * Registry of sub-commands. Each entry owns its access policy (required permissions and
+     * whether it is player-only) so that the dispatcher in {@link #onCommand} enforces those
+     * checks in one place instead of every handler repeating the same boilerplate.
+     */
+    private final Map<String, SubCommand> subCommands = new LinkedHashMap<>();
+
     public CommandHandler(ISessionManager sessionManager, AlertManager alertManager,
             AICheck aiCheck, Main plugin) {
         this.sessionManager = sessionManager;
@@ -80,6 +90,38 @@ public class CommandHandler implements CommandExecutor, TabCompleter {
         this.aiCheck = aiCheck;
         this.plugin = plugin;
         this.dataRestorer = new wtf.mlsac.datacollector.DataRestorer(plugin);
+        registerSubCommands();
+    }
+
+    private void registerSubCommands() {
+        Set<String> admin = Set.of(Permissions.ADMIN);
+        Set<String> alertsOrAdmin = Set.of(Permissions.ALERTS, Permissions.ADMIN);
+        Set<String> probOrAdmin = Set.of(Permissions.PROB, Permissions.ADMIN);
+        Set<String> reloadOrAdmin = Set.of(Permissions.RELOAD, Permissions.ADMIN);
+
+        // Data collection commands are intentionally permission-less (legacy behavior preserved).
+        register("start", Set.of(), false, this::handleStart);
+        register("stop", Set.of(), false, this::handleStop);
+
+        register("alerts", alertsOrAdmin, true, (sender, args) -> handleAlerts(sender));
+        register("monitor", alertsOrAdmin, true, (sender, args) -> handleMonitor(sender));
+        register("suspects", alertsOrAdmin, true, (sender, args) -> handleSuspects(sender));
+        register("prob", probOrAdmin, true, this::handleProb);
+        register("reload", reloadOrAdmin, false, (sender, args) -> handleReload(sender));
+
+        register("reinstall", admin, false, (sender, args) -> handleReinstall(sender));
+        register("datastatus", admin, false, (sender, args) -> handleDataStatus(sender));
+        register("kicklist", admin, false, this::handleKickList);
+        register("punish", admin, false, this::handlePunish);
+        register("profile", admin, false, this::handleProfile);
+        register("falsepositive", admin, false, this::handleFalsePositive);
+        register("status", admin, false, (sender, args) -> handleStatus(sender));
+        register("animation", admin, false, this::handleAnimation);
+    }
+
+    private void register(String name, Set<String> anyPermission, boolean playersOnly,
+            BiConsumer<CommandSender, String[]> handler) {
+        subCommands.put(name, new SubCommand(anyPermission, playersOnly, handler));
     }
 
     private Config getConfig() {
@@ -104,115 +146,67 @@ public class CommandHandler implements CommandExecutor, TabCompleter {
             sendUsage(sender);
             return true;
         }
-        String subCommand = args[0].toLowerCase();
-        switch (subCommand) {
-            case "start":
-                return handleStart(sender, args);
-            case "stop":
-                return handleStop(sender, args);
-            case "alerts":
-                return handleAlerts(sender);
-            case "monitor":
-                return handleMonitor(sender);
-            case "prob":
-                return handleProb(sender, args);
-            case "reload":
-                return handleReload(sender);
-            case "reinstall":
-                return handleReinstall(sender);
-            case "datastatus":
-                return handleDataStatus(sender);
-            case "kicklist":
-                return handleKickList(sender, args);
-            case "suspects":
-                return handleSuspects(sender);
-            case "punish":
-                return handlePunish(sender, args);
-            case "profile":
-                return handleProfile(sender, args);
-            case "falsepositive":
-                return handleFalsePositive(sender, args);
-            case "status":
-                return handleStatus(sender);
-            case "animation":
-                return handleAnimation(sender, args);
-            default:
-                sender.sendMessage(getPrefix() + msg("unknown-command", "{ARGS}", args[0]));
-                sendUsage(sender);
+        SubCommand sub = subCommands.get(args[0].toLowerCase());
+        if (sub == null) {
+            sender.sendMessage(getPrefix() + msg("unknown-command", "{ARGS}", args[0]));
+            sendUsage(sender);
+            return true;
+        }
+        if (sub.playersOnly && !(sender instanceof Player)) {
+            sender.sendMessage(getPrefix() + msg("players-only"));
+            return true;
+        }
+        if (!hasAnyPermission(sender, sub.anyPermission)) {
+            sender.sendMessage(getPrefix() + msg("no-permission"));
+            return true;
+        }
+        sub.handler.accept(sender, args);
+        return true;
+    }
+
+    private boolean hasAnyPermission(CommandSender sender, Set<String> anyPermission) {
+        if (anyPermission.isEmpty()) {
+            return true;
+        }
+        for (String permission : anyPermission) {
+            if (sender.hasPermission(permission)) {
                 return true;
+            }
         }
+        return false;
     }
 
-    private boolean handleSuspects(CommandSender sender) {
-        if (!(sender instanceof Player)) {
-            sender.sendMessage(getPrefix() + msg("players-only"));
-            return true;
-        }
-        Player player = (Player) sender;
-        if (!player.hasPermission(Permissions.ALERTS) && !player.hasPermission(Permissions.ADMIN)) {
-            player.sendMessage(getPrefix() + msg("no-permission"));
-            return true;
-        }
-        new wtf.mlsac.menu.SuspectsMenu(plugin, player).open();
-        return true;
+    private void handleSuspects(CommandSender sender) {
+        new wtf.mlsac.menu.SuspectsMenu(plugin, (Player) sender).open();
     }
 
-    private boolean handleAlerts(CommandSender sender) {
-        if (!(sender instanceof Player)) {
-            sender.sendMessage(getPrefix() + msg("players-only"));
-            return true;
-        }
-        Player player = (Player) sender;
-        if (!player.hasPermission(Permissions.ALERTS) && !player.hasPermission(Permissions.ADMIN)) {
-            player.sendMessage(getPrefix() + msg("no-permission"));
-            return true;
-        }
-        alertManager.toggleAlerts(player);
-        return true;
+    private void handleAlerts(CommandSender sender) {
+        alertManager.toggleAlerts((Player) sender);
     }
 
-    private boolean handleMonitor(CommandSender sender) {
-        if (!(sender instanceof Player)) {
-            sender.sendMessage(getPrefix() + msg("players-only"));
-            return true;
-        }
-        Player player = (Player) sender;
-        if (!player.hasPermission(Permissions.ALERTS) && !player.hasPermission(Permissions.ADMIN)) {
-            player.sendMessage(getPrefix() + msg("no-permission"));
-            return true;
-        }
-        alertManager.toggleMonitor(player);
-        return true;
+    private void handleMonitor(CommandSender sender) {
+        alertManager.toggleMonitor((Player) sender);
     }
 
-    private boolean handleProb(CommandSender sender, String[] args) {
-        if (!(sender instanceof Player)) {
-            sender.sendMessage(getPrefix() + msg("players-only"));
-            return true;
-        }
+    private void handleProb(CommandSender sender, String[] args) {
         Player admin = (Player) sender;
-        if (!admin.hasPermission(Permissions.PROB) && !admin.hasPermission(Permissions.ADMIN)) {
-            admin.sendMessage(getPrefix() + msg("no-permission"));
-            return true;
-        }
         if (probTracking.containsKey(admin.getUniqueId())) {
             stopTracking(admin);
             admin.sendMessage(getPrefix() + msg("tracking-stopped"));
-            return true;
+            return;
         }
         if (args.length < 2) {
             admin.sendMessage(getPrefix() + msg("prob-usage"));
-            return true;
+            return;
         }
         String playerName = args[1];
         Player target = Bukkit.getPlayer(playerName);
         if (target == null) {
             admin.sendMessage(getPrefix() + msg("player-not-found", "{PLAYER}", playerName));
-            return true;
+            return;
         }
         startTracking(admin, target);
         admin.sendMessage(getPrefix() + msg("tracking-started", "{PLAYER}", target.getName()));
-        return true;
     }
 
     private void startTracking(Player admin, Player target) {
@@ -242,7 +236,10 @@ public class CommandHandler implements CommandExecutor, TabCompleter {
                 int vl = plugin.getViolationManager().getViolationLevel(targetId);
                 String template = plugin.getMessagesConfig().getMessage("actionbar-format",
                         targetName, data.getLastProbability(), buffer, vl);
+                String status = plugin.getMessagesConfig().getMessage(
+                        data.isBufferIncreasing() ? "STATUS_UP" : "STATUS_DOWN");
                 template = ProbabilityFormatUtil.applyModelPlaceholders(template, data)
+                        .replace("{STATUS}", status)
                         .replace("{PLAYER}", targetName);
                 message = ColorUtil.colorize(template);
             }
@@ -267,35 +264,25 @@ public class CommandHandler implements CommandExecutor, TabCompleter {
         player.spigot().sendMessage(ChatMessageType.ACTION_BAR, new TextComponent(message));
     }
 
-    private boolean handleReload(CommandSender sender) {
-        if (!sender.hasPermission(Permissions.RELOAD) && !sender.hasPermission(Permissions.ADMIN)) {
-            sender.sendMessage(getPrefix() + msg("no-permission"));
-            return true;
-        }
+    private void handleReload(CommandSender sender) {
         plugin.reloadPluginConfig();
-        
-        // Перезагрузка анимаций
+
         wtf.mlsac.penalty.engine.AnimationManager animationManager = plugin.getAnimationManager();
         if (animationManager != null) {
             try {
                 animationManager.reload();
-                sender.sendMessage(getPrefix() + ColorUtil.colorize("&aАнимации перезагружены! &7(" + 
-                    animationManager.getAvailableAnimations().size() + " анимаций)"));
+                sender.sendMessage(getPrefix() + ColorUtil.colorize("&aАнимации перезагружены! &7(" +
+                        animationManager.getAvailableAnimations().size() + " анимаций)"));
             } catch (Exception e) {
                 sender.sendMessage(getPrefix() + ColorUtil.colorize("&cОшибка при перезагрузке анимаций!"));
                 plugin.getLogger().severe("Failed to reload animations: " + e.getMessage());
             }
         }
-        
+
         sender.sendMessage(getPrefix() + msg("config-reloaded"));
-        return true;
     }
 
-    private boolean handleReinstall(CommandSender sender) {
-        if (!sender.hasPermission(Permissions.ADMIN)) {
-            sender.sendMessage(getPrefix() + msg("no-permission"));
-            return true;
-        }
+    private void handleReinstall(CommandSender sender) {
         String confirmationKey = getConfirmationKey(sender);
         long now = System.currentTimeMillis();
         Long expiresAt = reinstallConfirmations.get(confirmationKey);
@@ -303,7 +290,7 @@ public class CommandHandler implements CommandExecutor, TabCompleter {
             reinstallConfirmations.put(confirmationKey, now + REINSTALL_CONFIRM_WINDOW_MILLIS);
             sender.sendMessage(getPrefix() + ColorUtil.colorize(
                     "&eПовторно введите &f/mlsac reinstall &eв течение 3 секунд для подтверждения."));
-            return true;
+            return;
         }
         reinstallConfirmations.remove(confirmationKey);
         boolean success = plugin.reinstallPluginConfig();
@@ -313,7 +300,6 @@ public class CommandHandler implements CommandExecutor, TabCompleter {
         } else {
             sender.sendMessage(getPrefix() + ColorUtil.colorize("&cFailed to sync YAML configs. Check console."));
         }
-        return true;
     }
 
     private String getConfirmationKey(CommandSender sender) {
@@ -323,15 +309,11 @@ public class CommandHandler implements CommandExecutor, TabCompleter {
         return "console:" + sender.getName().toLowerCase();
     }
 
-    private boolean handleKickList(CommandSender sender, String[] args) {
-        if (!sender.hasPermission(Permissions.ADMIN)) {
-            sender.sendMessage(getPrefix() + msg("no-permission"));
-            return true;
-        }
+    private void handleKickList(CommandSender sender, String[] args) {
         List<ViolationManager.KickRecord> kicks = plugin.getViolationManager().getKickHistory();
         if (kicks.isEmpty()) {
             sender.sendMessage(getPrefix() + msg("kicklist-empty"));
-            return true;
+            return;
         }
 
         int page = 1;
@@ -358,7 +340,7 @@ public class CommandHandler implements CommandExecutor, TabCompleter {
 
         for (int i = start; i < end; i++) {
             ViolationManager.KickRecord kick = kicks.get(i);
-            sender.sendMessage(ColorUtil.colorize(String.format(
+            sender.sendMessage(ColorUtil.colorize(String.format(java.util.Locale.ROOT,
                     "&e%d. &f%s &7[&c%s&7] &8- &bProb: &f%.2f &8| &bBuf: &f%.1f &8| &bVL: &f%d",
                     i + 1,
                     kick.getPlayerName(),
@@ -371,30 +353,25 @@ public class CommandHandler implements CommandExecutor, TabCompleter {
         if (page < maxPage) {
             sender.sendMessage(getPrefix() + msg("kicklist-footer", "{NEXT_PAGE}", String.valueOf(page + 1)));
         }
-        return true;
     }
 
-    private boolean handleFalsePositive(CommandSender sender, String[] args) {
-        if (!sender.hasPermission(Permissions.ADMIN)) {
-            sender.sendMessage(getPrefix() + msg("no-permission"));
-            return true;
-        }
+    private void handleFalsePositive(CommandSender sender, String[] args) {
         if (args.length < 3 || !args[1].equalsIgnoreCase("restore")) {
             sender.sendMessage(getPrefix() + msg("falsepositive-usage"));
-            return true;
+            return;
         }
 
         String targetName = args[2];
         Player target = Bukkit.getPlayer(targetName);
         if (target == null) {
             sender.sendMessage(getPrefix() + msg("player-not-found", "{PLAYER}", targetName));
-            return true;
+            return;
         }
 
         AIPlayerData data = aiCheck.getPlayerData(target.getUniqueId());
         if (data == null) {
             sender.sendMessage(getPrefix() + msg("falsepositive-no-data"));
-            return true;
+            return;
         }
 
         List<TickData> history = data.getTickHistory();
@@ -405,46 +382,38 @@ public class CommandHandler implements CommandExecutor, TabCompleter {
         } else {
             sender.sendMessage(getPrefix() + msg("falsepositive-fail"));
         }
-        return true;
     }
 
-    private boolean handlePunish(CommandSender sender, String[] args) {
-        if (!sender.hasPermission(Permissions.ADMIN)) {
-            sender.sendMessage(getPrefix() + msg("no-permission"));
-            return true;
-        }
+    private void handlePunish(CommandSender sender, String[] args) {
         if (args.length < 2) {
             sender.sendMessage(getPrefix() + msg("usage-punish"));
-            return true;
+            return;
         }
         Player target = Bukkit.getPlayer(args[1]);
         if (target == null) {
             sender.sendMessage(getPrefix() + msg("player-not-found", "{PLAYER}", args[1]));
-            return true;
+            return;
         }
 
+        String issuer = sender instanceof Player ? sender.getName() : "CONSOLE(" + sender.getName() + ")";
+        plugin.getLogger().info("[Penalty] /mlsac punish " + target.getName() + " issued by " + issuer);
         plugin.getViolationManager().executeMaxPunishment(target);
         if (plugin.getPluginConfig().getPunishmentCommands().isEmpty()) {
             sender.sendMessage(getPrefix() + msg("punish-no-action"));
         } else {
             sender.sendMessage(getPrefix() + msg("punish-success", "{PLAYER}", target.getName(), "{ACTION}", "Max VL"));
         }
-        return true;
     }
 
-    private boolean handleProfile(CommandSender sender, String[] args) {
-        if (!sender.hasPermission(Permissions.ADMIN)) {
-            sender.sendMessage(getPrefix() + msg("no-permission"));
-            return true;
-        }
+    private void handleProfile(CommandSender sender, String[] args) {
         if (args.length < 2) {
             sender.sendMessage(getPrefix() + msg("usage-profile"));
-            return true;
+            return;
         }
         Player target = Bukkit.getPlayer(args[1]);
         if (target == null) {
             sender.sendMessage(getPrefix() + msg("player-not-found", "{PLAYER}", args[1]));
-            return true;
+            return;
         }
 
         AIPlayerData data = aiCheck.getPlayerData(target.getUniqueId());
@@ -477,15 +446,9 @@ public class CommandHandler implements CommandExecutor, TabCompleter {
                         .replace("{DETECTIONS}", String.valueOf(detections))));
             }
         }
-
-        return true;
     }
 
-    private boolean handleDataStatus(CommandSender sender) {
-        if (!sender.hasPermission(Permissions.ADMIN)) {
-            sender.sendMessage(getPrefix() + msg("no-permission"));
-            return true;
-        }
+    private void handleDataStatus(CommandSender sender) {
         int activeSessions = sessionManager.getActiveSessionCount();
         sender.sendMessage(getPrefix() + msg("data-status-header"));
         sender.sendMessage(msg("active-sessions", "{COUNT}", String.valueOf(activeSessions)));
@@ -507,13 +470,12 @@ public class CommandHandler implements CommandExecutor, TabCompleter {
             sender.sendMessage(msg("no-active-sessions"));
             sender.sendMessage(msg("start-hint"));
         }
-        return true;
     }
 
-    private boolean handleStart(CommandSender sender, String[] args) {
+    private void handleStart(CommandSender sender, String[] args) {
         if (args.length < 3) {
             sender.sendMessage(getPrefix() + msg("usage-start"));
-            return true;
+            return;
         }
         String target = args[1];
         String labelStr = args[2];
@@ -521,70 +483,62 @@ public class CommandHandler implements CommandExecutor, TabCompleter {
         if (sessionLabel == null) {
             sender.sendMessage(getPrefix() + msg("invalid-label", "{LABEL}", labelStr));
             sender.sendMessage(getPrefix() + msg("valid-labels"));
-            return true;
+            return;
         }
         String comment = parseComment(args, 3);
-        return handleStartPlayer(sender, target, sessionLabel, comment);
+        handleStartPlayer(sender, target, sessionLabel, comment);
     }
 
-    private boolean handleStartPlayer(CommandSender sender, String playerName, Label label, String comment) {
+    private void handleStartPlayer(CommandSender sender, String playerName, Label label, String comment) {
         Player player = Bukkit.getPlayer(playerName);
         if (player == null) {
             sender.sendMessage(getPrefix() + msg("player-not-found", "{PLAYER}", playerName));
-            return true;
+            return;
         }
         sessionManager.startSession(player, label, comment);
         sender.sendMessage(getPrefix() + msg("session-started", "{LABEL}", label.name(), "{COUNT}", "1"));
-        return true;
     }
 
-    private boolean handleStop(CommandSender sender, String[] args) {
+    private void handleStop(CommandSender sender, String[] args) {
         if (args.length < 2) {
             sender.sendMessage(getPrefix() + msg("usage-stop"));
-            return true;
+            return;
         }
         String target = args[1];
         if (target.equalsIgnoreCase("all")) {
-            return handleStopAll(sender);
+            handleStopAll(sender);
+            return;
         }
-        return handleStopPlayer(sender, target);
+        handleStopPlayer(sender, target);
     }
 
-    private boolean handleStopAll(CommandSender sender) {
+    private void handleStopAll(CommandSender sender) {
         int count = sessionManager.getActiveSessionCount();
         sessionManager.stopAllSessions();
         sender.sendMessage(getPrefix() + msg("all-sessions-stopped", "{COUNT}", String.valueOf(count)));
-        return true;
     }
 
-    private boolean handleStopPlayer(CommandSender sender, String playerName) {
+    private void handleStopPlayer(CommandSender sender, String playerName) {
         Player player = Bukkit.getPlayer(playerName);
         if (player != null) {
             if (!sessionManager.hasActiveSession(player)) {
                 sender.sendMessage(getPrefix() + msg("no-sessions-to-stop"));
-                return true;
+                return;
             }
             sessionManager.stopSession(player);
             sender.sendMessage(getPrefix() + msg("session-stopped", "{PLAYER}", player.getName()));
-            return true;
+            return;
         }
 
-        DataSession targetSession = null;
         for (DataSession session : sessionManager.getActiveSessions()) {
             if (session.getPlayerName().equalsIgnoreCase(playerName)) {
-                targetSession = session;
-                break;
+                sender.sendMessage(getPrefix()
+                        + ColorUtil.colorize("&cOffline stopping not fully supported without SessionManager update."));
+                return;
             }
         }
 
-        if (targetSession != null) {
-            sender.sendMessage(getPrefix()
-                    + ColorUtil.colorize("&cOffline stopping not fully supported without SessionManager update."));
-            return true;
-        }
-
         sender.sendMessage(getPrefix() + msg("player-not-found", "{PLAYER}", playerName));
-        return true;
     }
 
     private String parseComment(String[] args, int startIndex) {
@@ -634,9 +588,7 @@ public class CommandHandler implements CommandExecutor, TabCompleter {
     public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
         List<String> completions = new ArrayList<>();
         if (args.length == 1) {
-            List<String> commands = Arrays.asList("start", "stop", "datastatus", "alerts", "monitor", "prob", "reload",
-                    "reinstall", "kicklist", "suspects", "punish", "profile", "falsepositive", "status", "animation");
-            completions.addAll(filterStartsWith(commands, args[0]));
+            completions.addAll(filterStartsWith(new ArrayList<>(subCommands.keySet()), args[0]));
         } else if (args.length == 2) {
             String subCommand = args[0].toLowerCase();
             if (Arrays.asList("start", "stop", "prob", "punish", "profile").contains(subCommand)) {
@@ -670,9 +622,8 @@ public class CommandHandler implements CommandExecutor, TabCompleter {
                 wtf.mlsac.penalty.engine.AnimationManager animationManager = plugin.getAnimationManager();
                 if (animationManager != null) {
                     completions.addAll(filterStartsWith(
-                        new ArrayList<>(animationManager.getAvailableAnimations()), 
-                        args[3]
-                    ));
+                            new ArrayList<>(animationManager.getAvailableAnimations()),
+                            args[3]));
                 }
             }
         }
@@ -701,12 +652,7 @@ public class CommandHandler implements CommandExecutor, TabCompleter {
         reinstallConfirmations.clear();
     }
 
-    private boolean handleStatus(CommandSender sender) {
-        if (!sender.hasPermission(Permissions.ADMIN)) {
-            sender.sendMessage(getPrefix() + msg("no-permission"));
-            return true;
-        }
-
+    private void handleStatus(CommandSender sender) {
         sender.sendMessage(ColorUtil.colorize("&8=== &7&lMLSAC STATUS &8==="));
 
         // API Connection Status
@@ -748,7 +694,7 @@ public class CommandHandler implements CommandExecutor, TabCompleter {
 
         // Latency Test
         if (client != null && client.isConnected() && !client.isInStasisMode()) {
-            java.util.List<java.util.concurrent.CompletableFuture<Long>> latencyTests = new java.util.ArrayList<>();
+            List<java.util.concurrent.CompletableFuture<Long>> latencyTests = new ArrayList<>();
             for (int i = 0; i < 5; i++) {
                 latencyTests.add(client.measureLatency());
             }
@@ -756,154 +702,152 @@ public class CommandHandler implements CommandExecutor, TabCompleter {
             java.util.concurrent.CompletableFuture
                     .allOf(latencyTests.toArray(new java.util.concurrent.CompletableFuture[0]))
                     .thenAccept(v -> {
-                        java.util.List<Long> results = new java.util.ArrayList<>();
+                        List<Long> results = new ArrayList<>();
                         for (java.util.concurrent.CompletableFuture<Long> future : latencyTests) {
                             try {
                                 Long latency = future.get();
-                                if (latency > 0) {
+                                if (latency != null && latency > 0) {
                                     results.add(latency);
                                 }
                             } catch (Exception ignored) {
                             }
                         }
-
-                        if (results.isEmpty()) {
-                            sender.sendMessage(ColorUtil.colorize("&7Average Latency: &cFailed to measure"));
-                        } else {
-                            long sum = 0;
-                            for (Long l : results) {
-                                sum += l;
-                            }
-                            long avg = sum / results.size();
-
-                            String latencyColor;
-                            if (avg < 50) {
-                                latencyColor = "&a";
-                            } else if (avg < 150) {
-                                latencyColor = "&e";
-                            } else {
-                                latencyColor = "&c";
-                            }
-
-                            sender.sendMessage(ColorUtil.colorize("&7Average Latency: " + latencyColor + avg + "ms &7("
-                                    + results.size() + "/5 successful)"));
-                        }
+                        // The CompletableFuture callback runs off the main thread; route the
+                        // resulting chat messages back onto the server thread before sending.
+                        sendSync(sender, formatLatencyResult(results));
                     })
                     .exceptionally(ex -> {
-                        sender.sendMessage(ColorUtil.colorize("&7Average Latency: &cError during test"));
+                        sendSync(sender, ColorUtil.colorize("&7Average Latency: &cError during test"));
                         return null;
                     });
         } else {
             sender.sendMessage(ColorUtil.colorize("&7Average Latency: &cAPI not available"));
         }
-
-        return true;
     }
-    
-    private boolean handleAnimation(CommandSender sender, String[] args) {
-        if (!sender.hasPermission(Permissions.ADMIN)) {
-            sender.sendMessage(getPrefix() + msg("no-permission"));
-            return true;
+
+    private String formatLatencyResult(List<Long> results) {
+        if (results.isEmpty()) {
+            return ColorUtil.colorize("&7Average Latency: &cFailed to measure");
         }
-        
+        long sum = 0;
+        for (Long latency : results) {
+            sum += latency;
+        }
+        long avg = sum / results.size();
+
+        String latencyColor;
+        if (avg < 50) {
+            latencyColor = "&a";
+        } else if (avg < 150) {
+            latencyColor = "&e";
+        } else {
+            latencyColor = "&c";
+        }
+        return ColorUtil.colorize("&7Average Latency: " + latencyColor + avg + "ms &7("
+                + results.size() + "/5 successful)");
+    }
+
+    private void sendSync(CommandSender sender, String message) {
+        SchedulerManager.getAdapter().runSync(() -> sender.sendMessage(message));
+    }
+
+    private void handleAnimation(CommandSender sender, String[] args) {
         if (args.length < 2) {
             sender.sendMessage(getPrefix() + ColorUtil.colorize("&cИспользование:"));
             sender.sendMessage(ColorUtil.colorize("&7  /mlsac animation test <игрок> <анимация> - Тест анимации"));
             sender.sendMessage(ColorUtil.colorize("&7  /mlsac animation list - Список доступных анимаций"));
             sender.sendMessage(ColorUtil.colorize("&7  /mlsac animation reload - Перезагрузить анимации"));
-            return true;
+            return;
         }
-        
+
         String subCmd = args[1].toLowerCase();
-        
+
         switch (subCmd) {
             case "test":
-                return handleAnimationTest(sender, args);
+                handleAnimationTest(sender, args);
+                break;
             case "list":
-                return handleAnimationList(sender);
+                handleAnimationList(sender);
+                break;
             case "reload":
-                return handleAnimationReload(sender);
+                handleAnimationReload(sender);
+                break;
             default:
                 sender.sendMessage(getPrefix() + ColorUtil.colorize("&cНеизвестная подкоманда: " + args[1]));
-                return true;
         }
     }
-    
-    private boolean handleAnimationTest(CommandSender sender, String[] args) {
+
+    private void handleAnimationTest(CommandSender sender, String[] args) {
         if (args.length < 4) {
             sender.sendMessage(getPrefix() + ColorUtil.colorize("&cИспользование: /mlsac animation test <игрок> <анимация>"));
-            return true;
+            return;
         }
-        
+
         String playerName = args[2];
         String animationName = args[3];
-        
+
         Player target = Bukkit.getPlayer(playerName);
         if (target == null) {
             sender.sendMessage(getPrefix() + msg("player-not-found", "{PLAYER}", playerName));
-            return true;
+            return;
         }
-        
+
         wtf.mlsac.penalty.engine.AnimationManager animationManager = plugin.getAnimationManager();
         if (animationManager == null) {
             sender.sendMessage(getPrefix() + ColorUtil.colorize("&cAnimation Manager не инициализирован!"));
-            return true;
+            return;
         }
-        
+
         if (!animationManager.hasAnimation(animationName)) {
             sender.sendMessage(getPrefix() + ColorUtil.colorize("&cАнимация &f" + animationName + " &cне найдена!"));
             sender.sendMessage(ColorUtil.colorize("&7Используйте &f/mlsac animation list &7для списка доступных анимаций."));
-            return true;
+            return;
         }
-        
+
         // Тестовая команда (не выполняется)
         String testCommand = "say " + target.getName() + " прошел тест анимации " + animationName;
-        
+
         boolean success = animationManager.playAnimation(target, animationName, testCommand);
-        
+
         if (success) {
             sender.sendMessage(getPrefix() + ColorUtil.colorize("&aЗапущена анимация &f" + animationName + " &aдля игрока &f" + target.getName()));
             sender.sendMessage(ColorUtil.colorize("&7Это тестовый режим - команда бана не будет выполнена."));
         } else {
             sender.sendMessage(getPrefix() + ColorUtil.colorize("&cНе удалось запустить анимацию!"));
         }
-        
-        return true;
     }
-    
-    private boolean handleAnimationList(CommandSender sender) {
+
+    private void handleAnimationList(CommandSender sender) {
         wtf.mlsac.penalty.engine.AnimationManager animationManager = plugin.getAnimationManager();
         if (animationManager == null) {
             sender.sendMessage(getPrefix() + ColorUtil.colorize("&cAnimation Manager не инициализирован!"));
-            return true;
+            return;
         }
-        
+
         java.util.Set<String> animations = animationManager.getAvailableAnimations();
-        
+
         sender.sendMessage(ColorUtil.colorize("&8=== &7&lДОСТУПНЫЕ АНИМАЦИИ &8==="));
         sender.sendMessage(ColorUtil.colorize("&7Всего анимаций: &f" + animations.size()));
         sender.sendMessage(ColorUtil.colorize("&7Текущая по умолчанию: &a" + animationManager.getDefaultAnimationName()));
         sender.sendMessage(ColorUtil.colorize("&7─────────────────────────────────"));
-        
+
         for (String name : animations) {
             boolean isDefault = name.equals(animationManager.getDefaultAnimationName());
             String prefix = isDefault ? "&a● " : "&7• ";
             sender.sendMessage(ColorUtil.colorize(prefix + "&f" + name + (isDefault ? " &7(по умолчанию)" : "")));
         }
-        
+
         sender.sendMessage(ColorUtil.colorize("&7─────────────────────────────────"));
         sender.sendMessage(ColorUtil.colorize("&7Используйте &f/mlsac animation test <игрок> <анимация> &7для теста"));
-        
-        return true;
     }
-    
-    private boolean handleAnimationReload(CommandSender sender) {
+
+    private void handleAnimationReload(CommandSender sender) {
         wtf.mlsac.penalty.engine.AnimationManager animationManager = plugin.getAnimationManager();
         if (animationManager == null) {
             sender.sendMessage(getPrefix() + ColorUtil.colorize("&cAnimation Manager не инициализирован!"));
-            return true;
+            return;
         }
-        
+
         try {
             animationManager.reload();
             sender.sendMessage(getPrefix() + ColorUtil.colorize("&aАнимации успешно перезагружены!"));
@@ -911,9 +855,20 @@ public class CommandHandler implements CommandExecutor, TabCompleter {
         } catch (Exception e) {
             sender.sendMessage(getPrefix() + ColorUtil.colorize("&cОшибка при перезагрузке анимаций!"));
             plugin.getLogger().severe("Failed to reload animations: " + e.getMessage());
-            e.printStackTrace();
         }
-        
-        return true;
+    }
+
+    /** Immutable description of a sub-command and its access policy. */
+    private static final class SubCommand {
+        private final Set<String> anyPermission;
+        private final boolean playersOnly;
+        private final BiConsumer<CommandSender, String[]> handler;
+
+        private SubCommand(Set<String> anyPermission, boolean playersOnly,
+                BiConsumer<CommandSender, String[]> handler) {
+            this.anyPermission = anyPermission;
+            this.playersOnly = playersOnly;
+            this.handler = handler;
+        }
     }
 }

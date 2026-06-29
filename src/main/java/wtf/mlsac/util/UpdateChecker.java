@@ -55,8 +55,18 @@ public class UpdateChecker {
             return;
         }
 
+        if (!isHttps(apiBaseUrl)) {
+            plugin.getLogger().warning("[Updater] Auto-updates require an https:// endpoint; current endpoint is "
+                    + apiBaseUrl + ". Updates are disabled to avoid installing code fetched over plaintext.");
+            return;
+        }
+
         checkForUpdates();
         task = SchedulerManager.getAdapter().runAsyncRepeating(this::checkForUpdates, CHECK_INTERVAL_TICKS, CHECK_INTERVAL_TICKS);
+    }
+
+    private static boolean isHttps(String url) {
+        return url != null && url.toLowerCase(Locale.ROOT).startsWith("https://");
     }
 
     public void stop() {
@@ -111,6 +121,9 @@ public class UpdateChecker {
     }
 
     private UpdateInfo requestUpdateInfo() throws Exception {
+        if (!isHttps(apiBaseUrl)) {
+            return null;
+        }
         String url = apiBaseUrl + "/plugin/update?java=" + javaBuild
                 + "&version=" + URLEncoder.encode(currentVersion, StandardCharsets.UTF_8.name());
         HttpURLConnection connection = openConnection(url);
@@ -134,7 +147,6 @@ public class UpdateChecker {
 
             UpdateInfo info = new UpdateInfo();
             info.version = getString(data, "version");
-            info.fileName = getString(data, "fileName");
             info.sha256 = getString(data, "sha256");
             info.downloadPath = getString(data, "downloadPath");
             info.javaVersion = data.has("javaVersion") ? data.get("javaVersion").getAsInt() : javaBuild;
@@ -154,7 +166,14 @@ public class UpdateChecker {
         File targetFile = new File(updateFolder, targetName);
         File tmpFile = new File(updateFolder, targetName + ".tmp");
 
+        if (info.sha256 == null || info.sha256.isEmpty()) {
+            throw new IllegalStateException("Update response has no SHA256 checksum; refusing to install an unverifiable jar");
+        }
+
         String downloadUrl = buildDownloadUrl(info.downloadPath);
+        if (!isHttps(downloadUrl)) {
+            throw new IllegalStateException("Refusing to download update over a non-HTTPS URL: " + downloadUrl);
+        }
         HttpURLConnection connection = openConnection(downloadUrl);
         connection.setRequestMethod("GET");
         connection.setRequestProperty("Accept", "application/java-archive");
@@ -173,7 +192,7 @@ public class UpdateChecker {
         }
 
         String actualSha256 = sha256(tmpFile);
-        if (info.sha256 != null && !info.sha256.isEmpty() && !actualSha256.equalsIgnoreCase(info.sha256)) {
+        if (!actualSha256.equalsIgnoreCase(info.sha256)) {
             Files.deleteIfExists(tmpFile.toPath());
             throw new IllegalStateException("Downloaded update SHA256 mismatch");
         }
@@ -292,7 +311,6 @@ public class UpdateChecker {
 
     private static final class UpdateInfo {
         private String version;
-        private String fileName;
         private String sha256;
         private String downloadPath;
         private int javaVersion;

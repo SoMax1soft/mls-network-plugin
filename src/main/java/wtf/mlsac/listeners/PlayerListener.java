@@ -38,21 +38,16 @@ import org.bukkit.event.player.PlayerKickEvent;
 import org.bukkit.event.player.PlayerChangedWorldEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.event.player.PlayerRespawnEvent;
-import org.bukkit.plugin.java.JavaPlugin;
 import wtf.mlsac.Main;
 import wtf.mlsac.Permissions;
 import wtf.mlsac.alert.AlertManager;
 import wtf.mlsac.checks.AICheck;
-import wtf.mlsac.config.Config;
-import wtf.mlsac.config.MessagesConfig;
 import wtf.mlsac.scheduler.SchedulerManager;
-import wtf.mlsac.server.AnalyticsClient;
 import wtf.mlsac.session.SessionManager;
-import wtf.mlsac.util.ColorUtil;
 import wtf.mlsac.violation.ViolationManager;
 
 public class PlayerListener implements Listener {
-    private final JavaPlugin plugin;
+    private final Main plugin;
     private final AICheck aiCheck;
     private final AlertManager alertManager;
     private final ViolationManager violationManager;
@@ -60,14 +55,12 @@ public class PlayerListener implements Listener {
     private final TickListener tickListener;
     private wtf.mlsac.hologram.HologramManager hologramManager;
     private final RotationListener rotationListener;
-    private final AnalyticsClient analyticsClient;
     private HitListener hitListener;
 
-    public PlayerListener(JavaPlugin plugin, AICheck aiCheck, AlertManager alertManager,
+    public PlayerListener(Main plugin, AICheck aiCheck, AlertManager alertManager,
             ViolationManager violationManager, SessionManager sessionManager,
             TickListener tickListener, wtf.mlsac.hologram.HologramManager hologramManager,
-            RotationListener rotationListener,
-            AnalyticsClient analyticsClient) {
+            RotationListener rotationListener) {
         this.plugin = plugin;
         this.aiCheck = aiCheck;
         this.alertManager = alertManager;
@@ -76,7 +69,6 @@ public class PlayerListener implements Listener {
         this.tickListener = tickListener;
         this.hologramManager = hologramManager;
         this.rotationListener = rotationListener;
-        this.analyticsClient = analyticsClient;
     }
 
     public void setHitListener(HitListener hitListener) {
@@ -90,11 +82,8 @@ public class PlayerListener implements Listener {
     @EventHandler(priority = EventPriority.MONITOR)
     public void onPlayerJoin(PlayerJoinEvent event) {
         Player player = event.getPlayer();
-        if (plugin instanceof Main) {
-            Main main = (Main) plugin;
-            if (main.getAiClientProvider() != null) {
-                main.getAiClientProvider().handlePlayerJoin(player.getUniqueId());
-            }
+        if (plugin.getAiClientProvider() != null) {
+            plugin.getAiClientProvider().handlePlayerJoin(player.getUniqueId());
         }
         if (hitListener != null) {
             hitListener.cacheEntity(player);
@@ -109,47 +98,20 @@ public class PlayerListener implements Listener {
                     if (player.hasPermission(Permissions.ALERTS) || player.hasPermission(Permissions.ADMIN)) {
                         alertManager.enableAlerts(player);
 
-                        if (plugin instanceof Main) {
-                            Main main = (Main) plugin;
-                            if (main.getUpdateChecker() != null && main.getUpdateChecker().isUpdateAvailable()) {
-                                player.sendMessage(
-                                        ChatColor.GOLD + "=================================================");
-                                player.sendMessage(ChatColor.YELLOW + "A NEW MLSAC UPDATE IS AVAILABLE: "
-                                        + ChatColor.WHITE + main.getUpdateChecker().getLatestVersion());
-                                player.sendMessage(ChatColor.YELLOW + "The updater downloads it automatically. Restart the server to apply it.");
-                                player.sendMessage(
-                                        ChatColor.GOLD + "=================================================");
-                            }
+                        if (plugin.getUpdateChecker() != null && plugin.getUpdateChecker().isUpdateAvailable()) {
+                            player.sendMessage(
+                                    ChatColor.GOLD + "=================================================");
+                            player.sendMessage(ChatColor.YELLOW + "A NEW MLSAC UPDATE IS AVAILABLE: "
+                                    + ChatColor.WHITE + plugin.getUpdateChecker().getLatestVersion());
+                            player.sendMessage(ChatColor.YELLOW + "The updater downloads it automatically. Restart the server to apply it.");
+                            player.sendMessage(
+                                    ChatColor.GOLD + "=================================================");
                         }
                     }
                 }
             }, 20L);
         } catch (Exception e) {
             plugin.getLogger().warning("Failed to schedule player join task: " + e.getMessage());
-        }
-
-        if (analyticsClient != null && plugin instanceof Main) {
-            Main main = (Main) plugin;
-            Config config = main.getPluginConfig();
-            if (config.isAnalyticsEnabled()) {
-                String playerName = player.getName();
-                analyticsClient.checkPlayer(playerName).thenAccept(result -> {
-                    if (result.isFound() && result.getTotalDetections() >= config.getAnalyticsMinDetections()) {
-                        MessagesConfig messagesConfig = main.getMessagesConfig();
-                        String colorCode = config.getDetectionColor(result.getTotalDetections());
-                        String detectionsColored = colorCode + result.getTotalDetections();
-                        String template = messagesConfig.getMessage("analytics-join-alert");
-                        String raw = messagesConfig.getPrefix() + template
-                                .replace("{PLAYER}", playerName)
-                                .replace("{DETECTIONS_COLORED}", detectionsColored)
-                                .replace("{DETECTIONS}", String.valueOf(result.getTotalDetections()));
-                        String message = ColorUtil.colorize(raw);
-
-                        alertManager.sendMessageToPermittedPlayers(message,
-                                config.isAiConsoleAlerts() ? ColorUtil.stripColors(raw) : null);
-                    }
-                });
-            }
         }
     }
 
@@ -182,14 +144,11 @@ public class PlayerListener implements Listener {
         if (violationManager != null) {
             violationManager.handlePlayerQuit(player);
         }
-        if (plugin instanceof Main) {
-            Main main = (Main) plugin;
-            if (main.getAiClientProvider() != null) {
-                main.getAiClientProvider().handlePlayerQuit(player.getUniqueId());
-            }
-            if (main.getDetectionResponseManager() != null) {
-                main.getDetectionResponseManager().handlePlayerQuit(player);
-            }
+        if (plugin.getAiClientProvider() != null) {
+            plugin.getAiClientProvider().handlePlayerQuit(player.getUniqueId());
+        }
+        if (plugin.getDetectionResponseManager() != null) {
+            plugin.getDetectionResponseManager().handlePlayerQuit(player);
         }
         if (sessionManager != null) {
             sessionManager.removeAimProcessor(player.getUniqueId());

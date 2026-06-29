@@ -105,13 +105,9 @@ public class BanAnimationEngine implements Listener {
         if (animatingPlayers.contains(playerId))
             return;
 
-        // ВАЖНЫЙ ЛОГ: Начало анимации
-        plugin.getLogger().info("=== STARTING ANIMATION ===");
-        plugin.getLogger().info("Player: " + player.getName());
-        plugin.getLogger().info("Total ticks: " + config.totalTicks);
-        plugin.getLogger().info("Stages count: " + config.stages.size());
-        plugin.getLogger().info("Strip player: " + config.stripPlayer);
-        plugin.getLogger().info("Freeze player: " + config.freezePlayer);
+        plugin.getLogger().fine(() -> "Starting ban animation for " + player.getName()
+                + " (ticks=" + config.totalTicks + ", stages=" + config.stages.size()
+                + ", strip=" + config.stripPlayer + ", freeze=" + config.freezePlayer + ")");
 
         animatingPlayers.add(playerId);
         pendingBans.put(playerId, banCommand);
@@ -142,11 +138,6 @@ public class BanAnimationEngine implements Listener {
 
                 tick[0]++;
 
-                // Debug: Log every 20 ticks
-                if (tick[0] % 20 == 0) {
-                    plugin.getLogger().info("Animation tick: " + tick[0] + "/" + config.totalTicks);
-                }
-
                 Location baseLoc = player.getLocation();
 
                 // Выкидывание предметов с динамическим интервалом
@@ -167,7 +158,6 @@ public class BanAnimationEngine implements Listener {
                 }
 
                 if (tick[0] >= config.totalTicks) {
-                    plugin.getLogger().info("=== ANIMATION COMPLETE === (tick " + tick[0] + ")");
                     if (config.strikeLightningAtEnd)
                         baseLoc.getWorld().strikeLightningEffect(baseLoc);
                     taskRef[0].cancel();
@@ -188,12 +178,6 @@ public class BanAnimationEngine implements Listener {
         int stageTick = currentTick - stage.startTick;
         int stageDuration = stage.endTick - stage.startTick;
         double progress = stageDuration <= 0 ? 1.0 : (double) stageTick / stageDuration;
-
-        // Отладка: логируем первый тик стейджа
-        if (stageTick == 0) {
-            plugin.getLogger()
-                    .info("Starting stage: " + stage.name + " with " + stage.particles.size() + " particle effects");
-        }
 
         // Обработка звуков
         for (SoundEffectConfig s : stage.sounds) {
@@ -233,13 +217,6 @@ public class BanAnimationEngine implements Listener {
         for (ParticleEffectConfig p : stage.particles) {
             if (stageTick % p.intervalTicks != 0)
                 continue;
-
-            // Отладка: логируем попытку спавна частиц
-            if (stageTick == 0 || stageTick % 20 == 0) {
-                plugin.getLogger()
-                        .info("Spawning particles: type=" + (p.particleType != null ? p.particleType.name() : "NULL") +
-                                ", shape=" + p.shape + ", count=" + p.count);
-            }
 
             // Линейная интерполяция (Lerp) радиуса и высоты
             double radius = lerp(p.radiusStart, p.radiusEnd, progress);
@@ -509,38 +486,6 @@ public class BanAnimationEngine implements Listener {
         player.getInventory().setItemInOffHand(null);
         player.setItemOnCursor(null);
         player.updateInventory();
-    }
-
-    /**
-     * Выкидывание следующего предмета из инвентаря
-     */
-    private void dropNextItem(Player player) {
-        UUID uuid = player.getUniqueId();
-        List<ItemStack> items = playerInventories.get(uuid);
-        if (items == null || items.isEmpty())
-            return;
-
-        Integer counter = itemDropCounters.get(uuid);
-        if (counter == null || counter >= items.size())
-            return;
-
-        ItemStack item = items.get(counter);
-        Location dropLoc = player.getLocation().add(0, 1, 0);
-
-        // Выкидываем предмет
-        Item droppedItem = player.getWorld().dropItemNaturally(dropLoc, item);
-        droppedItem.setPickupDelay(Integer.MAX_VALUE); // Нельзя подобрать
-
-        // Сохраняем ссылку на выпавший предмет для последующего удаления
-        List<Item> dropped = droppedItems.get(uuid);
-        if (dropped != null) {
-            dropped.add(droppedItem);
-        }
-
-        // Звук подбора ресурсов
-        player.getWorld().playSound(dropLoc, Sound.ENTITY_ITEM_PICKUP, 0.5f, 1.0f);
-
-        itemDropCounters.put(uuid, counter + 1);
     }
 
     /**

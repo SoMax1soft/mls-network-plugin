@@ -27,6 +27,7 @@
 
 
 package wtf.mlsac.penalty;
+import java.util.Locale;
 public class PlaceholderProcessor {
     private static final String PH_PLAYER = "{PLAYER}";
     private static final String PH_VL = "{VL}";
@@ -55,7 +56,9 @@ public class PlaceholderProcessor {
         return result;
     }
     private String formatDouble(double value) {
-        return String.format("%.2f", value);
+        // Locale.ROOT keeps a '.' decimal separator; the default locale would emit
+        // ',' on RU/DE/etc. servers and corrupt the generated penalty command.
+        return String.format(Locale.ROOT, "%.2f", value);
     }
     public boolean hasPlaceholders(String template) {
         if (template == null || template.isEmpty()) {

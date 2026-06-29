@@ -39,9 +39,11 @@ import wtf.mlsac.scheduler.SchedulerManager;
 import wtf.mlsac.scheduler.ServerType;
 import wtf.mlsac.util.ColorUtil;
 import wtf.mlsac.util.ProbabilityFormatUtil;
+import java.util.Collection;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CopyOnWriteArraySet;
+import java.util.function.Consumer;
 import java.util.logging.Logger;
 
 public class AlertManager {
@@ -142,11 +144,27 @@ public class AlertManager {
     public void sendAlert(String suspectName, double probability, double buffer, int vl, String modelName) {
         String message = formatAlertMessage(suspectName, probability, buffer, vl, modelName);
         sendMessageToAlertSubscribers(message, config.isAiConsoleAlerts() ? ColorUtil.stripColors(message) : null);
-        
+
         // Send to monitor mode players (all detections)
         sendMonitorMessage(suspectName, probability, modelName);
-        
+
         // Play sound for alert subscribers
+        playAlertSound();
+    }
+
+    /**
+     * Buffer-step alert: fired when the violation buffer crosses a configured fraction of the flag
+     * threshold (e.g. 33/66/99%). Reuses {@code alert-format}; templates may include the optional
+     * {@code {STEP_PERCENT}} placeholder to show the crossed step.
+     */
+    public void sendBufferStepAlert(String suspectName, double probability, double buffer,
+            double stepFraction, String modelName) {
+        String message = formatAlertMessage(suspectName, probability, buffer, modelName);
+        int percent = (int) Math.round(stepFraction * 100);
+        message = message
+                .replace("{STEP_PERCENT}", String.valueOf(percent))
+                .replace("<step_percent>", String.valueOf(percent));
+        sendMessageToAlertSubscribers(message, config.isAiConsoleAlerts() ? ColorUtil.stripColors(message) : null);
         playAlertSound();
     }
 
@@ -158,53 +176,61 @@ public class AlertManager {
     }
 
     public void sendMessageToPermittedPlayers(String message, String consoleMessage) {
-        if (SchedulerManager.getServerType() == ServerType.FOLIA) {
-            for (Player player : Bukkit.getOnlinePlayers()) {
-                scheduler.runEntitySync(player, () -> {
-                    if (player.isOnline() && canReceiveAlerts(player)) {
-                        player.sendMessage(message);
-                    }
-                });
-            }
-            logConsoleMessage(consoleMessage);
-            return;
-        }
-
-        scheduler.runSync(() -> {
-            for (Player player : Bukkit.getOnlinePlayers()) {
-                if (player.isOnline() && canReceiveAlerts(player)) {
-                    player.sendMessage(message);
-                }
-            }
-            logConsoleMessage(consoleMessage);
-        });
+        dispatch(null, true, player -> player.sendMessage(message), () -> logConsoleMessage(consoleMessage));
     }
 
     private void sendMessageToAlertSubscribers(String message, String consoleMessage) {
+        dispatch(playersWithAlerts, true, player -> player.sendMessage(message),
+                () -> logConsoleMessage(consoleMessage));
+    }
+
+    /**
+     * Runs a per-player action on the thread the running platform requires.
+     *
+     * @param recipients        UUIDs to target, or {@code null} to target every online player
+     * @param requirePermission only deliver to players passing {@link #canReceiveAlerts(Player)}
+     * @param action            work to run for each eligible player
+     * @param afterAll          optional callback executed once after dispatching (e.g. console log)
+     */
+    private void dispatch(Collection<UUID> recipients, boolean requirePermission,
+            Consumer<Player> action, Runnable afterAll) {
         if (SchedulerManager.getServerType() == ServerType.FOLIA) {
-            for (UUID uuid : playersWithAlerts) {
-                Player player = Bukkit.getPlayer(uuid);
-                if (player != null && player.isOnline()) {
-                    scheduler.runEntitySync(player, () -> {
-                        if (player.isOnline() && canReceiveAlerts(player)) {
-                            player.sendMessage(message);
-                        }
-                    });
+            forEachTarget(recipients, player -> scheduler.runEntitySync(player, () -> {
+                if (player.isOnline() && (!requirePermission || canReceiveAlerts(player))) {
+                    action.accept(player);
                 }
+            }));
+            if (afterAll != null) {
+                afterAll.run();
             }
-            logConsoleMessage(consoleMessage);
             return;
         }
 
         scheduler.runSync(() -> {
-            for (UUID uuid : playersWithAlerts) {
-                Player player = Bukkit.getPlayer(uuid);
-                if (player != null && player.isOnline() && canReceiveAlerts(player)) {
-                    player.sendMessage(message);
+            forEachTarget(recipients, player -> {
+                if (player.isOnline() && (!requirePermission || canReceiveAlerts(player))) {
+                    action.accept(player);
                 }
+            });
+            if (afterAll != null) {
+                afterAll.run();
             }
-            logConsoleMessage(consoleMessage);
         });
+    }
+
+    private void forEachTarget(Collection<UUID> recipients, Consumer<Player> consumer) {
+        if (recipients == null) {
+            for (Player player : Bukkit.getOnlinePlayers()) {
+                consumer.accept(player);
+            }
+            return;
+        }
+        for (UUID uuid : recipients) {
+            Player player = Bukkit.getPlayer(uuid);
+            if (player != null && player.isOnline()) {
+                consumer.accept(player);
+            }
+        }
     }
 
     private void logConsoleMessage(String consoleMessage) {
@@ -268,29 +294,7 @@ public class AlertManager {
                 .replace("{PLAYER}", suspectName)
                 .replace("{PROBABILITY_COLORED}", coloredProb);
         final String message = ColorUtil.colorize(messageText);
-        
-        if (SchedulerManager.getServerType() == ServerType.FOLIA) {
-            for (UUID uuid : playersWithMonitor) {
-                Player player = Bukkit.getPlayer(uuid);
-                if (player != null && player.isOnline()) {
-                    scheduler.runEntitySync(player, () -> {
-                        if (player.isOnline() && canReceiveAlerts(player)) {
-                            player.sendMessage(message);
-                        }
-                    });
-                }
-            }
-            return;
-        }
-
-        scheduler.runSync(() -> {
-            for (UUID uuid : playersWithMonitor) {
-                Player player = Bukkit.getPlayer(uuid);
-                if (player != null && player.isOnline() && canReceiveAlerts(player)) {
-                    player.sendMessage(message);
-                }
-            }
-        });
+        dispatch(playersWithMonitor, true, player -> player.sendMessage(message), null);
     }
 
     private String getColoredProbability(double probability) {
@@ -331,29 +335,8 @@ public class AlertManager {
         
         float volume = config.getAlertSoundVolume();
         float pitch = config.getAlertSoundPitch();
-        
-        if (SchedulerManager.getServerType() == ServerType.FOLIA) {
-            for (UUID uuid : playersWithAlerts) {
-                Player player = Bukkit.getPlayer(uuid);
-                if (player != null && player.isOnline()) {
-                    scheduler.runEntitySync(player, () -> {
-                        if (player.isOnline()) {
-                            player.playSound(player.getLocation(), sound, volume, pitch);
-                        }
-                    });
-                }
-            }
-            return;
-        }
-
-        scheduler.runSync(() -> {
-            for (UUID uuid : playersWithAlerts) {
-                Player player = Bukkit.getPlayer(uuid);
-                if (player != null && player.isOnline()) {
-                    player.playSound(player.getLocation(), sound, volume, pitch);
-                }
-            }
-        });
+        dispatch(playersWithAlerts, false,
+                player -> player.playSound(player.getLocation(), sound, volume, pitch), null);
     }
 
     public boolean shouldAlert(double probability) {

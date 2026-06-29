@@ -29,16 +29,15 @@ package wtf.mlsac.menu;
 
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
-import org.bukkit.GameMode;
 import org.bukkit.Material;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.HandlerList;
 import org.bukkit.event.Listener;
-import org.bukkit.event.inventory.ClickType;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.inventory.InventoryCloseEvent;
+import org.bukkit.event.inventory.InventoryDragEvent;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
@@ -46,32 +45,24 @@ import org.bukkit.inventory.meta.SkullMeta;
 import org.bukkit.plugin.java.JavaPlugin;
 import wtf.mlsac.Main;
 import wtf.mlsac.checks.AICheck;
-import wtf.mlsac.config.Config;
 import wtf.mlsac.data.AIPlayerData;
 import wtf.mlsac.scheduler.SchedulerManager;
-import wtf.mlsac.server.AnalyticsClient;
 import wtf.mlsac.util.ColorUtil;
 
 import java.util.ArrayList;
-import java.util.Collections;
-import java.util.EnumMap;
 import java.util.List;
 import java.util.Locale;
-import java.util.Map;
 import java.util.UUID;
-import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 
 public class SuspectsMenu implements Listener {
     private static final int ITEMS_PER_PAGE = 45;
-    private static final Map<ClickType, String> CLICK_ACTION_KEYS = createClickActionKeys();
 
     private final JavaPlugin plugin;
     private final Player admin;
     private final Inventory inventory;
     private final AICheck aiCheck;
-    private final AnalyticsClient analyticsClient;
-    private final Config pluginConfig;
+    private final MenuActionDispatcher actionDispatcher;
     private List<SuspectData> currentPageData = new ArrayList<>();
     private int page = 0;
 
@@ -80,8 +71,7 @@ public class SuspectsMenu implements Listener {
         this.admin = admin;
         Main main = (Main) plugin;
         this.aiCheck = main.getAiCheck();
-        this.analyticsClient = main.getAnalyticsClient();
-        this.pluginConfig = main.getPluginConfig();
+        this.actionDispatcher = new MenuActionDispatcher(main, admin);
         FileConfiguration config = main.getMenuConfig().getConfig();
         String title = config.getString("gui.title", "&cMLSAC &8> &7Suspects");
         this.inventory = Bukkit.createInventory(null, 54, ColorUtil.colorize(title));
@@ -121,32 +111,7 @@ public class SuspectsMenu implements Listener {
             int start = page * ITEMS_PER_PAGE;
             int end = Math.min(start + ITEMS_PER_PAGE, suspectDataList.size());
             List<SuspectData> pageData = new ArrayList<>(suspectDataList.subList(start, end));
-
-            List<CompletableFuture<Void>> futures = new ArrayList<>();
-            for (SuspectData data : pageData) {
-                if (analyticsClient != null) {
-                    futures.add(analyticsClient.checkPlayer(data.name).thenAccept(result -> {
-                        if (result.isFound()) {
-                            data.analyticsDetections = result.getTotalDetections();
-                            data.analyticsFound = true;
-                        }
-                    }));
-                }
-            }
-
-            int totalPagesFinal = totalPages;
-            int endFinal = end;
-            int totalSuspectsFinal = suspectDataList.size();
-            if (futures.isEmpty()) {
-                renderPage(pageData, totalPagesFinal, endFinal, totalSuspectsFinal);
-                return;
-            }
-            CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).whenComplete((ignored, error) ->
-                    SchedulerManager.getAdapter().runEntitySync(admin, () -> {
-                        if (admin.isOnline()) {
-                            renderPage(pageData, totalPagesFinal, endFinal, totalSuspectsFinal);
-                        }
-                    }));
+            renderPage(pageData, totalPages, end, suspectDataList.size());
         });
     }
 
@@ -239,9 +204,7 @@ public class SuspectsMenu implements Listener {
             historyBuilder.append(getColorInfo(value)).append(" ");
         }
 
-        String detections = data.analyticsFound
-                ? pluginConfig.getDetectionColor(data.analyticsDetections) + data.analyticsDetections
-                : "&7N/A";
+        String detections = "&7N/A";
 
         List<String> lore = new ArrayList<>();
         for (String line : loreFormat) {
@@ -273,7 +236,7 @@ public class SuspectsMenu implements Listener {
         } else if (value >= 0.6D) {
             color = ChatColor.GOLD;
         }
-        return color + String.format("%.2f", value) + "&r";
+        return color + String.format(Locale.ROOT, "%.2f", value) + "&r";
     }
 
     @EventHandler
@@ -282,6 +245,13 @@ public class SuspectsMenu implements Listener {
             return;
         }
         event.setCancelled(true);
+
+        // Act only on clicks inside the menu's top inventory. Clicks in the admin's own inventory
+        // are cancelled above, but their getSlot() (0-35) overlaps suspect-head slots and would
+        // otherwise trigger configured actions (teleport/ban/console) on an unintended suspect.
+        if (event.getClickedInventory() != inventory) {
+            return;
+        }
 
         ItemStack item = event.getCurrentItem();
         if (item == null || item.getType() == Material.AIR) {
@@ -304,7 +274,8 @@ public class SuspectsMenu implements Listener {
             return;
         }
 
-        executeConfiguredActions(event.getClick(), suspectData, target, config);
+        MenuActionContext context = new MenuActionContext(target, suspectData.avgProbability, "N/A");
+        actionDispatcher.runForClick(event.getClick(), context, config);
     }
 
     private boolean handlePageButtons(InventoryClickEvent event, ItemStack item, FileConfiguration config) {
@@ -328,70 +299,6 @@ public class SuspectsMenu implements Listener {
         return false;
     }
 
-    private void executeConfiguredActions(ClickType clickType, SuspectData suspectData, Player target,
-            FileConfiguration config) {
-        String key = CLICK_ACTION_KEYS.get(clickType);
-        if (key == null) {
-            return;
-        }
-
-        List<String> actions = config.getStringList("gui.actions." + key);
-        if (actions.isEmpty()) {
-            return;
-        }
-
-        String detections = suspectData.analyticsFound ? String.valueOf(suspectData.analyticsDetections) : "N/A";
-        for (String rawAction : actions) {
-            executeAction(rawAction, suspectData, target, detections);
-        }
-    }
-
-    private void executeAction(String rawAction, SuspectData suspectData, Player target, String detections) {
-        if (rawAction == null || rawAction.trim().isEmpty()) {
-            return;
-        }
-
-        String action = rawAction.trim();
-        String lowerAction = action.toLowerCase(Locale.ROOT);
-
-        if (lowerAction.equals("[close]") || lowerAction.equals("close")) {
-            admin.closeInventory();
-            return;
-        }
-        if (lowerAction.startsWith("[message]")) {
-            admin.sendMessage(ColorUtil.colorize(applyClickPlaceholders(action.substring(9).trim(), suspectData, target,
-                    detections)));
-            return;
-        }
-        if (lowerAction.startsWith("[teleport]")) {
-            admin.teleport(target);
-            return;
-        }
-        if (lowerAction.startsWith("[gamemode]")) {
-            String modeName = action.substring(10).trim();
-            try {
-                admin.setGameMode(GameMode.valueOf(modeName.toUpperCase(Locale.ROOT)));
-            } catch (IllegalArgumentException exception) {
-                plugin.getLogger().warning("Invalid suspects menu gamemode: " + modeName);
-            }
-            return;
-        }
-        if (lowerAction.startsWith("[console]")) {
-            Bukkit.dispatchCommand(Bukkit.getConsoleSender(),
-                    applyClickPlaceholders(action.substring(9).trim(), suspectData, target, detections));
-            return;
-        }
-        if (lowerAction.startsWith("[player]") || lowerAction.startsWith("[admin]")) {
-            int startIndex = lowerAction.startsWith("[player]") ? 8 : 7;
-            admin.performCommand(applyClickPlaceholders(action.substring(startIndex).trim(), suspectData, target,
-                    detections));
-            return;
-        }
-
-        admin.sendMessage(ColorUtil.colorize(((Main) plugin).getMessagesConfig()
-                .getMessage("suspects-invalid-action", "{ACTION}", action)));
-    }
-
     private String applyPlaceholders(String input, SuspectData data, String detections) {
         return input
                 .replace("{PLAYER}", data.name)
@@ -400,13 +307,11 @@ public class SuspectsMenu implements Listener {
                 .replace("{DETECTIONS}", detections);
     }
 
-    private String applyClickPlaceholders(String input, SuspectData data, Player target, String detections) {
-        return input
-                .replace("{PLAYER}", target.getName())
-                .replace("{TARGET}", target.getName())
-                .replace("{ADMIN}", admin.getName())
-                .replace("{AVG_PROB}", String.format("%.2f", data.avgProbability))
-                .replace("{DETECTIONS}", detections);
+    @EventHandler
+    public void onInventoryDrag(InventoryDragEvent event) {
+        if (event.getInventory() == inventory) {
+            event.setCancelled(true);
+        }
     }
 
     @EventHandler
@@ -416,23 +321,11 @@ public class SuspectsMenu implements Listener {
         }
     }
 
-    private static Map<ClickType, String> createClickActionKeys() {
-        Map<ClickType, String> keys = new EnumMap<>(ClickType.class);
-        keys.put(ClickType.LEFT, "left-click");
-        keys.put(ClickType.RIGHT, "right-click");
-        keys.put(ClickType.SHIFT_LEFT, "shift-left-click");
-        keys.put(ClickType.SHIFT_RIGHT, "shift-right-click");
-        keys.put(ClickType.MIDDLE, "middle-click");
-        return Collections.unmodifiableMap(keys);
-    }
-
     private static final class SuspectData {
         private final UUID uuid;
         private final String name;
         private final double avgProbability;
         private final List<Double> history;
-        private volatile int analyticsDetections;
-        private volatile boolean analyticsFound;
 
         private SuspectData(UUID uuid, String name, double avgProbability, List<Double> history) {
             this.uuid = uuid;

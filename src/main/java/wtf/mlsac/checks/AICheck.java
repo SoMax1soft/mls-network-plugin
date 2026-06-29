@@ -44,6 +44,7 @@ import wtf.mlsac.server.IAIClient;
 import wtf.mlsac.violation.ViolationManager;
 import wtf.mlsac.util.GeyserUtil;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
@@ -146,13 +147,9 @@ public class AICheck {
 
         data.incrementTicksSinceAttack();
         if (data.getTicksSinceAttack() > sequence) {
-            if (!data.isPendingRequest() && data.getBufferSize() >= sequence) {
-                plugin.debug("[AI] Combat ended for " + player.getName() +
-                        ", sending final buffer (" + data.getBufferSize() + " ticks)");
-                data.setPendingRequest(true);
-                sendDataToAI(player, data);
-            }
-            if (!data.isPendingRequest() && data.getTicksSinceAttack() > sequence * 2 && data.getBufferSize() > 0) {
+            // Combat ended: drop the rolling window (the latest windows were already sent during
+            // combat). Mirrors SlothAC's non-continuous behaviour.
+            if (data.getBufferSize() > 0) {
                 data.clearBuffer();
             }
             data.resetStepCounter();
@@ -176,7 +173,6 @@ public class AICheck {
         data.processTick(yaw, pitch);
         data.incrementStepCounter();
         if (data.shouldSendData(step, sequence)) {
-            data.setPendingRequest(true);
             sendDataToAI(player, data);
             data.resetStepCounter();
         }
@@ -200,20 +196,7 @@ public class AICheck {
             plugin.debug("[AI] Sending " + ticks.size() + " ticks for " + player.getName() +
                     " (ticksSinceAttack=" + data.getTicksSinceAttack() + ")");
             if (config.isDebug()) {
-                plugin.debug("[AI] === TICK BUFFER START ===");
-                int i = 0;
-                for (TickData tick : ticks) {
-                    plugin.debug("[AI] Tick[" + i + "]: dYaw=" + String.format("%.4f", tick.deltaYaw) +
-                            ", dPitch=" + String.format("%.4f", tick.deltaPitch) +
-                            ", aYaw=" + String.format("%.4f", tick.accelYaw) +
-                            ", aPitch=" + String.format("%.4f", tick.accelPitch) +
-                            ", jYaw=" + String.format("%.4f", tick.jerkYaw) +
-                            ", jPitch=" + String.format("%.4f", tick.jerkPitch) +
-                            ", gcdYaw=" + String.format("%.4f", tick.gcdErrorYaw) +
-                            ", gcdPitch=" + String.format("%.4f", tick.gcdErrorPitch));
-                    i++;
-                }
-                plugin.debug("[AI] === TICK BUFFER END ===");
+                logTickBuffer(ticks);
             }
             byte[] serialized = FlatBufferSerializer.serialize(ticks);
             final Player playerRef = player;
@@ -233,9 +216,25 @@ public class AICheck {
                     });
         } catch (Exception e) {
             plugin.getLogger().warning("[AI] Unexpected error in sendDataToAI: " + e.getMessage());
-            e.printStackTrace();
             data.setPendingRequest(false);
         }
+    }
+
+    private void logTickBuffer(List<TickData> ticks) {
+        plugin.debug("[AI] === TICK BUFFER START ===");
+        int i = 0;
+        for (TickData tick : ticks) {
+            plugin.debug("[AI] Tick[" + i + "]: dYaw=" + String.format(Locale.ROOT, "%.4f", tick.deltaYaw) +
+                    ", dPitch=" + String.format(Locale.ROOT, "%.4f", tick.deltaPitch) +
+                    ", aYaw=" + String.format(Locale.ROOT, "%.4f", tick.accelYaw) +
+                    ", aPitch=" + String.format(Locale.ROOT, "%.4f", tick.accelPitch) +
+                    ", jYaw=" + String.format(Locale.ROOT, "%.4f", tick.jerkYaw) +
+                    ", jPitch=" + String.format(Locale.ROOT, "%.4f", tick.jerkPitch) +
+                    ", gcdYaw=" + String.format(Locale.ROOT, "%.4f", tick.gcdErrorYaw) +
+                    ", gcdPitch=" + String.format(Locale.ROOT, "%.4f", tick.gcdErrorPitch));
+            i++;
+        }
+        plugin.debug("[AI] === TICK BUFFER END ===");
     }
 
     private boolean isClientAvailable() {
@@ -250,8 +249,9 @@ public class AICheck {
     }
 
     private void processResponse(Player playerRef, UUID playerUuid, String playerName, AIPlayerData data, AIResponse response) {
+        // Rolling window: do NOT clear the tick buffer here - it keeps sliding as packets arrive
+        // (capped at `sequence` in processTick), so overlapping windows are sent during combat.
         data.setPendingRequest(false);
-        data.clearBuffer();
         if (response.getError() != null && response.getError().contains("INVALID_SEQUENCE")) {
             handleInvalidSequence(response.getError());
             return;
@@ -261,51 +261,83 @@ public class AICheck {
         boolean isOnlyAlert = config.isOnlyAlertForModel(modelName);
 
         plugin.debug("[AI] Response for " + playerName + ": probability=" +
-                String.format("%.3f", probability) + ", model=" + modelName +
+                String.format(Locale.ROOT, "%.3f", probability) + ", model=" + modelName +
                 ", onlyAlert=" + isOnlyAlert);
 
-        if (!isOnlyAlert) {
-            data.updateBuffer(probability, modelName, config.getAiBufferMultiplier(),
-                    config.getAiBufferDecrease(), config.getAiAlertThreshold(), config.getAiBufferDecreaseThreshold());
-        } else {
+        if (isOnlyAlert) {
             plugin.debug("[AI] Only-alert mode for model " + modelName + ", skipping buffer/punishment");
+        } else {
+            data.updateBuffer(probability, modelName, config.getAiBufferMultiplier(),
+                    config.getAiBufferDecrease(), config.getAiAlertThreshold(),
+                    config.getAiBufferDecreaseThreshold());
         }
 
-        if (alertManager.shouldAlert(probability)) {
-            // Increment detection counter
+        dispatchDetectionOutcome(playerRef, playerUuid, playerName, data, probability, modelName);
+
+        if (!isOnlyAlert) {
+            maybeFlag(playerRef, playerName, data, probability);
+        }
+    }
+
+    /**
+     * Buffer-driven alert pipeline: every configured step (e.g. 33/66/99% of the flag threshold)
+     * sends one chat alert per upward crossing. Monitor subscribers still get every detection.
+     * Damage-reduction / troll triggers are delegated to {@link wtf.mlsac.response.DetectionResponseManager}.
+     */
+    private void dispatchDetectionOutcome(Player playerRef, UUID playerUuid, String playerName,
+            AIPlayerData data, double probability, String modelName) {
+        alertManager.sendMonitorOnly(playerName, probability, modelName);
+
+        double buffer = data.getBuffer();
+        double flag = config.getAiBufferFlag();
+        double step = config.getAiAlertBufferStepPercent();
+        boolean anyFired = false;
+        if (flag > 0 && step > 0) {
+            for (double s = step; s < 1.0 + 1e-9; s += step) {
+                double frac = Math.min(s, 1.0);
+                double thresholdValue = flag * frac;
+                String key = "alert-step-" + (int) Math.round(frac * 1000);
+                if (data.consumeBufferCrossing(key, thresholdValue)) {
+                    alertManager.sendBufferStepAlert(playerName, probability, buffer, frac, modelName);
+                    anyFired = true;
+                }
+            }
+        }
+
+        if (anyFired) {
             if (plugin.getDailyStats() != null) {
                 plugin.getDailyStats().incrementDetections();
             }
-            
-            alertManager.sendAlert(playerName, probability, data.getBuffer(), modelName);
             IAIClient client = clientProvider.get();
             if (client != null) {
-                client.reportAlert(playerUuid.toString(), playerName, modelName, probability, data.getBuffer());
+                client.reportAlert(playerUuid.toString(), playerName, modelName, probability, buffer);
             }
-            if (playerRef != null && playerRef.isOnline() && plugin.getDetectionResponseManager() != null) {
-                schedulerAdapter.runEntitySync(playerRef, () -> {
-                    if (playerRef.isOnline()) {
-                        plugin.getDetectionResponseManager().registerDetection(playerRef, probability);
-                    }
-                });
-            }
-        } else {
-            // Send to monitor mode even if below alert threshold
-            alertManager.sendMonitorOnly(playerName, probability, modelName);
         }
 
-        if (!isOnlyAlert && data.shouldFlag(config.getAiBufferFlag())) {
-            if (playerRef != null && playerRef.isOnline()) {
-                schedulerAdapter.runEntitySync(playerRef, () -> {
-                    if (playerRef.isOnline()) {
-                        violationManager.handleFlag(playerRef, probability, data.getBuffer());
-                    }
-                });
-            } else {
-                logger.warning("[AI] Player " + playerName + " went offline before punishment");
-            }
-            data.resetBuffer(config.getAiBufferResetOnFlag());
+        if (playerRef != null && playerRef.isOnline() && plugin.getDetectionResponseManager() != null) {
+            schedulerAdapter.runEntitySync(playerRef, () -> {
+                if (playerRef.isOnline()) {
+                    plugin.getDetectionResponseManager().onBufferUpdated(playerRef, data, probability);
+                }
+            });
         }
+    }
+
+    /** Escalates to the violation/punishment system once the buffer crosses the flag threshold. */
+    private void maybeFlag(Player playerRef, String playerName, AIPlayerData data, double probability) {
+        if (!data.shouldFlag(config.getAiBufferFlag())) {
+            return;
+        }
+        if (playerRef != null && playerRef.isOnline()) {
+            schedulerAdapter.runEntitySync(playerRef, () -> {
+                if (playerRef.isOnline()) {
+                    violationManager.handleFlag(playerRef, probability, data.getBuffer());
+                }
+            });
+        } else {
+            logger.warning("[AI] Player " + playerName + " went offline before punishment");
+        }
+        data.resetBuffer(config.getAiBufferResetOnFlag());
     }
 
     private void handleInvalidSequence(String error) {

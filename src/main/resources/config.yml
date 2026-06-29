@@ -10,6 +10,10 @@
 # ║                    ML Anti-Cheat with AI Detection                            ║
 # ╚═══════════════════════════════════════════════════════════════════════════════╝
 
+# Schema marker — when a user's config has a different value the plugin runs a one-time wipe
+# migration (preserving detection.api-key, detection.enabled, penalties.actions). Do not edit.
+_schema-version: 'b44'
+
 # ┌───────────────────────────────────────────────────────────────────────────────┐
 # │                            GENERAL SETTINGS                                   │
 # └───────────────────────────────────────────────────────────────────────────────┘
@@ -130,14 +134,17 @@ violation:
   reset-value: 20  
   # Buffer increase multiplier: (probability - threshold) * multiplier
   # Example: prob 1.я0 with threshold 0.70 = (1.0 - 0.70) * 33.33 = 10 buffer
-  multiplier: 110.0
+  multiplier: 45.0
   
   # Buffer decay settings
   decay:
-    # Buffer decay when probability is less than this value
-    threshold: 0.10
-    # Amount of buffer to reduce
-    amount: 0.65
+    # Buffer decay applies when probability is below this value
+    threshold: 0.50
+    # Maximum buffer removed, reached at probability 0. Decay scales linearly: 0 at `threshold`
+    # up to `amount` at probability 0 - the more confident the model is that the player is legit
+    # (lower probability), the more buffer is cleared. (Buffer gain is unchanged: it still grows
+    # above the alert threshold.)
+    amount: 1.5
   # VL decay settings (reset VL when player is not in combat)
   # Protects legitimate players from random false positives
   vl-decay:
@@ -197,37 +204,55 @@ penalties:
 # ┌───────────────────────────────────────────────────────────────────────────────┐
 # │                      ALERT RESPONSE / TROLL SYSTEM                            │
 # └───────────────────────────────────────────────────────────────────────────────┘
-# Triggers on alerts.threshold hits. Uses rolling detection windows.
+# All triggers are driven by the violation buffer (see violation.threshold).
+# Each threshold fires exactly once per upward crossing; rearms after the buffer drops below.
 alert-responses:
-  enabled: true # TURN ON OR OFF TO DISABLE OR ENABLE TROLL SYSTEM
+  enabled: true # Master switch for ALL alert responses (alerts + damage-reduction + troll)
+
+  alerts:
+    # Chat alert step as a fraction of violation.threshold.
+    # 0.33 → alert at 33%, 66%, 99% of the flag buffer. Range: (0, 1].
+    # A separate alert still fires when VL increments (see alert-format-vl in messages.yml).
+    buffer-step-percent: 0.33
 
   damage-reduction:
-    window-seconds: 10
+    enabled: true # Reduce the flagged player's outgoing damage. Independent of the troll system.
+    # `buffer` is the absolute buffer value that activates the stage (compare with violation.threshold).
     stages:
-      - detections: 1
-        reduction-percent: 15
+      - buffer: 10.0
+        reduction-percent: 5
         duration-seconds: 8
-      - detections: 2
+      - buffer: 20.0
         reduction-percent: 35
         duration-seconds: 12
-      - detections: 3
-        reduction-percent: 100
+      - buffer: 30.0
+        reduction-percent: 70
         duration-seconds: 16
 
   troll:
-    window-seconds: 20
+    enabled: false # Toggle the troll actions independently of damage-reduction.
+    # Each action: type (shuffle_inventory | drop_weapon | launch), buffer (absolute trigger value),
+    # cooldown-seconds, message ({PLAYER}/{BUFFER}/{PROBABILITY}). drop_weapon & launch also use
+    # only-sword, horizontal-velocity, vertical-velocity. {DETECTIONS} is kept as alias for {BUFFER}.
     actions:
       - type: "shuffle_inventory"
-        detections: 4
+        buffer: 20.0
         cooldown-seconds: 20
-        message: "&#F1F1F1▍ &#D8D8D8M&#BFBFBFL&#A6A6A6S&#8D8D8DA&#747474C &f{PLAYER} &7Forced to shuffle his inventory after &#EE1955(&#EE1955D&#E81750e&#E2154Bt&#DC1245e&#D61040c&#CF0E3Bt&#C90C36i&#C30930o&#BD072Bn&#B70526s: &f{DETECTIONS}&#EE1955)&f"
+        message: "&#F1F1F1▍ &#D8D8D8M&#BFBFBFL&#A6A6A6S&#8D8D8DA&#747474C &f{PLAYER} &7Forced to shuffle his inventory at &#EE1955(&#EE1955B&#E81750u&#E2154Bf&#DC1245f&#D61040e&#CF0E3Br: &f{BUFFER}&#EE1955)&f"
       - type: "drop_weapon"
-        detections: 3
+        buffer: 35.0
         cooldown-seconds: 20
         only-sword: true
         horizontal-velocity: 1.9
         vertical-velocity: 0.55
-        message: "&#F1F1F1▍ &#D8D8D8M&#BFBFBFL&#A6A6A6S&#8D8D8DA&#747474C &f{PLAYER} &7Forced to shuffle his inventory after &#EE1955(&#EE1955D&#E81750e&#E2154Bt&#DC1245e&#D61040c&#CF0E3Bt&#C90C36i&#C30930o&#BD072Bn&#B70526s: &f{DETECTIONS}&#EE1955)&f"
+        message: "&#F1F1F1▍ &#D8D8D8M&#BFBFBFL&#A6A6A6S&#8D8D8DA&#747474C &f{PLAYER} &7Forced to drop his weapon at &#EE1955(&#EE1955B&#E81750u&#E2154Bf&#DC1245f&#D61040e&#CF0E3Br: &f{BUFFER}&#EE1955)&f"
+      # Example extra action (disabled by a high buffer threshold by default): fling the cheater backwards.
+      - type: "launch"
+        buffer: 45.0
+        cooldown-seconds: 15
+        horizontal-velocity: 1.2
+        vertical-velocity: 0.6
+        message: "&c{PLAYER} &7was launched at buffer &f{BUFFER}&7."
 
 # ┌───────────────────────────────────────────────────────────────────────────────┐
 # │                            FOLIA SETTINGS                                     │

@@ -37,6 +37,7 @@ import wtf.mlsac.data.AIPlayerData;
 import wtf.mlsac.penalty.ActionType;
 import wtf.mlsac.penalty.PenaltyContext;
 import wtf.mlsac.penalty.PenaltyExecutor;
+import wtf.mlsac.penalty.PunishmentLadder;
 import wtf.mlsac.scheduler.ScheduledTask;
 import wtf.mlsac.scheduler.SchedulerManager;
 import wtf.mlsac.server.IAIClient;
@@ -46,6 +47,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
@@ -63,6 +65,7 @@ public class ViolationManager {
     private final PenaltyExecutor penaltyExecutor;
     private final Map<UUID, Long> lastPunishmentTime;
     private Config config;
+    private PunishmentLadder ladder;
     private AICheck aiCheck;
     private ScheduledTask decayTask;
 
@@ -115,6 +118,7 @@ public class ViolationManager {
     public ViolationManager(Main plugin, Config config, AlertManager alertManager) {
         this.plugin = plugin;
         this.config = config;
+        this.ladder = new PunishmentLadder(config.getPunishmentCommands());
         this.alertManager = alertManager;
         this.logger = plugin.getLogger();
         this.violationLevels = new ConcurrentHashMap<>();
@@ -177,6 +181,7 @@ public class ViolationManager {
 
     public void setConfig(Config config) {
         this.config = config;
+        this.ladder = new PunishmentLadder(config.getPunishmentCommands());
         updatePenaltyExecutorConfig();
         startDecayTask();
     }
@@ -186,16 +191,16 @@ public class ViolationManager {
         long now = System.currentTimeMillis();
         int newVl = incrementViolationLevel(uuid);
         alertManager.sendAlert(player.getName(), probability, buffer, newVl);
-        plugin.debug("[AI] " + player.getName() + " flagged - VL: " + newVl +
-                ", Prob: " + String.format("%.2f", probability) +
-                ", Buffer: " + String.format("%.1f", buffer));
+        logger.info("[Penalty] AI flag for " + player.getName() + " | VL=" + newVl
+                + " prob=" + String.format(Locale.ROOT, "%.2f", probability)
+                + " buffer=" + String.format(Locale.ROOT, "%.1f", buffer));
         String command = getApplicablePunishmentCommand(newVl);
         if (command != null) {
             ActionType actionType = ActionType.fromCommand(command);
             if (actionType.isPunishment()) {
                 Long previousTime = lastPunishmentTime.get(uuid);
                 if (previousTime != null && (now - previousTime) < PUNISHMENT_COOLDOWN_MS) {
-                    plugin.debug("[AI] " + player.getName() + " punishment on cooldown, skipping " + actionType);
+                    logger.info("[Penalty] " + player.getName() + " punishment on cooldown, skipping " + actionType);
                     return;
                 }
                 lastPunishmentTime.put(uuid, now);
@@ -217,50 +222,31 @@ public class ViolationManager {
     }
 
     public String getApplicablePunishmentCommand(int vl) {
-        Map<Integer, String> commands = config.getPunishmentCommands();
-        if (commands.isEmpty()) {
-            return null;
-        }
-        if (commands.containsKey(vl)) {
-            return commands.get(vl);
-        }
-        int maxThreshold = -1;
-        int applicableThreshold = -1;
-        for (int threshold : commands.keySet()) {
-            if (threshold > maxThreshold) {
-                maxThreshold = threshold;
-            }
-            if (threshold <= vl && threshold > applicableThreshold) {
-                applicableThreshold = threshold;
-            }
-        }
-        if (applicableThreshold == -1 && vl > maxThreshold) {
-            return commands.get(maxThreshold);
-        }
-        return applicableThreshold > 0 ? commands.get(applicableThreshold) : null;
+        return ladder.commandFor(vl).orElse(null);
     }
 
     public void executeMaxPunishment(Player player) {
-        Map<Integer, String> commands = config.getPunishmentCommands();
-        if (commands.isEmpty()) {
-            return;
+        // MAX punishment uses hardcoded prob=1.0 / buffer=100.0. It is normally reachable only via
+        // /mlsac punish, so log the caller stack to reveal anything else triggering it.
+        logger.warning("[Penalty] executeMaxPunishment() called for " + player.getName()
+                + " (hardcoded prob=1.00 buffer=100.0). Caller stack trace:");
+        StackTraceElement[] stack = Thread.currentThread().getStackTrace();
+        for (int i = 2; i < Math.min(stack.length, 12); i++) {
+            logger.warning("    at " + stack[i]);
         }
-
-        int maxThreshold = -1;
-        for (int threshold : commands.keySet()) {
-            if (threshold > maxThreshold) {
-                maxThreshold = threshold;
-            }
-        }
-
-        if (maxThreshold != -1) {
-            String command = commands.get(maxThreshold);
-            executeCommand(command, player, 1.0, 100.0, maxThreshold);
-        }
+        ladder.maxThreshold().ifPresent(threshold ->
+                ladder.maxCommand().ifPresent(command ->
+                        executeCommand(command, player, 1.0, 100.0, threshold)));
     }
 
     public void executeCommand(String command, Player player, double probability, double buffer, int vl) {
         ActionType actionType = ActionType.fromCommand(command);
+        logger.info("[Penalty] EXECUTE for " + player.getName()
+                + " | VL=" + vl
+                + " prob=" + String.format(Locale.ROOT, "%.2f", probability)
+                + " buffer=" + String.format(Locale.ROOT, "%.1f", buffer)
+                + " action=" + actionType
+                + " command='" + command + "'");
         PenaltyContext context = PenaltyContext.builder()
                 .playerName(player.getName())
                 .violationLevel(vl)

@@ -6,6 +6,8 @@ monitor-enabled: '&fMonitor mode &aenabled &7| all detections shown'
 monitor-disabled: '&fMonitor mode &cdisabled'
 monitor-format: '&#F1F1F1▍ &#D8D8D8M&#BFBFBFL&#A6A6A6S&#8D8D8DA&#747474C &r&#81FFC2[{MODEL}]&f &f{PLAYER} &7- {PROBABILITY_COLORED}'
 # Local alert shown on the server where the violation was detected.
+# Optional placeholder: {STEP_PERCENT} — when the alert is fired from a buffer-step crossing
+# (alert-responses.alerts.buffer-step-percent), resolves to 33/66/99/...; empty otherwise.
 alert-format: '&#81FFC2[{MODEL}]&f &f{PLAYER} &7Failed check &#E5396A(&#E5396AA&#E6366Ai&#E7346Am&#E83169-&#E92F69A&#EA2C69i: &f{PROBABILITY}&#E5396A)&f
   &#E5396A(&#E5396AB&#E6366Au&#E7346Af&#E83169f&#E92F69e&#EA2C69r: &f{BUFFER}&#E5396A)&f'
 alert-format-vl: '&f{PLAYER} &7Got VL &#E5396A(&#E5396AVL:&f{VL}&#E5396A) &#E5396A(&#E5396AB&#E6366Au&#E7346Af&#E83169f&#E92F69e&#EA2C69r: &f{BUFFER}&#E5396A)'
@@ -27,7 +29,10 @@ falsepositive-fail: '&cCan''t save, some errors'
 falsepositive-usage: '&fUsage: &7/mlsac falsepositive restore <player>'
 falsepositive-no-data: '&cCan''t save, no buffer before'
 
-actionbar-format: '&f&l● {FAST}% &7| &e▲ {BUFFER} &7| &bvl {VL}'
+actionbar-format: '&f&l● {MODEL}% &7| {STATUS} {BUFFER} &7| &bvl {VL}'
+# {STATUS} arrow shown in the actionbar: UP when the buffer is rising, DOWN when falling.
+STATUS_UP: '&e▲'
+STATUS_DOWN: '&e▼'
 
 data-status-header: '&f&l● Data Status ●'
 active-sessions: '&fActive sessions: &a{COUNT}'

@@ -26,6 +26,8 @@ public final class ProbabilityFormatUtil {
     public static String applyModelPlaceholders(String template, AIPlayerData data,
             Function<Double, String> formatter) {
         return template
+                // {MODEL}: probability of the most recent response, regardless of which model.
+                .replace("{MODEL}", formatter.apply(data.getLastProbability()))
                 .replace("{AVG}", formatter.apply(data.getAverageProbability()))
                 .replace("{LAST-FAST}", formatter.apply(data.getLastProbabilityContains("fast")))
                 .replace("{FAST}", formatter.apply(data.getLastProbabilityContains("fast")))

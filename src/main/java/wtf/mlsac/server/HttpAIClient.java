@@ -31,27 +31,19 @@ import com.google.gson.JsonParser;
 import okhttp3.*;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
-import org.bukkit.plugin.java.JavaPlugin;
 import wtf.mlsac.Main;
 import wtf.mlsac.Permissions;
 import wtf.mlsac.alert.AlertManager;
 import wtf.mlsac.scheduler.SchedulerManager;
-import wtf.mlsac.scheduler.ScheduledTask;
 import wtf.mlsac.util.ColorUtil;
 import java.io.BufferedReader;
 import java.io.IOException;
-import java.util.Queue;
-import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.IntSupplier;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -73,25 +65,22 @@ public class HttpAIClient implements IAIClient {
     private static final long DUPLICATE_NAME_WARNING_INTERVAL_MS = 30000;
     private static final int INTERSERVER_EVENT_CACHE_LIMIT = 512;
 
-    private final JavaPlugin plugin;
+    private final Main plugin;
     private final String serverAddress;
     private final String apiKey;
     private final Logger logger;
-    private final IntSupplier onlinePlayersSupplier;
     private final boolean debug;
-    private final String serverName;
-    private final String serverFamily;
-    private final boolean interServerEnabled;
+    private final PayloadFactory payloads;
     private final boolean eventReportingEnabled;
     private final double apiAlertEventThreshold;
     private final ExecutorService httpExecutor;
     private final OkHttpClient httpClient;
-    private final AtomicReference<ScheduledTask> heartbeatTask = new AtomicReference<>();
-    private final AtomicReference<ScheduledTask> reportStatsTask = new AtomicReference<>();
-    private final AtomicReference<ScheduledTask> interserverEventTask = new AtomicReference<>();
-    private final AtomicReference<ScheduledTask> periodicCheckTask = new AtomicReference<>();
-    private final AtomicReference<ScheduledTask> reconnectTask = new AtomicReference<>();
-    private final AtomicReference<ScheduledTask> stasisCheckTask = new AtomicReference<>();
+    private final ManagedTask heartbeat = new ManagedTask();
+    private final ManagedTask reportStats = new ManagedTask();
+    private final ManagedTask interserverEvent = new ManagedTask();
+    private final ManagedTask periodicCheck = new ManagedTask();
+    private final ManagedTask reconnect = new ManagedTask();
+    private final ManagedTask stasisCheck = new ManagedTask();
     private final AtomicBoolean connected = new AtomicBoolean(false);
     private final AtomicBoolean shuttingDown = new AtomicBoolean(false);
     private final AtomicBoolean interserverPollInFlight = new AtomicBoolean(false);
@@ -99,21 +88,19 @@ public class HttpAIClient implements IAIClient {
     private volatile boolean autoReconnectEnabled = true;
     private volatile String sessionId = null;
     private volatile boolean limitExceeded = false;
-    private volatile boolean serverErrorState = false;
-    private volatile long lastServerErrorTime = 0;
-    private volatile long lastDuplicateNameWarningTime = 0;
-    private final AtomicInteger duplicateNameWarningsRemaining = new AtomicInteger(DUPLICATE_NAME_WARNING_LIMIT);
-    private final Set<String> seenInterserverEventIds = ConcurrentHashMap.newKeySet();
-    private final Queue<String> seenInterserverEventOrder = new ConcurrentLinkedQueue<>();
     private static final long SERVER_ERROR_SILENCE_MS = 60000;
+    private final TimedErrorState serverError = new TimedErrorState(SERVER_ERROR_SILENCE_MS);
+    private final WarningThrottle duplicateNameWarning =
+            new WarningThrottle(DUPLICATE_NAME_WARNING_LIMIT, DUPLICATE_NAME_WARNING_INTERVAL_MS);
+    private final RecentEventCache seenInterserverEvents = new RecentEventCache(INTERSERVER_EVENT_CACHE_LIMIT);
 
-    public HttpAIClient(JavaPlugin plugin, String serverAddress, String apiKey,
+    public HttpAIClient(Main plugin, String serverAddress, String apiKey,
                         IntSupplier onlinePlayersSupplier, boolean debug) {
         this(plugin, serverAddress, apiKey, onlinePlayersSupplier, debug,
                 "default", "default", false, true, 0.75);
     }
 
-    public HttpAIClient(JavaPlugin plugin, String serverAddress, String apiKey,
+    public HttpAIClient(Main plugin, String serverAddress, String apiKey,
                         IntSupplier onlinePlayersSupplier, boolean debug,
                         String serverName, String serverFamily, boolean interServerEnabled,
                         boolean eventReportingEnabled, double apiAlertEventThreshold) {
@@ -121,15 +108,9 @@ public class HttpAIClient implements IAIClient {
         this.serverAddress = serverAddress;
         this.apiKey = apiKey;
         this.logger = plugin.getLogger();
-        this.onlinePlayersSupplier = onlinePlayersSupplier;
         this.debug = debug;
-        this.serverName = serverName != null && !serverName.trim().isEmpty()
-                ? serverName.trim()
-                : "default";
-        this.serverFamily = serverFamily != null && !serverFamily.trim().isEmpty()
-                ? serverFamily.trim()
-                : "default";
-        this.interServerEnabled = interServerEnabled;
+        this.payloads = new PayloadFactory(plugin, serverName, serverFamily,
+                interServerEnabled, onlinePlayersSupplier);
         this.eventReportingEnabled = eventReportingEnabled;
         this.apiAlertEventThreshold = apiAlertEventThreshold;
         int workers = Math.max(2, Math.min(4, Runtime.getRuntime().availableProcessors()));
@@ -150,42 +131,8 @@ public class HttpAIClient implements IAIClient {
         return httpExecutor;
     }
 
-    private String getAdvertisedServerIp() {
-        String bukkitIp = plugin.getServer().getIp();
-        return bukkitIp != null && !bukkitIp.trim().isEmpty() ? bukkitIp.trim() : "unknown";
-    }
-
-    private int getAdvertisedServerPort() {
-        return plugin.getServer().getPort();
-    }
-
-    private JsonObject createBasePayload() {
-        JsonObject json = new JsonObject();
-        json.addProperty("pluginVersion", plugin.getDescription().getVersion());
-        json.addProperty("interserverEventsSupported", true);
-        json.addProperty("serverName", serverName);
-        json.addProperty("serverFamily", serverFamily);
-        json.addProperty("family", serverFamily);
-        json.addProperty("serverIp", getAdvertisedServerIp());
-        json.addProperty("serverPort", getAdvertisedServerPort());
-        json.addProperty("interServer", interServerEnabled);
-        return json;
-    }
-
     private RequestBody jsonBody(JsonObject json) {
         return RequestBody.create(JSON, json.toString());
-    }
-
-    private void addOnline(JsonObject json) {
-        int online = onlinePlayersSupplier.getAsInt();
-        json.addProperty("onlinePlayers", online);
-        json.addProperty("onlineCount", online);
-    }
-
-    private void addSession(JsonObject json) {
-        if (sessionId != null) {
-            json.addProperty("sessionId", sessionId);
-        }
     }
 
     private void handleApiWarnings(String responseBody) {
@@ -203,7 +150,7 @@ public class HttpAIClient implements IAIClient {
             }
             JsonObject duplicate = warnings.getAsJsonObject("duplicateServerName");
             if (!duplicate.has("active") || !duplicate.get("active").getAsBoolean()) {
-                duplicateNameWarningsRemaining.set(DUPLICATE_NAME_WARNING_LIMIT);
+                duplicateNameWarning.reset();
                 return;
             }
             String message = duplicate.has("message")
@@ -244,81 +191,33 @@ public class HttpAIClient implements IAIClient {
     }
 
     private void handleInterserverEvent(JsonObject event) {
-        String eventId = getJsonString(event, "id", "");
-        if (!rememberInterserverEvent(eventId)) {
-            return;
-        }
-        if (!(plugin instanceof Main)) {
+        String eventId = JsonSupport.getString(event, "id", "");
+        if (!seenInterserverEvents.markIfNew(eventId)) {
             return;
         }
 
-        AlertManager alertManager = ((Main) plugin).getAlertManager();
+        AlertManager alertManager = plugin.getAlertManager();
         if (alertManager == null) {
             return;
         }
 
-        String type = getJsonString(event, "type", "alert");
-        String sourceServerName = getJsonString(event, "serverName", "unknown");
-        String playerName = getJsonString(event, "playerName", "Unknown");
-        String model = getJsonString(event, "model", "unknown");
-        String action = getJsonString(event, "action", type);
-        double probability = getJsonDouble(event, "probability", 0.0);
-        double buffer = getJsonDouble(event, "buffer", 0.0);
-        int violationLevel = (int) Math.round(getJsonDouble(event, "violationLevel", getJsonDouble(event, "vl", 0.0)));
+        String type = JsonSupport.getString(event, "type", "alert");
+        String sourceServerName = JsonSupport.getString(event, "serverName", "unknown");
+        String playerName = JsonSupport.getString(event, "playerName", "Unknown");
+        String model = JsonSupport.getString(event, "model", "unknown");
+        String action = JsonSupport.getString(event, "action", type);
+        double probability = JsonSupport.getDouble(event, "probability", 0.0);
+        double buffer = JsonSupport.getDouble(event, "buffer", 0.0);
+        int violationLevel = (int) Math.round(JsonSupport.getDouble(event, "violationLevel", JsonSupport.getDouble(event, "vl", 0.0)));
 
         alertManager.sendInterServerEvent(type, sourceServerName, playerName, probability,
                 buffer, violationLevel, model, action);
     }
 
-    private boolean rememberInterserverEvent(String eventId) {
-        if (eventId == null || eventId.isEmpty()) {
-            return true;
-        }
-        if (!seenInterserverEventIds.add(eventId)) {
-            return false;
-        }
-
-        seenInterserverEventOrder.add(eventId);
-        while (seenInterserverEventOrder.size() > INTERSERVER_EVENT_CACHE_LIMIT) {
-            String oldEventId = seenInterserverEventOrder.poll();
-            if (oldEventId == null) {
-                break;
-            }
-            seenInterserverEventIds.remove(oldEventId);
-        }
-        return true;
-    }
-
-    private String getJsonString(JsonObject object, String key, String fallback) {
-        try {
-            if (object.has(key) && !object.get(key).isJsonNull()) {
-                return object.get(key).getAsString();
-            }
-        } catch (Exception ignored) {
-        }
-        return fallback;
-    }
-
-    private double getJsonDouble(JsonObject object, String key, double fallback) {
-        try {
-            if (object.has(key) && !object.get(key).isJsonNull()) {
-                return object.get(key).getAsDouble();
-            }
-        } catch (Exception ignored) {
-        }
-        return fallback;
-    }
-
     private void warnDuplicateServerName(String message) {
-        long now = System.currentTimeMillis();
-        if (duplicateNameWarningsRemaining.get() <= 0) {
+        if (!duplicateNameWarning.shouldFire(System.currentTimeMillis())) {
             return;
         }
-        if (now - lastDuplicateNameWarningTime < DUPLICATE_NAME_WARNING_INTERVAL_MS) {
-            return;
-        }
-        lastDuplicateNameWarningTime = now;
-        duplicateNameWarningsRemaining.decrementAndGet();
 
         logger.warning("[MLSAC] " + message);
         SchedulerManager.getAdapter().runSync(() -> {
@@ -342,9 +241,9 @@ public class HttpAIClient implements IAIClient {
                 logger.info("[HTTP] Connecting to " + serverAddress + "...");
 
                 String initUrl = serverAddress + "/api/v1/init";
-                JsonObject initJson = createBasePayload();
+                JsonObject initJson = payloads.base();
                 initJson.addProperty("apiKey", apiKey);
-                addOnline(initJson);
+                payloads.addOnline(initJson);
                 RequestBody initBody = jsonBody(initJson);
                 Request initRequest = new Request.Builder()
                         .url(initUrl)
@@ -395,16 +294,19 @@ public class HttpAIClient implements IAIClient {
     }
 
     private String extractSessionId(String responseBody) {
+        if (responseBody == null || responseBody.isEmpty()) {
+            return null;
+        }
         try {
-            if (responseBody.contains("sessionId")) {
-                int start = responseBody.indexOf("sessionId") + 12;
-                int end = responseBody.indexOf("\"", start);
-                if (end > start) {
-                    return responseBody.substring(start, end);
-                }
+            JsonObject root = new JsonParser().parse(responseBody).getAsJsonObject();
+            String sid = JsonSupport.getString(root, "sessionId", null);
+            if ((sid == null || sid.isEmpty()) && root.has("data") && root.get("data").isJsonObject()) {
+                sid = JsonSupport.getString(root.getAsJsonObject("data"), "sessionId", null);
             }
-        } catch (Exception ignored) {}
-        return null;
+            return sid != null && !sid.isEmpty() ? sid : null;
+        } catch (Exception ignored) {
+            return null;
+        }
     }
 
     @Override
@@ -439,23 +341,17 @@ public class HttpAIClient implements IAIClient {
         shuttingDown.set(true);
         autoReconnectEnabled = false;
 
-        ScheduledTask hb = heartbeatTask.getAndSet(null);
-        if (hb != null) hb.cancel();
-        ScheduledTask rs = reportStatsTask.getAndSet(null);
-        if (rs != null) rs.cancel();
-        ScheduledTask ie = interserverEventTask.getAndSet(null);
-        if (ie != null) ie.cancel();
-        ScheduledTask pc = periodicCheckTask.getAndSet(null);
-        if (pc != null) pc.cancel();
-        ScheduledTask rt = reconnectTask.getAndSet(null);
-        if (rt != null) rt.cancel();
-        ScheduledTask st = stasisCheckTask.getAndSet(null);
-        if (st != null) st.cancel();
+        heartbeat.cancel();
+        reportStats.cancel();
+        interserverEvent.cancel();
+        periodicCheck.cancel();
+        reconnect.cancel();
+        stasisCheck.cancel();
 
         connected.set(false);
         sessionId = null;
         limitExceeded = false;
-        serverErrorState = false;
+        serverError.clear();
         inStasisMode.set(false);
 
         return CompletableFuture.runAsync(() -> {
@@ -475,10 +371,7 @@ public class HttpAIClient implements IAIClient {
     }
 
     private void startHeartbeat() {
-        ScheduledTask existing = heartbeatTask.get();
-        if (existing != null) existing.cancel();
-
-        heartbeatTask.set(SchedulerManager.getAdapter().runAsyncRepeating(() -> {
+        heartbeat.reschedule(() -> SchedulerManager.getAdapter().runAsyncRepeating(() -> {
             if (shuttingDown.get() || !autoReconnectEnabled) return;
             sendHeartbeat();
         }, 100, HEARTBEAT_INTERVAL_MS / 50));
@@ -488,9 +381,9 @@ public class HttpAIClient implements IAIClient {
         CompletableFuture.runAsync(() -> {
             try {
                 String url = serverAddress + "/api/v1/heartbeat";
-                JsonObject json = createBasePayload();
-                addSession(json);
-                addOnline(json);
+                JsonObject json = payloads.base();
+                payloads.addSession(json, sessionId);
+                payloads.addOnline(json);
 
                 RequestBody body = jsonBody(json);
                 Request request = new Request.Builder()
@@ -522,30 +415,21 @@ public class HttpAIClient implements IAIClient {
     }
 
     private void startReportStats() {
-        ScheduledTask existing = reportStatsTask.getAndSet(null);
-        if (existing != null) existing.cancel();
-
-        reportStatsTask.set(SchedulerManager.getAdapter().runAsyncRepeating(() -> {
+        reportStats.reschedule(() -> SchedulerManager.getAdapter().runAsyncRepeating(() -> {
             if (shuttingDown.get() || !autoReconnectEnabled) return;
             sendReportStats();
         }, 100, REPORT_STATS_INTERVAL_MS / 50));
     }
 
     private void startInterserverEventPoll() {
-        ScheduledTask existing = interserverEventTask.getAndSet(null);
-        if (existing != null) existing.cancel();
-
-        interserverEventTask.set(SchedulerManager.getAdapter().runAsyncRepeating(() -> {
+        interserverEvent.reschedule(() -> SchedulerManager.getAdapter().runAsyncRepeating(() -> {
             if (shuttingDown.get() || !autoReconnectEnabled) return;
             sendInterserverEventPoll();
         }, 60, INTERSERVER_EVENT_POLL_INTERVAL_MS / 50));
     }
 
     private void startPeriodicCheck() {
-        ScheduledTask existing = periodicCheckTask.get();
-        if (existing != null) existing.cancel();
-
-        periodicCheckTask.set(SchedulerManager.getAdapter().runAsyncRepeating(() -> {
+        periodicCheck.reschedule(() -> SchedulerManager.getAdapter().runAsyncRepeating(() -> {
             if (shuttingDown.get() || !autoReconnectEnabled) return;
             performPeriodicCheck();
         }, 100, PERIODIC_CHECK_INTERVAL_MS / 50));
@@ -572,9 +456,9 @@ public class HttpAIClient implements IAIClient {
         CompletableFuture.runAsync(() -> {
             try {
                 String url = serverAddress + "/api/v1/online";
-                JsonObject json = createBasePayload();
-                addSession(json);
-                addOnline(json);
+                JsonObject json = payloads.base();
+                payloads.addSession(json, sessionId);
+                payloads.addOnline(json);
 
                 RequestBody body = jsonBody(json);
                 Request request = new Request.Builder()
@@ -595,7 +479,7 @@ public class HttpAIClient implements IAIClient {
                     if (response.isSuccessful()) {
                         handleInterserverEvents(responseBody);
                         limitExceeded = false;
-                        serverErrorState = false;
+                        serverError.clear();
                         exitStasisMode();
                     } else if (code == 429) {
                         handleRateLimitError();
@@ -621,8 +505,8 @@ public class HttpAIClient implements IAIClient {
         CompletableFuture.runAsync(() -> {
             try {
                 String url = serverAddress + "/api/v1/events/poll";
-                JsonObject json = createBasePayload();
-                addSession(json);
+                JsonObject json = payloads.base();
+                payloads.addSession(json, sessionId);
 
                 Request request = new Request.Builder()
                         .url(url)
@@ -671,7 +555,7 @@ public class HttpAIClient implements IAIClient {
             handleApiWarnings(responseBody);
             if (response.isSuccessful()) {
                 limitExceeded = false;
-                serverErrorState = false;
+                serverError.clear();
                 exitStasisMode();
             } else if (code == 429) {
                 handleRateLimitError();
@@ -684,13 +568,13 @@ public class HttpAIClient implements IAIClient {
 
     private void scheduleReconnect() {
         if (shuttingDown.get() || !autoReconnectEnabled) return;
-        if (reconnectTask.get() != null) {
+        if (reconnect.isScheduled()) {
             logger.info("[HTTP] Reconnect already scheduled, skipping");
             return;
         }
         logger.info("[HTTP] Scheduling reconnect in 10 seconds...");
-        ScheduledTask task = SchedulerManager.getAdapter().runAsyncDelayed(() -> {
-            reconnectTask.set(null);
+        reconnect.reschedule(() -> SchedulerManager.getAdapter().runAsyncDelayed(() -> {
+            reconnect.clearReference();
             if (!shuttingDown.get() && autoReconnectEnabled && !connected.get()) {
                 connect().thenAccept(success -> {
                     if (!success) {
@@ -700,8 +584,7 @@ public class HttpAIClient implements IAIClient {
                     }
                 });
             }
-        }, 200);
-        reconnectTask.set(task);
+        }, 200));
     }
 
     @Override
@@ -726,7 +609,7 @@ public class HttpAIClient implements IAIClient {
         return io.reactivex.rxjava3.core.Observable.create(emitter -> {
             CompletableFuture.runAsync(() -> {
                 try {
-                    JsonObject payload = createPredictPayload(playerData, playerUuid, playerName);
+                    JsonObject payload = payloads.predict(playerData, playerUuid, playerName, sessionId);
                     boolean streamed = executeStreamingPredict(payload, emitter);
                     if (!streamed && !emitter.isDisposed()) {
                         AIResponse response = executeLegacyPredict(payload);
@@ -748,16 +631,6 @@ public class HttpAIClient implements IAIClient {
         });
     }
 
-    private JsonObject createPredictPayload(byte[] playerData, String playerUuid, String playerName) {
-        String dataBase64 = java.util.Base64.getEncoder().encodeToString(playerData);
-        JsonObject json = createBasePayload();
-        addSession(json);
-        json.addProperty("playerData", dataBase64);
-        json.addProperty("playerUuid", playerUuid);
-        json.addProperty("playerName", playerName);
-        return json;
-    }
-
     private AIResponse executeLegacyPredict(JsonObject json) throws IOException {
         String url = serverAddress + "/api/v1/predict";
         Request request = new Request.Builder()
@@ -772,7 +645,7 @@ public class HttpAIClient implements IAIClient {
             int code = response.code();
             handleApiWarnings(responseBody);
             handlePredictStatus(code, responseBody);
-            return parsePredictResponse(responseBody);
+            return JsonSupport.parsePredictResponse(responseBody);
         }
     }
 
@@ -819,7 +692,7 @@ public class HttpAIClient implements IAIClient {
                         if (debug) logger.warning("[HTTP] Streaming model error: " + line);
                         continue;
                     }
-                    AIResponse aiResponse = parsePredictResponse(line);
+                    AIResponse aiResponse = JsonSupport.parsePredictResponse(line);
                     emitter.onNext(aiResponse);
                     emittedAny = true;
                 }
@@ -853,8 +726,8 @@ public class HttpAIClient implements IAIClient {
         if (!eventReportingEnabled || probability < apiAlertEventThreshold) {
             return CompletableFuture.completedFuture(false);
         }
-        JsonObject json = createEventPayload("alert", playerUuid, playerName, model,
-                probability, buffer, 0, "alert", "");
+        JsonObject json = payloads.event("alert", playerUuid, playerName, model,
+                probability, buffer, 0, "alert", "", sessionId);
         return sendEvent(json);
     }
 
@@ -865,28 +738,9 @@ public class HttpAIClient implements IAIClient {
         if (!eventReportingEnabled) {
             return CompletableFuture.completedFuture(false);
         }
-        JsonObject json = createEventPayload("punish", playerUuid, playerName, model,
-                probability, buffer, violationLevel, action, command);
+        JsonObject json = payloads.event("punish", playerUuid, playerName, model,
+                probability, buffer, violationLevel, action, command, sessionId);
         return sendEvent(json);
-    }
-
-    private JsonObject createEventPayload(String type, String playerUuid, String playerName,
-            String model, double probability, double buffer, int violationLevel,
-            String action, String command) {
-        JsonObject json = createBasePayload();
-        addSession(json);
-        json.addProperty("type", type);
-        json.addProperty("playerUuid", playerUuid);
-        json.addProperty("playerId", playerUuid);
-        json.addProperty("playerName", playerName);
-        json.addProperty("model", model);
-        json.addProperty("probability", probability);
-        json.addProperty("buffer", buffer);
-        json.addProperty("vl", violationLevel);
-        json.addProperty("violationLevel", violationLevel);
-        json.addProperty("action", action != null ? action : type);
-        json.addProperty("command", command != null ? command : "");
-        return json;
     }
 
     private CompletableFuture<Boolean> sendEvent(JsonObject json) {
@@ -929,23 +783,6 @@ public class HttpAIClient implements IAIClient {
         }, httpExecutor);
     }
 
-    private AIResponse parsePredictResponse(String responseBody) {
-        try {
-            com.google.gson.JsonObject json = new com.google.gson.JsonParser().parse(responseBody).getAsJsonObject();
-            double probability = json.has("probability") ? json.get("probability").getAsDouble() : 0.0;
-            String model = json.has("model") ? json.get("model").getAsString() : null;
-            String error = json.has("error") ? json.get("error").getAsString() : null;
-
-            if (error != null && !error.isEmpty()) {
-                throw new RuntimeException(error);
-            }
-
-            return new AIResponse(probability, null, model);
-        } catch (Exception e) {
-            throw new RuntimeException("Failed to parse response: " + e.getMessage());
-        }
-    }
-
     @Override
     public boolean isConnected() {
         return connected.get();
@@ -958,22 +795,21 @@ public class HttpAIClient implements IAIClient {
 
     @Override
     public boolean isServerErrorState() {
-        return serverErrorState;
+        return serverError.isActive();
     }
 
     private boolean isServerInErrorState() {
-        if (!serverErrorState) return false;
-        if (System.currentTimeMillis() - lastServerErrorTime > SERVER_ERROR_SILENCE_MS) {
+        if (!serverError.isActive()) return false;
+        if (serverError.isExpired(System.currentTimeMillis())) {
             logger.info("[HTTP] Server error state expired, clearing");
-            serverErrorState = false;
+            serverError.clear();
             return false;
         }
         return true;
     }
 
     private void enterServerErrorState(String reason) {
-        serverErrorState = true;
-        lastServerErrorTime = System.currentTimeMillis();
+        serverError.enter(System.currentTimeMillis());
         logger.warning("[HTTP] Entering server error state: " + reason);
         scheduleReconnect();
     }
@@ -1009,17 +845,12 @@ public class HttpAIClient implements IAIClient {
     private void enterStasisMode() {
         if (inStasisMode.compareAndSet(false, true)) {
             logger.warning("[HTTP] Entering stasis mode - stopping all requests");
-            
-            // Stop all periodic tasks
-            ScheduledTask hb = heartbeatTask.getAndSet(null);
-            if (hb != null) hb.cancel();
-            ScheduledTask rs = reportStatsTask.getAndSet(null);
-            if (rs != null) rs.cancel();
-            ScheduledTask ie = interserverEventTask.getAndSet(null);
-            if (ie != null) ie.cancel();
-            ScheduledTask pc = periodicCheckTask.getAndSet(null);
-            if (pc != null) pc.cancel();
-            
+
+            heartbeat.cancel();
+            reportStats.cancel();
+            interserverEvent.cancel();
+            periodicCheck.cancel();
+
             // Start stasis check task (every 5 minutes)
             startStasisCheck();
         }
@@ -1028,11 +859,9 @@ public class HttpAIClient implements IAIClient {
     private void exitStasisMode() {
         if (inStasisMode.compareAndSet(true, false)) {
             logger.info("[HTTP] Exiting stasis mode - resuming normal operation");
-            
-            // Stop stasis check
-            ScheduledTask st = stasisCheckTask.getAndSet(null);
-            if (st != null) st.cancel();
-            
+
+            stasisCheck.cancel();
+
             // Restart normal tasks
             startHeartbeat();
             startReportStats();
@@ -1042,10 +871,7 @@ public class HttpAIClient implements IAIClient {
     }
 
     private void startStasisCheck() {
-        ScheduledTask existing = stasisCheckTask.getAndSet(null);
-        if (existing != null) existing.cancel();
-
-        stasisCheckTask.set(SchedulerManager.getAdapter().runAsyncRepeating(() -> {
+        stasisCheck.reschedule(() -> SchedulerManager.getAdapter().runAsyncRepeating(() -> {
             if (shuttingDown.get()) return;
             checkApiAvailability();
         }, 100, STASIS_CHECK_INTERVAL_MS / 50));
@@ -1057,9 +883,9 @@ public class HttpAIClient implements IAIClient {
         CompletableFuture.runAsync(() -> {
             try {
                 String url = serverAddress + "/api/v1/heartbeat";
-                JsonObject json = createBasePayload();
-                addSession(json);
-                addOnline(json);
+                JsonObject json = payloads.base();
+                payloads.addSession(json, sessionId);
+                payloads.addOnline(json);
 
                 RequestBody body = jsonBody(json);
                 Request request = new Request.Builder()
@@ -1090,9 +916,9 @@ public class HttpAIClient implements IAIClient {
         return CompletableFuture.supplyAsync(() -> {
             try {
                 String url = serverAddress + "/api/v1/heartbeat";
-                JsonObject json = createBasePayload();
-                addSession(json);
-                addOnline(json);
+                JsonObject json = payloads.base();
+                payloads.addSession(json, sessionId);
+                payloads.addOnline(json);
 
                 RequestBody body = jsonBody(json);
                 Request request = new Request.Builder()

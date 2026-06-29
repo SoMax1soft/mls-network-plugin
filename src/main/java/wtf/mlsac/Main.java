@@ -49,7 +49,6 @@ import wtf.mlsac.listeners.CombatPenaltyListener;
 import wtf.mlsac.response.DetectionResponseManager;
 import wtf.mlsac.scheduler.SchedulerManager;
 import wtf.mlsac.server.AIClientProvider;
-import wtf.mlsac.server.AnalyticsClient;
 import wtf.mlsac.session.ISessionManager;
 import wtf.mlsac.session.SessionManager;
 import wtf.mlsac.violation.ViolationManager;
@@ -78,7 +77,6 @@ public final class Main extends JavaPlugin {
     private HologramManager hologramManager;
     private AICheck aiCheck;
     private UpdateChecker updateChecker;
-    private AnalyticsClient analyticsClient;
     private DetectionResponseManager detectionResponseManager;
     private CombatPenaltyListener combatPenaltyListener;
     private wtf.mlsac.stats.DailyStats dailyStats;
@@ -121,6 +119,8 @@ public final class Main extends JavaPlugin {
             e.printStackTrace();
         }
         VersionAdapter.get().logCompatibilityInfo();
+        ConfigSyncUtil.migrateConfigSchemaIfNeeded(this);
+        ConfigSyncUtil.wipeMessagesIfAnyKeyMissing(this);
         ConfigSyncUtil.syncAllPluginConfigs(this);
         this.config = new Config(this, getLogger());
         this.menuConfig = new MenuConfig(this);
@@ -161,14 +161,13 @@ public final class Main extends JavaPlugin {
         this.tickListener = new TickListener(this, sessionManager, aiCheck);
         this.hitListener = new HitListener(sessionManager, aiCheck);
         this.rotationListener = new RotationListener(sessionManager, aiCheck);
-        this.analyticsClient = new AnalyticsClient(config.getServerAddress(), getLogger());
         this.dailyStats = new wtf.mlsac.stats.DailyStats(this);
         this.dailyStats.initialize();
         this.playerListener = new PlayerListener(this, aiCheck, alertManager, violationManager,
                 sessionManager instanceof SessionManager ? (SessionManager) sessionManager : null, tickListener,
-                hologramManager, rotationListener, analyticsClient);
+                hologramManager, rotationListener);
         this.teleportListener = new TeleportListener(aiCheck, this);
-        this.combatPenaltyListener = new CombatPenaltyListener(detectionResponseManager);
+        this.combatPenaltyListener = new CombatPenaltyListener(this, detectionResponseManager);
         this.tickListener.setHitListener(hitListener);
         this.playerListener.setHitListener(hitListener);
         this.hitListener.cacheOnlinePlayers();
@@ -237,9 +236,6 @@ public final class Main extends JavaPlugin {
                     e.printStackTrace();
                 }
             }
-        }
-        if (analyticsClient != null) {
-            analyticsClient.shutdown();
         }
         if (dailyStats != null) {
             dailyStats.shutdown();
@@ -379,10 +375,6 @@ public final class Main extends JavaPlugin {
 
     public UpdateChecker getUpdateChecker() {
         return updateChecker;
-    }
-
-    public AnalyticsClient getAnalyticsClient() {
-        return analyticsClient;
     }
 
     public DetectionResponseManager getDetectionResponseManager() {

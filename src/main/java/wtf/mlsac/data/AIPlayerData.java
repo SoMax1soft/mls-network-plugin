@@ -51,6 +51,7 @@ public class AIPlayerData {
     private int ticksSinceAttack;
     private int ticksStep;
     private volatile double buffer;
+    private volatile boolean bufferIncreasing;
     private volatile double lastProbability;
     private volatile boolean pendingRequest;
     private volatile boolean isBedrock;
@@ -58,6 +59,7 @@ public class AIPlayerData {
     private final Deque<TickData> tickHistory = new ArrayDeque<>(5000);
     private static final int MAX_TICK_HISTORY = 5000;
     private final ReentrantReadWriteLock lock = new ReentrantReadWriteLock();
+    private final Map<String, Boolean> bufferThresholdLatched = new HashMap<>();
 
     public AIPlayerData(UUID playerId) {
         this(playerId, 40);
@@ -75,6 +77,7 @@ public class AIPlayerData {
         this.ticksSinceAttack = sequence + 1;
         this.ticksStep = 0;
         this.buffer = 0.0;
+        this.bufferIncreasing = false;
         this.lastProbability = 0.0;
         this.pendingRequest = false;
         this.isBedrock = false;
@@ -141,7 +144,9 @@ public class AIPlayerData {
     public boolean shouldSendData(int step, int sequence) {
         lock.readLock().lock();
         try {
-            return !pendingRequest && ticksStep >= step && tickBuffer.size() >= sequence;
+            // SlothAC-style: fire every `step` ticks once the rolling window is full, without
+            // waiting for the previous request to return (no in-flight gate).
+            return ticksStep >= step && tickBuffer.size() >= sequence;
         } finally {
             lock.readLock().unlock();
         }
@@ -205,6 +210,7 @@ public class AIPlayerData {
             ticksSinceAttack = sequence + 1;
             ticksStep = 0;
             pendingRequest = false;
+            bufferThresholdLatched.clear();
         } finally {
             lock.writeLock().unlock();
         }
@@ -283,10 +289,22 @@ public class AIPlayerData {
             if (probability > 0.8) {
                 this.highProbabilityDetections++;
             }
-            this.buffer = BufferCalculator.updateBuffer(buffer, probability, multiplier, decreaseAmount, threshold, decreaseThreshold);
+            double previousBuffer = this.buffer;
+            this.buffer = BufferCalculator.updateBuffer(buffer, probability, multiplier, decreaseAmount,
+                    threshold, decreaseThreshold);
+            if (this.buffer > previousBuffer) {
+                this.bufferIncreasing = true;
+            } else if (this.buffer < previousBuffer) {
+                this.bufferIncreasing = false;
+            }
         } finally {
             lock.writeLock().unlock();
         }
+    }
+
+    /** Whether the last buffer update increased ({@code true}) or decreased ({@code false}) it. */
+    public boolean isBufferIncreasing() {
+        return bufferIncreasing;
     }
 
     public boolean shouldFlag(double flagThreshold) {
@@ -302,6 +320,30 @@ public class AIPlayerData {
         lock.writeLock().lock();
         try {
             this.buffer = BufferCalculator.resetBuffer(resetValue);
+            // Do NOT clear bufferThresholdLatched here: consumeBufferCrossing already auto-rearms
+            // each latch the moment its threshold sees buffer < threshold, so any latch that stays
+            // true (because resetValue is still above that threshold) correctly suppresses re-firing.
+        } finally {
+            lock.writeLock().unlock();
+        }
+    }
+
+    /**
+     * Edge detector for buffer crossings. Returns {@code true} exactly once per upward crossing
+     * of {@code threshold}; auto-rearms when the buffer drops back below.
+     */
+    public boolean consumeBufferCrossing(String key, double threshold) {
+        lock.writeLock().lock();
+        try {
+            if (buffer < threshold) {
+                bufferThresholdLatched.put(key, false);
+                return false;
+            }
+            if (Boolean.TRUE.equals(bufferThresholdLatched.get(key))) {
+                return false;
+            }
+            bufferThresholdLatched.put(key, true);
+            return true;
         } finally {
             lock.writeLock().unlock();
         }

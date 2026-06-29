@@ -35,10 +35,6 @@ import java.util.logging.Logger;
 
 public class Config {
     private final boolean debug;
-    private final int preHitTicks;
-    private final int postHitTicks;
-    private final double hitLockThreshold;
-    private final int postHitTimeoutTicks;
     private final String outputDirectory;
     private final boolean aiEnabled;
     private final String aiApiKey;
@@ -78,7 +74,6 @@ public class Config {
     private final boolean apiEventReportingEnabled;
     private final double apiAlertEventThreshold;
     private final boolean updatesEnabled;
-    private final int reportStatsIntervalSeconds;
     private final boolean vlDecayEnabled;
     private final int vlDecayIntervalSeconds;
     private final int vlDecayAmount;
@@ -90,21 +85,14 @@ public class Config {
     private final boolean foliaRegionSchedulerEnabled;
     private final Map<String, String> modelNames;
     private final Map<String, Boolean> modelOnlyAlert;
-    private final boolean analyticsEnabled;
-    private final int analyticsMinDetections;
-    private final int analyticsColorGreenMax;
-    private final int analyticsColorOrangeMax;
     private final boolean alertResponsesEnabled;
-    private final int damageReductionWindowSeconds;
+    private final double aiAlertBufferStepPercent;
+    private final boolean damageReductionEnabled;
     private final List<DamageReductionStage> damageReductionStages;
-    private final int trollWindowSeconds;
+    private final boolean trollEnabled;
     private final List<TrollActionConfig> trollActions;
     public static final boolean DEFAULT_DEBUG = false;
     public static final String DEFAULT_OUTPUT_DIRECTORY = "plugins/MLSAC/data";
-    public static final int PRE_HIT_TICKS = 5;
-    public static final int POST_HIT_TICKS = 3;
-    public static final double HIT_LOCK_THRESHOLD = 5.0;
-    public static final int POST_HIT_TIMEOUT_TICKS = 40;
     public static final boolean DEFAULT_AI_ENABLED = false;
     public static final String DEFAULT_AI_API_KEY = "";
     public static final double DEFAULT_AI_ALERT_THRESHOLD = 0.5;
@@ -141,7 +129,6 @@ public class Config {
     public static final boolean DEFAULT_API_EVENT_REPORTING_ENABLED = true;
     public static final double DEFAULT_API_ALERT_EVENT_THRESHOLD = 0.75;
     public static final boolean DEFAULT_UPDATES_ENABLED = true;
-    public static final int DEFAULT_REPORT_STATS_INTERVAL_SECONDS = 30;
     public static final boolean DEFAULT_VL_DECAY_ENABLED = true;
     public static final int DEFAULT_VL_DECAY_INTERVAL_SECONDS = 60;
     public static final int DEFAULT_VL_DECAY_AMOUNT = 1;
@@ -151,19 +138,11 @@ public class Config {
     public static final int DEFAULT_FOLIA_THREAD_POOL_SIZE = 0;
     public static final boolean DEFAULT_FOLIA_ENTITY_SCHEDULER_ENABLED = true;
     public static final boolean DEFAULT_FOLIA_REGION_SCHEDULER_ENABLED = true;
-    public static final boolean DEFAULT_ANALYTICS_ENABLED = true;
-    public static final int DEFAULT_ANALYTICS_MIN_DETECTIONS = 5;
-    public static final int DEFAULT_ANALYTICS_COLOR_GREEN_MAX = 10;
-    public static final int DEFAULT_ANALYTICS_COLOR_ORANGE_MAX = 20;
     public static final boolean DEFAULT_ALERT_RESPONSES_ENABLED = true;
-    public static final int DEFAULT_ALERT_RESPONSE_WINDOW_SECONDS = 10;
+    public static final double DEFAULT_AI_ALERT_BUFFER_STEP_PERCENT = 0.33;
 
     public Config() {
         this.debug = DEFAULT_DEBUG;
-        this.preHitTicks = PRE_HIT_TICKS;
-        this.postHitTicks = POST_HIT_TICKS;
-        this.hitLockThreshold = HIT_LOCK_THRESHOLD;
-        this.postHitTimeoutTicks = POST_HIT_TIMEOUT_TICKS;
         this.outputDirectory = DEFAULT_OUTPUT_DIRECTORY;
         this.aiEnabled = DEFAULT_AI_ENABLED;
         this.aiApiKey = DEFAULT_AI_API_KEY;
@@ -203,7 +182,6 @@ public class Config {
         this.apiEventReportingEnabled = DEFAULT_API_EVENT_REPORTING_ENABLED;
         this.apiAlertEventThreshold = DEFAULT_API_ALERT_EVENT_THRESHOLD;
         this.updatesEnabled = DEFAULT_UPDATES_ENABLED;
-        this.reportStatsIntervalSeconds = DEFAULT_REPORT_STATS_INTERVAL_SECONDS;
         this.vlDecayEnabled = DEFAULT_VL_DECAY_ENABLED;
         this.vlDecayIntervalSeconds = DEFAULT_VL_DECAY_INTERVAL_SECONDS;
         this.vlDecayAmount = DEFAULT_VL_DECAY_AMOUNT;
@@ -215,14 +193,11 @@ public class Config {
         this.foliaRegionSchedulerEnabled = DEFAULT_FOLIA_REGION_SCHEDULER_ENABLED;
         this.modelNames = new HashMap<>();
         this.modelOnlyAlert = new HashMap<>();
-        this.analyticsEnabled = DEFAULT_ANALYTICS_ENABLED;
-        this.analyticsMinDetections = DEFAULT_ANALYTICS_MIN_DETECTIONS;
-        this.analyticsColorGreenMax = DEFAULT_ANALYTICS_COLOR_GREEN_MAX;
-        this.analyticsColorOrangeMax = DEFAULT_ANALYTICS_COLOR_ORANGE_MAX;
         this.alertResponsesEnabled = DEFAULT_ALERT_RESPONSES_ENABLED;
-        this.damageReductionWindowSeconds = DEFAULT_ALERT_RESPONSE_WINDOW_SECONDS;
+        this.aiAlertBufferStepPercent = DEFAULT_AI_ALERT_BUFFER_STEP_PERCENT;
+        this.damageReductionEnabled = true;
         this.damageReductionStages = createDefaultDamageReductionStages();
-        this.trollWindowSeconds = DEFAULT_ALERT_RESPONSE_WINDOW_SECONDS;
+        this.trollEnabled = true;
         this.trollActions = createDefaultTrollActions();
     }
 
@@ -246,10 +221,6 @@ public class Config {
         ensureAnimationFields(plugin, config);
         
         this.debug = config.getBoolean("debug", DEFAULT_DEBUG);
-        this.preHitTicks = PRE_HIT_TICKS;
-        this.postHitTicks = POST_HIT_TICKS;
-        this.hitLockThreshold = HIT_LOCK_THRESHOLD;
-        this.postHitTimeoutTicks = POST_HIT_TIMEOUT_TICKS;
         this.outputDirectory = config.getString("outputDirectory", DEFAULT_OUTPUT_DIRECTORY);
         this.aiEnabled = config.getBoolean("detection.enabled",
                 config.getBoolean("ai.enabled", DEFAULT_AI_ENABLED));
@@ -270,11 +241,12 @@ public class Config {
                 config.getDouble("ai.buffer.reset-on-flag", DEFAULT_AI_BUFFER_RESET_ON_FLAG));
         this.aiBufferMultiplier = config.getDouble("violation.multiplier",
                 config.getDouble("ai.buffer.multiplier", DEFAULT_AI_BUFFER_MULTIPLIER));
+        this.aiBufferDecreaseThreshold = config.getDouble("violation.decay.threshold", DEFAULT_AI_BUFFER_DECREASE_THRESHOLD);
         if (config.isConfigurationSection("violation.decay")) {
-            this.aiBufferDecreaseThreshold = config.getDouble("violation.decay.threshold", DEFAULT_AI_BUFFER_DECREASE_THRESHOLD);
+            // New layout: violation.decay.{threshold,amount}
             this.aiBufferDecrease = config.getDouble("violation.decay.amount", DEFAULT_AI_BUFFER_DECREASE);
         } else {
-            this.aiBufferDecreaseThreshold = config.getDouble("violation.decay.threshold", DEFAULT_AI_BUFFER_DECREASE_THRESHOLD);
+            // Legacy layout: violation.decay was a scalar (with an even older ai.buffer.decrease alias)
             this.aiBufferDecrease = config.getDouble("violation.decay",
                     config.getDouble("ai.buffer.decrease", DEFAULT_AI_BUFFER_DECREASE));
         }
@@ -337,7 +309,6 @@ public class Config {
         this.apiAlertEventThreshold = clampThreshold(apiAlertThreshold,
                 "server-identity.reporting.alert-threshold", logger);
         this.updatesEnabled = config.getBoolean("updates.enabled", DEFAULT_UPDATES_ENABLED);
-        this.reportStatsIntervalSeconds = DEFAULT_REPORT_STATS_INTERVAL_SECONDS;
         this.vlDecayEnabled = config.getBoolean("violation.vl-decay.enabled", DEFAULT_VL_DECAY_ENABLED);
         this.vlDecayIntervalSeconds = config.getInt("violation.vl-decay.interval", DEFAULT_VL_DECAY_INTERVAL_SECONDS);
         this.vlDecayAmount = config.getInt("violation.vl-decay.amount", DEFAULT_VL_DECAY_AMOUNT);
@@ -381,34 +352,39 @@ public class Config {
             }
         }
 
-        this.analyticsEnabled = config.getBoolean("analytics.enabled", DEFAULT_ANALYTICS_ENABLED);
-        this.analyticsMinDetections = config.getInt("analytics.min-detections", DEFAULT_ANALYTICS_MIN_DETECTIONS);
-        this.analyticsColorGreenMax = config.getInt("analytics.colors.green", DEFAULT_ANALYTICS_COLOR_GREEN_MAX);
-        this.analyticsColorOrangeMax = config.getInt("analytics.colors.orange", DEFAULT_ANALYTICS_COLOR_ORANGE_MAX);
 
         this.alertResponsesEnabled = config.getBoolean("alert-responses.enabled", DEFAULT_ALERT_RESPONSES_ENABLED);
-        this.damageReductionWindowSeconds = config.getInt("alert-responses.damage-reduction.window-seconds",
-                DEFAULT_ALERT_RESPONSE_WINDOW_SECONDS);
+        double stepPercent = config.getDouble("alert-responses.alerts.buffer-step-percent",
+                DEFAULT_AI_ALERT_BUFFER_STEP_PERCENT);
+        if (stepPercent <= 0.0 || stepPercent > 1.0) {
+            if (logger != null) {
+                logger.warning("[Config] alert-responses.alerts.buffer-step-percent value "
+                        + stepPercent + " is outside (0, 1], clamped to "
+                        + DEFAULT_AI_ALERT_BUFFER_STEP_PERCENT);
+            }
+            stepPercent = DEFAULT_AI_ALERT_BUFFER_STEP_PERCENT;
+        }
+        this.aiAlertBufferStepPercent = stepPercent;
+        this.damageReductionEnabled = config.getBoolean("alert-responses.damage-reduction.enabled", true);
         this.damageReductionStages = loadDamageReductionStages(config, logger);
-        this.trollWindowSeconds = config.getInt("alert-responses.troll.window-seconds",
-                DEFAULT_ALERT_RESPONSE_WINDOW_SECONDS);
+        this.trollEnabled = config.getBoolean("alert-responses.troll.enabled", true);
         this.trollActions = loadTrollActions(config, logger);
     }
 
     private static List<DamageReductionStage> createDefaultDamageReductionStages() {
         List<DamageReductionStage> stages = new ArrayList<>();
-        stages.add(new DamageReductionStage(1, 15.0, 8));
-        stages.add(new DamageReductionStage(2, 35.0, 12));
-        stages.add(new DamageReductionStage(3, 55.0, 16));
+        stages.add(new DamageReductionStage(15.0, 15.0, 8));
+        stages.add(new DamageReductionStage(30.0, 35.0, 12));
+        stages.add(new DamageReductionStage(45.0, 55.0, 16));
         return Collections.unmodifiableList(stages);
     }
 
     private static List<TrollActionConfig> createDefaultTrollActions() {
         List<TrollActionConfig> actions = new ArrayList<>();
-        actions.add(new TrollActionConfig("shuffle_inventory", 3, 20, true, 1.4, 0.45,
-                "&cMLSAC shuffled {PLAYER}'s inventory after {DETECTIONS} detections."));
-        actions.add(new TrollActionConfig("drop_weapon", 4, 20, true, 1.9, 0.55,
-                "&cMLSAC launched {PLAYER}'s weapon after {DETECTIONS} detections."));
+        actions.add(new TrollActionConfig("shuffle_inventory", 20.0, 20, true, 1.4, 0.45,
+                "&cMLSAC shuffled {PLAYER}'s inventory at buffer {BUFFER}."));
+        actions.add(new TrollActionConfig("drop_weapon", 35.0, 20, true, 1.9, 0.55,
+                "&cMLSAC launched {PLAYER}'s weapon at buffer {BUFFER}."));
         return Collections.unmodifiableList(actions);
     }
 
@@ -416,23 +392,23 @@ public class Config {
         List<Map<?, ?>> rawStages = config.getMapList("alert-responses.damage-reduction.stages");
         List<DamageReductionStage> stages = new ArrayList<>();
         for (Map<?, ?> rawStage : rawStages) {
-            int detections = getInt(rawStage.get("detections"), 0);
+            double bufferThreshold = getDouble(rawStage.get("buffer"), 0.0);
             double reductionPercent = getDouble(rawStage.get("reduction-percent"), 0.0);
             int durationSeconds = getInt(rawStage.get("duration-seconds"), 0);
-            if (detections <= 0 || durationSeconds <= 0 || reductionPercent <= 0.0) {
+            if (bufferThreshold <= 0.0 || durationSeconds <= 0 || reductionPercent <= 0.0) {
                 if (logger != null) {
                     logger.warning("[Config] Skipping invalid damage reduction stage: " + rawStage);
                 }
                 continue;
             }
-            stages.add(new DamageReductionStage(detections,
+            stages.add(new DamageReductionStage(bufferThreshold,
                     Math.max(0.0, Math.min(100.0, reductionPercent)),
                     durationSeconds));
         }
         if (stages.isEmpty()) {
             stages.addAll(createDefaultDamageReductionStages());
         }
-        stages.sort(Comparator.comparingInt(DamageReductionStage::getDetections));
+        stages.sort(Comparator.comparingDouble(DamageReductionStage::getBufferThreshold));
         return Collections.unmodifiableList(stages);
     }
 
@@ -442,27 +418,27 @@ public class Config {
         for (Map<?, ?> rawAction : rawActions) {
             Object typeValue = rawAction.containsKey("type") ? rawAction.get("type") : "";
             String type = String.valueOf(typeValue).trim().toLowerCase(Locale.ROOT);
-            int detections = getInt(rawAction.get("detections"), 0);
+            double bufferThreshold = getDouble(rawAction.get("buffer"), 0.0);
             int cooldownSeconds = getInt(rawAction.get("cooldown-seconds"), 0);
             boolean onlySword = getBoolean(rawAction.get("only-sword"), true);
             double horizontalVelocity = getDouble(rawAction.get("horizontal-velocity"), 1.4);
             double verticalVelocity = getDouble(rawAction.get("vertical-velocity"), 0.45);
             String message = rawAction.containsKey("message") ? String.valueOf(rawAction.get("message")) : "";
 
-            if (type.isEmpty() || detections <= 0) {
+            if (type.isEmpty() || bufferThreshold <= 0.0) {
                 if (logger != null) {
                     logger.warning("[Config] Skipping invalid troll action: " + rawAction);
                 }
                 continue;
             }
 
-            actions.add(new TrollActionConfig(type, detections, Math.max(0, cooldownSeconds), onlySword,
+            actions.add(new TrollActionConfig(type, bufferThreshold, Math.max(0, cooldownSeconds), onlySword,
                     horizontalVelocity, verticalVelocity, message));
         }
         if (actions.isEmpty()) {
             actions.addAll(createDefaultTrollActions());
         }
-        actions.sort(Comparator.comparingInt(TrollActionConfig::getDetections));
+        actions.sort(Comparator.comparingDouble(TrollActionConfig::getBufferThreshold));
         return Collections.unmodifiableList(actions);
     }
 
@@ -537,22 +513,6 @@ public class Config {
         return debug;
     }
 
-    public int getPreHitTicks() {
-        return preHitTicks;
-    }
-
-    public int getPostHitTicks() {
-        return postHitTicks;
-    }
-
-    public double getHitLockThreshold() {
-        return hitLockThreshold;
-    }
-
-    public int getPostHitTimeoutTicks() {
-        return postHitTimeoutTicks;
-    }
-
     public String getOutputDirectory() {
         return outputDirectory;
     }
@@ -623,10 +583,6 @@ public class Config {
 
     public String getAnimationType() {
         return animationType;
-    }
-
-    public String getPunishmentCommand(int vl) {
-        return punishmentCommands.get(vl);
     }
 
     public Map<Integer, String> getPunishmentCommands() {
@@ -709,45 +665,6 @@ public class Config {
         return updatesEnabled;
     }
 
-    public int getReportStatsIntervalSeconds() {
-        return reportStatsIntervalSeconds;
-    }
-
-    public String getServerHost() {
-        try {
-            java.net.URI uri = new java.net.URI(serverAddress);
-            return uri.getHost();
-        } catch (Exception e) {
-            int colonIndex = serverAddress.lastIndexOf(':');
-            if (colonIndex > 0) {
-                return serverAddress.substring(0, colonIndex);
-            }
-            return serverAddress;
-        }
-    }
-
-    public int getServerPort() {
-        try {
-            java.net.URI uri = new java.net.URI(serverAddress);
-            int port = uri.getPort();
-            if (port > 0) return port;
-        } catch (Exception e) {}
-        int colonIndex = serverAddress.lastIndexOf(':');
-        if (colonIndex > 0 && colonIndex < serverAddress.length() - 1) {
-            try {
-                String portStr = serverAddress.substring(colonIndex + 1);
-                int slashIndex = portStr.indexOf('/');
-                if (slashIndex > 0) {
-                    portStr = portStr.substring(0, slashIndex);
-                }
-                return Integer.parseInt(portStr);
-            } catch (NumberFormatException e) {
-                return 443;
-            }
-        }
-        return 443;
-    }
-
     public boolean isVlDecayEnabled() {
         return vlDecayEnabled;
     }
@@ -798,54 +715,24 @@ public class Config {
         return modelNames.getOrDefault(modelKey, modelKey);
     }
 
-    public Map<String, String> getModelNames() {
-        return modelNames;
-    }
-
-    public Map<String, Boolean> getModelOnlyAlert() {
-        return modelOnlyAlert;
-    }
-
-    public boolean isAnalyticsEnabled() {
-        return analyticsEnabled;
-    }
-
-    public int getAnalyticsMinDetections() {
-        return analyticsMinDetections;
-    }
-
-    public int getAnalyticsColorGreenMax() {
-        return analyticsColorGreenMax;
-    }
-
-    public int getAnalyticsColorOrangeMax() {
-        return analyticsColorOrangeMax;
-    }
-
-    public String getDetectionColor(int detections) {
-        if (detections <= analyticsColorGreenMax) {
-            return "&a";
-        } else if (detections <= analyticsColorOrangeMax) {
-            return "&6";
-        } else {
-            return "&c";
-        }
-    }
-
     public boolean isAlertResponsesEnabled() {
         return alertResponsesEnabled;
     }
 
-    public int getDamageReductionWindowSeconds() {
-        return damageReductionWindowSeconds;
+    public boolean isDamageReductionEnabled() {
+        return damageReductionEnabled;
+    }
+
+    public boolean isTrollEnabled() {
+        return trollEnabled;
+    }
+
+    public double getAiAlertBufferStepPercent() {
+        return aiAlertBufferStepPercent;
     }
 
     public List<DamageReductionStage> getDamageReductionStages() {
         return damageReductionStages;
-    }
-
-    public int getTrollWindowSeconds() {
-        return trollWindowSeconds;
     }
 
     public List<TrollActionConfig> getTrollActions() {
@@ -853,18 +740,18 @@ public class Config {
     }
 
     public static final class DamageReductionStage {
-        private final int detections;
+        private final double bufferThreshold;
         private final double reductionPercent;
         private final int durationSeconds;
 
-        public DamageReductionStage(int detections, double reductionPercent, int durationSeconds) {
-            this.detections = detections;
+        public DamageReductionStage(double bufferThreshold, double reductionPercent, int durationSeconds) {
+            this.bufferThreshold = bufferThreshold;
             this.reductionPercent = reductionPercent;
             this.durationSeconds = durationSeconds;
         }
 
-        public int getDetections() {
-            return detections;
+        public double getBufferThreshold() {
+            return bufferThreshold;
         }
 
         public double getReductionPercent() {
@@ -878,17 +765,17 @@ public class Config {
 
     public static final class TrollActionConfig {
         private final String type;
-        private final int detections;
+        private final double bufferThreshold;
         private final int cooldownSeconds;
         private final boolean onlySword;
         private final double horizontalVelocity;
         private final double verticalVelocity;
         private final String message;
 
-        public TrollActionConfig(String type, int detections, int cooldownSeconds, boolean onlySword,
+        public TrollActionConfig(String type, double bufferThreshold, int cooldownSeconds, boolean onlySword,
                 double horizontalVelocity, double verticalVelocity, String message) {
             this.type = type;
-            this.detections = detections;
+            this.bufferThreshold = bufferThreshold;
             this.cooldownSeconds = cooldownSeconds;
             this.onlySword = onlySword;
             this.horizontalVelocity = horizontalVelocity;
@@ -900,8 +787,8 @@ public class Config {
             return type;
         }
 
-        public int getDetections() {
-            return detections;
+        public double getBufferThreshold() {
+            return bufferThreshold;
         }
 
         public int getCooldownSeconds() {
