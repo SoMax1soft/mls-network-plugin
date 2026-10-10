@@ -17,13 +17,14 @@ import java.util.function.Function;
 
 final class PredictChannel {
 
-    static final int MAX_IN_FLIGHT = 8;
+    static final int MAX_IN_FLIGHT = 32;
     private static final String SESSION_UNKNOWN = "SESSION_UNKNOWN";
 
     private final BackendContext context;
     private final ConnectionState state;
     private final DegradedModes degraded;
     private final PredictStreamReader reader;
+    private final WaitingWindows waiting = new WaitingWindows();
 
     PredictChannel(BackendContext context, ConnectionState state, DegradedModes degraded) {
         this.context = context;
@@ -36,12 +37,42 @@ final class PredictChannel {
         Optional<PredictOutcome.RefusalReason> refusal = refusal();
         if (refusal.isPresent()) {
             context.console().debug("predict refused: " + refusal.get());
+            waiting.settleAll(new PredictOutcome.Refused(refusal.get()));
             return CompletableFuture.completedFuture(new PredictOutcome.Refused(refusal.get()));
         }
         if (!state.claimPredict(MAX_IN_FLIGHT)) {
-            context.console().debug("predict dropped: " + MAX_IN_FLIGHT + " requests in flight");
-            return CompletableFuture.completedFuture(new PredictOutcome.Dropped());
+            CompletableFuture<PredictOutcome> parked = waiting.park(request, listener);
+            drain();
+            return parked;
         }
+        return start(request, listener);
+    }
+
+    private void drain() {
+        while (!waiting.empty() && state.claimPredict(MAX_IN_FLIGHT)) {
+            Optional<WaitingWindows.Parked> next = waiting.next();
+            if (next.isEmpty()) {
+                state.releasePredict();
+                return;
+            }
+            WaitingWindows.Parked parked = next.get();
+            Optional<PredictOutcome.RefusalReason> refusal = refusal();
+            if (refusal.isPresent()) {
+                state.releasePredict();
+                parked.outcome().complete(new PredictOutcome.Refused(refusal.get()));
+                continue;
+            }
+            start(parked.request(), parked.listener()).whenComplete((outcome, failure) -> {
+                if (failure != null) {
+                    parked.outcome().completeExceptionally(failure);
+                } else {
+                    parked.outcome().complete(outcome);
+                }
+            });
+        }
+    }
+
+    private CompletableFuture<PredictOutcome> start(WindowSubmission request, VerdictListener listener) {
         Endpoint target = state.current();
         PredictRoute route = state.predictRoute();
         try {
@@ -49,6 +80,7 @@ final class PredictChannel {
                     .thenCompose(Function.identity());
         } catch (RejectedExecutionException stopped) {
             state.releasePredict();
+            drain();
             return CompletableFuture.completedFuture(new PredictOutcome.Failed("Canceled"));
         }
     }
@@ -62,6 +94,7 @@ final class PredictChannel {
             reply = context.post(target, "predict-stream", true, call.body(), call.extraHeaders());
         } catch (RuntimeException failure) {
             state.releasePredict();
+            drain();
             context.console().debug("predict window could not be encoded: " + failure);
             return CompletableFuture.completedFuture(new PredictOutcome.Failed("encoding: " + failure.getMessage()));
         }
@@ -70,6 +103,7 @@ final class PredictChannel {
                 return error != null ? onTransportFailure(error, target) : onReply(answer, target, route, listener);
             } finally {
                 state.releasePredict();
+                drain();
             }
         });
     }

@@ -12,6 +12,7 @@ import italy.mlsac.net.backend.PredictOutcome;
 import italy.mlsac.net.backend.http.FailureKind;
 import italy.mlsac.net.backend.request.AlertReport;
 import italy.mlsac.net.backend.request.WindowSubmission;
+import italy.mlsac.net.backend.http.HttpReply;
 import italy.mlsac.net.console.LogLevel;
 import italy.mlsac.net.testkit.ManualScheduler;
 import java.util.ArrayList;
@@ -176,19 +177,33 @@ class BackendSessionTest {
     }
 
     @Test
-    void atMostEightPredictsInFlight() {
+    void windowsOverTheLimitWaitTheirTurnInsteadOfBeingLost() {
         SessionHarness h = connected(false);
-        List<CompletableFuture<PredictOutcome>> outcomes = new ArrayList<>();
-        for (int i = 0; i < 9; i++) {
+        int limit = PredictChannel.MAX_IN_FLIGHT;
+        for (int i = 0; i < limit + 3; i++) {
             h.transport.hold("/predict-stream");
         }
-        for (int i = 0; i < 9; i++) {
-            outcomes.add(h.session.predict(WINDOW, v -> { }));
+        List<CompletableFuture<PredictOutcome>> busy = new ArrayList<>();
+        for (int i = 0; i < limit; i++) {
+            busy.add(h.session.predict(WINDOW, v -> { }));
         }
-        assertEquals(8, h.transport.callsTo("/predict-stream").size());
-        assertEquals(new PredictOutcome.Dropped(), outcomes.get(8).join());
+        CompletableFuture<PredictOutcome> older = h.session.predict(window("Late_01"), v -> { });
+        CompletableFuture<PredictOutcome> newer = h.session.predict(window("Late_01"), v -> { });
+        CompletableFuture<PredictOutcome> other = h.session.predict(window("Late_02"), v -> { });
+        assertEquals(limit, h.transport.callsTo("/predict-stream").size());
+        assertEquals(new PredictOutcome.Dropped(), older.join());
+        assertFalse(newer.isDone());
+        assertFalse(other.isDone());
+        h.transport.held().get(0).complete(HttpReply.of(200, "{\"model\":\"ultra\",\"probability\":0.5}"));
+        assertEquals(limit + 1, h.transport.callsTo("/predict-stream").size());
+        h.transport.held().get(1).complete(HttpReply.of(200, "{\"model\":\"ultra\",\"probability\":0.5}"));
+        assertEquals(limit + 2, h.transport.callsTo("/predict-stream").size());
         h.session.disconnect().join();
-        assertEquals(new PredictOutcome.Failed("Canceled"), outcomes.get(0).join());
+        assertEquals(new PredictOutcome.Failed("Canceled"), busy.get(limit - 1).join());
+    }
+
+    private static WindowSubmission window(String nick) {
+        return new WindowSubmission(UUID.nameUUIDFromBytes(nick.getBytes()), nick, new byte[] {'M', 'L', 'S', 'U'});
     }
 
     @Test
