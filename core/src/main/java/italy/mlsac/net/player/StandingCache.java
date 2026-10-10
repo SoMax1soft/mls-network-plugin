@@ -11,9 +11,15 @@ public final class StandingCache {
 
     private final Map<UUID, PlayerStanding> standings = new ConcurrentHashMap<>();
     private final BedrockDetector bedrock;
+    private final PermissionAuthority permissions;
 
     public StandingCache(BedrockDetector bedrock) {
+        this(bedrock, PermissionAuthority.ALWAYS);
+    }
+
+    public StandingCache(BedrockDetector bedrock, PermissionAuthority permissions) {
         this.bedrock = bedrock;
+        this.permissions = permissions;
     }
 
     public PlayerStanding standing(UUID player) {
@@ -21,9 +27,10 @@ public final class StandingCache {
     }
 
     public void refresh(PlayerView player) {
+        boolean exemptionsApply = permissions.installed();
         standings.put(player.id(), new PlayerStanding(
-                player.hasPermission(GrantNode.DETECTION_EXEMPT.node()),
-                player.hasPermission(GrantNode.SUPPRESSION_EXEMPT.node()),
+                exemptionsApply && player.hasPermission(GrantNode.DETECTION_EXEMPT.node()),
+                exemptionsApply && player.hasPermission(GrantNode.SUPPRESSION_EXEMPT.node()),
                 Audience.STAFF.test(player),
                 Audience.ADMIN_OR_OP.test(player),
                 bedrock.bedrockClient(player.id())));

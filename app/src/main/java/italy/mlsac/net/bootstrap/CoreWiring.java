@@ -39,6 +39,7 @@ import italy.mlsac.net.player.NoticeBoard;
 import italy.mlsac.net.player.OnlinePlayerCount;
 import italy.mlsac.net.player.PlayerDirectory;
 import italy.mlsac.net.player.StandingCache;
+import italy.mlsac.net.player.bukkit.InstalledPermissionPlugin;
 import italy.mlsac.net.player.StandingRefresher;
 import italy.mlsac.net.player.bukkit.BukkitPlayerDirectory;
 import italy.mlsac.net.player.bukkit.BukkitPlayerEventBridge;
@@ -133,7 +134,7 @@ final class CoreWiring {
         this.messages = new MessageBook(catalog, config, colorizer);
         this.notices = new NoticeBoard(players, scheduler);
         this.bedrock = ReflectiveBedrockDetector.detect(plugin.getClass().getClassLoader());
-        this.standings = new StandingCache(bedrock);
+        this.standings = new StandingCache(bedrock, new InstalledPermissionPlugin());
         this.regionLookup = WorldGuardRegionLookup.detect();
         this.regions = new RegionExemptions(() -> config.get().detection().regions(), regionLookup, log);
         ReplyObservers replies = new ReplyObservers(SharedNameAlarm.toConsoleAndStaff(() -> config.get().core().identity(), log,
