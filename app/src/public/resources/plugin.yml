@@ -1,0 +1,85 @@
+name: MLSAC
+version: '${version}'
+main: italy.mlsac.net.bootstrap.MlsacPlugin
+api-version: '1.16'
+description: MLSAC.NET - AI Anticheat
+folia-supported: true
+softdepend: [WorldGuard, floodgate, Geyser-Spigot]
+commands:
+  mlsac:
+    description: MLSAC anticheat commands
+    aliases: [ml, mls]
+    usage: /mlsac <alerts|monitor|suspects|punish|profile|reload|status|animation|reinstall|kicklist>
+permissions:
+  mlsac.command.alerts:
+    description: /mlsac alerts
+    default: false
+  mlsac.command.monitor:
+    description: /mlsac monitor
+    default: false
+  mlsac.command.suspects:
+    description: /mlsac suspects
+    default: false
+  mlsac.command.profile:
+    description: /mlsac profile and /mlsac prob
+    default: false
+  mlsac.command.punish:
+    description: /mlsac punish
+    default: false
+  mlsac.command.kicklist:
+    description: /mlsac kicklist
+    default: false
+  mlsac.command.status:
+    description: /mlsac status
+    default: false
+  mlsac.command.reload:
+    description: /mlsac reload
+    default: false
+  mlsac.command.reinstall:
+    description: /mlsac reinstall
+    default: false
+  mlsac.command.animation:
+    description: /mlsac animation
+    default: false
+  mlsac.notify.alerts:
+    description: Receive alerts, nametags and the alert sound
+    default: false
+  mlsac.bypass:
+    description: Exempt from all checks
+    default: false
+    children:
+      mlsac.suppression.bypass: true
+  mlsac.suppression.bypass:
+    description: No in-game suppression effects (ladder commands still run)
+    default: false
+  mlsac.admin:
+    description: Everything (previous scheme)
+    default: op
+    children:
+      mlsac.alerts: true
+      mlsac.prob: true
+      mlsac.reload: true
+      mlsac.command.punish: true
+      mlsac.command.kicklist: true
+      mlsac.command.status: true
+      mlsac.command.reinstall: true
+      mlsac.command.animation: true
+      mlsac.suppression.bypass: true
+  mlsac.alerts:
+    description: Alerts and staff menus (previous scheme)
+    default: op
+    children:
+      mlsac.command.alerts: true
+      mlsac.command.monitor: true
+      mlsac.command.suspects: true
+      mlsac.notify.alerts: true
+  mlsac.prob:
+    description: Player profiles (previous scheme)
+    default: op
+    children:
+      mlsac.command.profile: true
+  mlsac.reload:
+    description: Reload (previous scheme)
+    default: op
+    children:
+      mlsac.command.reload: true

@@ -1,0 +1,33 @@
+// Copyright (c) 2026 MLSAC. All Rights Reserved.
+plugins {
+    id 'java-test-fixtures'
+}
+
+description = 'MLSAC pipeline module'
+
+dependencies {
+    api project(':core')
+    compileOnly libs.paper.api
+
+    testImplementation testFixtures(project(':core'))
+    testFixturesImplementation testFixtures(project(':core'))
+    testFixturesImplementation platform(libs.junit.bom)
+    testFixturesImplementation libs.junit.jupiter
+    testFixturesImplementation libs.snakeyaml
+    testFixturesCompileOnly libs.paper.api
+    testImplementation libs.snakeyaml
+    testImplementation libs.paper.api
+}
+
+tasks.withType(Test).configureEach {
+    maxHeapSize = '1g'
+    systemProperty 'mlsac.golden', rootProject.file('../golden/traces/synthetic').absolutePath
+    systemProperty 'mlsac.golden.live', rootProject.file('../golden/traces/live').absolutePath
+    systemProperty 'mlsac.parity.folder', layout.buildDirectory.dir('parity').get().asFile.absolutePath
+    systemProperty 'mlsac.only', findProperty('only') ?: ''
+    systemProperty 'mlsac.wire6.recordings', findProperty('wire6Recordings') ?: ''
+    systemProperty 'mlsac.wire6.out', findProperty('wire6Out') ?: ''
+    if (findProperty('leadInRows') != null) {
+        systemProperty 'mlsac.leadInRows', findProperty('leadInRows')
+    }
+}

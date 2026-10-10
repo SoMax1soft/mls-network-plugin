@@ -1,0 +1,46 @@
+gui:
+  title: "&0&l» &8&lMLSAC &8| &0اللاعبون"
+  size: 54
+  loading: "&7جارٍ التحميل..."
+
+  items:
+    suspect_head:
+      name: "&fاللاعب: &a{PLAYER}"
+      lore:
+        - "&8▪ &7متوسط الاحتمال &8» &f{AVG_PROB}"
+        - "&8▪ &7آخر &f{HISTORY_SIZE} &7فحوصات"
+        - "{HISTORY}"
+        - ""
+        - "&8▪ &2زر أيسر &8» &fانتقال"
+        - "&8▪ &2زر أيمن &8» &fكل الفحوصات"
+    previous_page:
+      material: ARROW
+      name: "&7« رجوع &8({PAGE})"
+    next_page:
+      material: ARROW
+      name: "&7التالي » &8({PAGE})"
+    page_info:
+      material: COMPASS
+      name: "&fصفحة &7{CURRENT}&8/&7{TOTAL}"
+    filler:
+      material: BLACK_STAINED_GLASS_PANE
+      name: " "
+
+  checks:
+    title: "&0&l» &8&lMLSAC &8| &0الفحوصات {PLAYER}"
+    pane:
+      name: "&fفحص &7#{INDEX}"
+      lore:
+        - "&8▪ &7الاحتمال &8» {PERCENT}"
+    empty:
+      name: "&7لا توجد فحوصات"
+    info:
+      material: COMPASS
+      name: "&fاللاعب: &4{PLAYER}"
+      lore: "&8▪ &7المجموع &8» &f{COUNT} &7فحوصات"
+    back:
+      material: ARROW
+      name: "&7« رجوع"
+    exit:
+      material: BARRIER
+      name: "&cخروج"

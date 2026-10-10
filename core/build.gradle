@@ -1,0 +1,21 @@
+// Copyright (c) 2026 MLSAC. All Rights Reserved.
+plugins {
+    id 'java-test-fixtures'
+}
+
+description = 'MLSAC core: platform, scheduling, packet port, configuration, backend client, presets, messages, contracts'
+
+dependencies {
+    compileOnly libs.paper.api
+    compileOnly libs.worldguard.bukkit
+    compileOnly libs.packetevents.spigot
+
+    testImplementation libs.snakeyaml
+    testRuntimeOnly libs.paper.api
+    testFixturesImplementation libs.snakeyaml
+    testFixturesCompileOnly libs.paper.api
+}
+
+tasks.withType(Test).configureEach {
+    systemProperty 'mlsac.wire5.vectors', rootProject.file('../specs/backend/wire-v5-vectors.json').absolutePath
+}

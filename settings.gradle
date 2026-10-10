@@ -1,1 +1,11 @@
-rootProject.name = 'MLSAC'
+// Copyright (c) 2026 MLSAC. All Rights Reserved.
+rootProject.name = 'mlsac'
+
+def editions = ['public']
+def edition = providers.gradleProperty('edition').getOrElse('public')
+if (!editions.contains(edition)) {
+    throw new GradleException("Unknown edition '${edition}', expected one of ${editions}")
+}
+gradle.ext.mlsacEdition = edition
+
+include 'core', 'pipeline', 'features', 'suppression', 'app'

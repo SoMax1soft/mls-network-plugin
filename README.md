@@ -1,69 +1,108 @@
-<div align="center">
+# MLSAC 2.0 — AI anticheat for Minecraft servers
 
-<!-- Title animation -->
-<img src="https://readme-typing-svg.demolab.com/?font=Unbounded&weight=700&size=38&pause=1000&color=4C8BF5&center=true&vCenter=true&width=700&lines=MLS;Modern+Minecraft+Anti-Cheat" alt="MLSAC Typings" />
+**MLSAC** is a machine-learning anticheat. The plugin watches how players fight — aim, clicks, movement
+around the target — and sends compact feature windows to the MLSAC cloud, where neural networks score
+them for KillAura, TriggerBot, AimAssist and Reach. What happens to a cheater (alerts, damage
+reduction, kicks, bans) is configured in presets on [mlsac.net](https://mlsac.net).
 
-<p align="center">
-  <b>MLS network</b> — клиентский плагин античита для Minecraft-серверов, использующий внешнюю серверную обработку данных.
-  <br>
-  Плагин выполняет роль легковесного коннектора, отправляющего данные в подключаемую backend-систему для анализа.
-</p>
+🇷🇺 [Русский ниже](#mlsac-20--ии-античит-для-серверов-minecraft)
 
-<!-- Links -->
-<p align="center">
-  <a href="https://discord.gg/ARVNGSTWeg">
-    <img src="https://img.shields.io/badge/Discord-Join%20Server-5865F2?style=flat-square&logo=discord&logoColor=white" />
-  </a>
-  <a href="https://github.com/SoMax1soft/MLSAC/issues">
-    <img src="https://img.shields.io/badge/Bugs-Report-ED4245?style=flat-square&logo=github" />
-  </a>
-  <a href="https://github.com/SoMax1soft/MLSAC/issues">
-    <img src="https://img.shields.io/badge/Features-Request-9B59B6?style=flat-square&logo=github" />
-  </a>
-</p>
+## Download
 
-<!-- Stats -->
-<p align="center">
-  <img src="https://img.shields.io/github/license/SoMax1soft/MLSAC?style=flat-square&color=4C8BF5" />
-  <img src="https://img.shields.io/github/stars/SoMax1soft/MLSAC?style=flat-square&color=4C8BF5" />
-  <img src="https://img.shields.io/github/forks/SoMax1soft/MLSAC?style=flat-square&color=4C8BF5" />
-</p>
+Get the ready plugin from **[mlsac.net](https://mlsac.net/wiki/start/install)**:
 
-</div>
+| Server Java | Jar |
+|---|---|
+| Java 21 or newer | `MLSAC-2.0.x-java21.jar` |
+| Java 17 | `MLSAC-2.0.x-java17.jar` |
 
----
+## Requirements
 
-## Ключевые особенности
-
-| Функция | Описание |
-| :--- | :--- |
-| Удаленная обработка | Все вычисления выполняются на внешнем сервере анализа |
-| Модели FAST и PRO | FAST — быстрые детекты, PRO — поведенческий анализ |
-| Межсерверный анализ | Обмен данными о нарушителях между подключенными серверами |
-| Веб-интерфейс | Панель управления, логи и статистика |
-| Уведомления | Интеграция с Discord и Telegram через вебхуки |
-| Гибкая кастомизация | Настройка под разные игровые режимы |
-
----
-
-## Системные требования
-
-- Spigot / Paper / Purpur / Pufferfish и совместимые форки  
+- Paper and forks (Purpur, Pufferfish, Leaf…), Spigot, Folia
+- Minecraft 1.16.5 – 1.21.x
 - Java 17+
+- A licence key from mlsac.net (there is a free plan)
+
+PacketEvents is bundled — nothing else to install. WorldGuard is optional (regions without checks).
+
+## Install
+
+1. Stop the server; remove an old MLSAC 1.x jar if there is one.
+2. Put the jar into `plugins/` and start the server.
+3. Paste your licence key into `plugins/MLSAC/config.yml` → `api-key`, then `/mlsac reload`.
+4. Set up models, punishments and menus in **Configs** on mlsac.net.
+
+Full guide: [mlsac.net/wiki](https://mlsac.net/wiki/start/install).
+
+## Building from source
+
+```bash
+./gradlew build
+```
+
+Jars land in `build/dist/`. Modules: `core` (backend link, config, packets), `pipeline` (feature
+extraction and windows), `features` (alerts, menus, nametags, punishments), `suppression` (suppression
+ladder), `app` (bootstrap).
+
+> The public source does not contain the protected transport used by the official build for the Ultra
+> model. A build from this repository talks to the backend over the plain protocol; Ultra on the
+> newest protocol needs the official jar from mlsac.net.
+
+## Licence
+
+Source-available — see [LICENSE](LICENSE). You may read, build and run it on your own servers; you may
+not redistribute it, sell it or use it to build other anticheats or cheats. Third-party components:
+[THIRD-PARTY-NOTICES](THIRD-PARTY-NOTICES).
 
 ---
 
-## Установка и запуск
+# MLSAC 2.0 — ИИ-античит для серверов Minecraft
 
-1. Скачать последнюю версию из GitHub Releases  
-2. Поместить `.jar` в папку `plugins/`  
-3. Запустить сервер  
-4. Настроить конфигурацию и backend-подключение  
+**MLSAC** — античит на машинном обучении. Плагин смотрит, как игрок дерётся: прицел, клики, движение
+вокруг цели, — и отправляет компактные окна признаков в облако MLSAC. Там нейросети оценивают их на
+KillAura, TriggerBot, AimAssist и Reach. Что делать с читером (алерты, снижение урона, кики, баны),
+настраивается в пресетах на [mlsac.net](https://mlsac.net).
 
----
+## Скачать
 
-## License
+Готовый плагин — на **[mlsac.net](https://mlsac.net/wiki/start/install)**:
 
-This project is licensed under the GNU General Public License v3.0.
+| Java сервера | Jar |
+|---|---|
+| Java 21 и новее | `MLSAC-2.0.x-java21.jar` |
+| Java 17 | `MLSAC-2.0.x-java17.jar` |
 
-The project includes software distributed under GPLv3 and may contain components derived from open-source projects licensed under compatible terms.
+## Требования
+
+- Paper и форки (Purpur, Pufferfish, Leaf…), Spigot, Folia
+- Minecraft 1.16.5 – 1.21.x
+- Java 17+
+- Ключ лицензии с mlsac.net (есть бесплатный тариф)
+
+PacketEvents уже внутри — больше ничего ставить не нужно. WorldGuard по желанию (регионы без проверки).
+
+## Установка
+
+1. Останови сервер; если стоял MLSAC 1.x, удали старый jar.
+2. Положи jar в `plugins/` и запусти сервер.
+3. Вставь ключ лицензии в `plugins/MLSAC/config.yml` → `api-key`, затем `/mlsac reload`.
+4. Модели, наказания и меню настраиваются во вкладке **«Конфиги»** на mlsac.net.
+
+Подробно: [mlsac.net/wiki](https://mlsac.net/wiki/start/install).
+
+## Сборка из исходников
+
+```bash
+./gradlew build
+```
+
+Jar появятся в `build/dist/`.
+
+> В открытых исходниках нет защищённого транспорта, которым официальная сборка общается с моделью
+> Ultra. Сборка из этого репозитория работает по обычному протоколу; Ultra на новейшем протоколе —
+> только с официальным jar с mlsac.net.
+
+## Лицензия
+
+Код открыт для чтения — см. [LICENSE](LICENSE). Можно читать, собирать и запускать на своих серверах;
+нельзя распространять, продавать и использовать для создания других античитов или читов.

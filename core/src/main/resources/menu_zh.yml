@@ -1,0 +1,46 @@
+gui:
+  title: "&0&l» &8&lMLSAC &8| &0玩家"
+  size: 54
+  loading: "&7加载中..."
+
+  items:
+    suspect_head:
+      name: "&f玩家: &a{PLAYER}"
+      lore:
+        - "&8▪ &7平均概率 &8» &f{AVG_PROB}"
+        - "&8▪ &7最近 &f{HISTORY_SIZE} &7次检测"
+        - "{HISTORY}"
+        - ""
+        - "&8▪ &2左键 &8» &f传送"
+        - "&8▪ &2右键 &8» &f全部检测"
+    previous_page:
+      material: ARROW
+      name: "&7« 返回 &8({PAGE})"
+    next_page:
+      material: ARROW
+      name: "&7下一页 » &8({PAGE})"
+    page_info:
+      material: COMPASS
+      name: "&f页 &7{CURRENT}&8/&7{TOTAL}"
+    filler:
+      material: BLACK_STAINED_GLASS_PANE
+      name: " "
+
+  checks:
+    title: "&0&l» &8&lMLSAC &8| &0检测记录 {PLAYER}"
+    pane:
+      name: "&f检测 &7#{INDEX}"
+      lore:
+        - "&8▪ &7概率 &8» {PERCENT}"
+    empty:
+      name: "&7暂无检测"
+    info:
+      material: COMPASS
+      name: "&f玩家: &4{PLAYER}"
+      lore: "&8▪ &7总计 &8» &f{COUNT} &7次检测"
+    back:
+      material: ARROW
+      name: "&7« 返回"
+    exit:
+      material: BARRIER
+      name: "&c退出"

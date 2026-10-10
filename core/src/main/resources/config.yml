@@ -1,0 +1,40 @@
+#
+#███╗░░░███╗██╗░░░░░░██████╗░█████╗░░█████╗░░░░███╗░░██╗███████╗████████╗
+#████╗░████║██║░░░░░██╔════╝██╔══██╗██╔══██╗░░░████╗░██║██╔════╝╚══██╔══╝
+#██╔████╔██║██║░░░░░╚█████╗░███████║██║░░╚═╝░░░██╔██╗██║█████╗░░░░░██║░░░
+#██║╚██╔╝██║██║░░░░░░╚═══██╗██╔══██║██║░░██╗░░░██║╚████║██╔══╝░░░░░██║░░░
+#██║░╚═╝░██║███████╗██████╔╝██║░░██║╚█████╔╝██╗██║░╚███║███████╗░░░██║░░░
+#╚═╝░░░░░╚═╝╚══════╝╚═════╝░╚═╝░░╚═╝░╚════╝░╚═╝╚═╝░░╚══╝╚══════╝░░░╚═╝░░░
+#
+# Site & dashboard: https://mlsac.net    Guide: https://mlsac.net/wiki
+# Discord: https://discord.gg/ARVNGSTWeg    Telegram: https://t.me/mlsanticheat
+#
+# Everything else (modules, detection, alerts, punishments, suppression, holograms) is set up
+# in a preset on https://mlsac.net -> Конфиги.
+
+# Do not edit.
+_schema-version: '2.0'
+
+debug: false
+
+# ru, en, uk, es, vi, zh, ar
+language: "ru"
+
+detection:
+  # Get a key (or a free trial) at https://mlsac.net
+  api-key: "your-api-key"
+
+remote-config:
+  # "" = the only preset on your account, "<name>" = that preset, "none" = built-in defaults
+  preset: ""
+
+server-identity:
+  # Server name in alerts; servers with the same family share alerts and actions.
+  name: "default"
+  family: "default"
+  interserver:
+    enabled: false
+  reporting:
+    # Send alerts and punishments to the dashboard, Discord and Telegram.
+    events-enabled: true
+    alert-threshold: 0.80

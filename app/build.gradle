@@ -1,0 +1,192 @@
+// Copyright (c) 2026 MLSAC. All Rights Reserved.
+import com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar
+
+description = 'MLSAC plugin entry point: wiring and packaging'
+
+def edition = rootProject.ext.mlsacEdition
+def internalEdition = edition == 'internal'
+def leadInZero = project.hasProperty('leadInZero')
+def moduleProjects = [':core', ':pipeline', ':features', ':suppression'] + (internalEdition ? [':recording'] : [])
+moduleProjects.each { evaluationDependsOn(it) }
+
+sourceSets {
+    main {
+        java.srcDir("src/${edition}/java")
+        resources.srcDir("src/${edition}/resources")
+    }
+}
+
+configurations {
+    bundled {
+        canBeConsumed = false
+        canBeResolved = true
+        transitive = true
+    }
+}
+
+dependencies {
+    implementation project(':core')
+    implementation project(':pipeline')
+    implementation project(':features')
+    implementation project(':suppression')
+    if (internalEdition) {
+        implementation project(':recording')
+    }
+    compileOnly libs.paper.api
+    compileOnly libs.packetevents.spigot
+    bundled(libs.packetevents.spigot) {
+        exclude group: 'com.google.code.gson'
+        exclude group: 'org.jetbrains'
+    }
+
+    testImplementation testFixtures(project(':core'))
+    testImplementation libs.paper.api
+}
+
+tasks.named('processResources', ProcessResources) {
+    inputs.property('version', project.version)
+    filesMatching('plugin.yml') {
+        expand(version: project.version)
+    }
+}
+
+def distDir = rootProject.layout.buildDirectory.dir('dist')
+def relocationRoot = 'italy.mlsac.net.libs'
+def editionMark = internalEdition ? '-internal' : ''
+def messageFiles = 'messages_*.yml'
+def recordingMessageKeys = ['data-status-header', 'active-sessions', 'no-active-sessions', 'start-hint',
+        'session-started', 'session-stopped', 'all-sessions-stopped', 'no-sessions-to-stop', 'invalid-label',
+        'valid-labels', 'usage-start', 'usage-stop', 'usage-datastatus', 'recording-save-failed',
+        'data-status-recording', 'data-status-entry', 'data-status-detail', 'data-status-yes', 'data-status-no']
+
+def editionMessages = tasks.register('editionMessages') {
+    description = 'Writes the bundled message files of this edition (the public edition drops the recorder texts).'
+    def sources = project(':core').fileTree('src/main/resources') { include messageFiles }
+    def target = layout.buildDirectory.dir("edition-messages/${edition}")
+    inputs.files(sources)
+    inputs.property('edition', edition)
+    inputs.property('recordingMessageKeys', recordingMessageKeys)
+    outputs.dir(target)
+    doLast {
+        def folder = target.get().asFile
+        project.delete(folder)
+        folder.mkdirs()
+        sources.each { file ->
+            byte[] bytes = file.bytes
+            if (!internalEdition) {
+                def kept = new String(bytes, 'UTF-8').split(/(?<=\n)/, -1).findAll { line ->
+                    !recordingMessageKeys.any { key -> line.startsWith(key + ':') }
+                }
+                bytes = kept.join('').getBytes('UTF-8')
+            }
+            new File(folder, file.name).bytes = bytes
+        }
+    }
+}
+
+def leadInProperties = tasks.register('leadInProperties') {
+    description = 'Bakes mlsac.leadInRows=0 into the jar so this build ships lead-in 0 with no runtime flag.'
+    def target = layout.buildDirectory.dir('baked-properties')
+    inputs.property('leadInZero', leadInZero)
+    outputs.dir(target)
+    doLast {
+        def folder = target.get().asFile
+        project.delete(folder)
+        folder.mkdirs()
+        new File(folder, 'mlsac-build.properties').setText('mlsac.leadInRows=0' + System.lineSeparator(), 'UTF-8')
+    }
+}
+
+def configureDistribution = { ShadowJar task, int javaRelease ->
+    task.group = 'distribution'
+    task.archiveFileName = "MLSAC-${project.version}${editionMark}-java${javaRelease}.jar"
+    task.destinationDirectory = distDir
+    task.configurations = [project.configurations.bundled]
+    task.manifest {
+        attributes('Multi-Release': 'true', 'Build-Java-Version': "${javaRelease}")
+    }
+    task.exclude('META-INF/*.SF', 'META-INF/*.DSA', 'META-INF/*.RSA', 'META-INF/maven/**',
+            'META-INF/versions/9/module-info.class', 'module-info.class', 'META-INF/proguard/**')
+    task.mergeServiceFiles()
+    task.relocate('com.github.retrooper.packetevents', "${relocationRoot}.packetevents.api")
+    task.relocate('io.github.retrooper.packetevents', "${relocationRoot}.packetevents.impl")
+    task.relocate('net.kyori', "${relocationRoot}.kyori")
+    task.preserveFileTimestamps = false
+    task.reproducibleFileOrder = true
+    task.from(rootProject.file('LICENSE'))
+    task.from(rootProject.file('THIRD-PARTY-NOTICES'))
+    task.from(editionMessages)
+}
+
+def resourcesWithoutMessages = { String path ->
+    project(path).files(project(path).sourceSets.main.output.resourcesDir).asFileTree.matching { exclude messageFiles }
+}
+
+tasks.register('shadowJar17', ShadowJar) { task ->
+    description = 'Builds the java17 dist jar of this edition (classes compiled with --release 17).'
+    (moduleProjects + [':app']).each { p ->
+        task.from(project(p).sourceSets.main.output.classesDirs)
+        task.from(resourcesWithoutMessages(p))
+        task.dependsOn(project(p).tasks.named('processResources'))
+    }
+    if (leadInZero) {
+        task.from(leadInProperties)
+    }
+    configureDistribution(task, 17)
+}
+
+tasks.register('shadowJar21', ShadowJar) { task ->
+    description = 'Builds the java21 dist jar of this edition (classes compiled with --release 21).'
+    (moduleProjects + [':app']).each { p ->
+        task.from(project(p).tasks.named('compileJava21', JavaCompile).flatMap { it.destinationDirectory })
+        task.from(resourcesWithoutMessages(p))
+        task.dependsOn(project(p).tasks.named('processResources'))
+    }
+    if (leadInZero) {
+        task.from(leadInProperties)
+    }
+    configureDistribution(task, 21)
+}
+
+def recorderEntryPrefixes = ['italy/mlsac/net/recording/', 'italy/mlsac/net/pipeline/dataset/']
+def recorderTexts = ['mlsac.command.collect', 'mlsac.collect', 'datastatus', 'data collection']
+
+def verifyEditionJars = tasks.register('verifyEditionJars') {
+    description = 'Checks the dist jars: the MLSAC descriptor wins, and public jars carry no recorder classes or texts.'
+    group = 'verification'
+    def jarFiles = ['shadowJar17', 'shadowJar21'].collect { name -> tasks.named(name, ShadowJar).flatMap { it.archiveFile } }
+    inputs.files(jarFiles)
+    doLast {
+        jarFiles.each { jarFile ->
+            def jar = jarFile.get().asFile
+            def found = []
+            new java.util.zip.ZipFile(jar).withCloseable { zip ->
+                def descriptor = zip.getEntry('plugin.yml')
+                if (descriptor == null || !zip.getInputStream(descriptor).getText('UTF-8')
+                        .contains('main: italy.mlsac.net.bootstrap.MlsacPlugin')) {
+                    found << 'plugin.yml is not the MLSAC descriptor'
+                }
+                if (!internalEdition) {
+                    zip.entries().each { entry ->
+                        if (recorderEntryPrefixes.any { prefix -> entry.name.startsWith(prefix) }) {
+                            found << entry.name
+                        }
+                        if (entry.name == 'plugin.yml' || entry.name.startsWith('messages_')) {
+                            def text = zip.getInputStream(entry).getText('UTF-8')
+                            def lines = text.readLines()
+                            recordingMessageKeys.findAll { key -> lines.any { line -> line.startsWith(key + ':') } }
+                                    .each { key -> found << "${entry.name} key ${key}" }
+                            recorderTexts.findAll { word -> text.toLowerCase().contains(word) }
+                                    .each { word -> found << "${entry.name} text ${word}" }
+                        }
+                    }
+                }
+            }
+            if (!found.isEmpty()) {
+                throw new GradleException("${jar.name} failed the ${edition} edition check: ${found}")
+            }
+        }
+    }
+}
+
+tasks.named('assemble') { dependsOn 'shadowJar17', 'shadowJar21', verifyEditionJars }

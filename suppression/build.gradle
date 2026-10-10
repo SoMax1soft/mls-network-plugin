@@ -1,0 +1,11 @@
+// Copyright (c) 2026 MLSAC. All Rights Reserved.
+description = 'MLSAC suppression module'
+
+dependencies {
+    api project(':core')
+    compileOnly libs.paper.api
+
+    testImplementation testFixtures(project(':core'))
+    testImplementation libs.snakeyaml
+    testImplementation libs.paper.api
+}
