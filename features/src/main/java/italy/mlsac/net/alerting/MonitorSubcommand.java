@@ -16,6 +16,10 @@ import java.util.UUID;
 
 public final class MonitorSubcommand implements Subcommand {
 
+    static final String PLAYER_MODE = "player";
+    static final List<String> OLDER_CHAT_MODES = List.of("chat");
+    static final List<String> OLDER_PLAYER_MODES = List.of("prob");
+
     private final SubscriberSet monitors;
     private final ProbTracking tracking;
     private final PlayerLookup players;
@@ -37,10 +41,10 @@ public final class MonitorSubcommand implements Subcommand {
     @Override
     public void execute(CommandActor invoker, List<String> args) {
         UUID viewer = invoker.actorUuid().orElseThrow();
-        String mode = args.isEmpty() ? "chat" : args.get(0).toLowerCase(Locale.ROOT);
-        if (mode.equals("chat")) {
+        String mode = args.isEmpty() ? "" : args.get(0).toLowerCase(Locale.ROOT);
+        if (mode.isEmpty() || OLDER_CHAT_MODES.contains(mode)) {
             invoker.send(messages.prefixed(monitors.toggle(viewer) ? "monitor-enabled" : "monitor-disabled"));
-        } else if (mode.equals("prob")) {
+        } else if (mode.equals(PLAYER_MODE) || OLDER_PLAYER_MODES.contains(mode)) {
             probe(invoker, viewer, args);
         } else {
             invoker.send(messages.prefixed("monitor-usage"));
@@ -68,9 +72,9 @@ public final class MonitorSubcommand implements Subcommand {
     @Override
     public List<String> complete(CommandActor invoker, List<String> args) {
         if (args.size() == 1) {
-            return Completions.matching(List.of("chat", "prob"), args.get(0));
+            return Completions.matching(List.of(PLAYER_MODE), args.get(0));
         }
-        if (args.size() == 2 && args.get(0).equalsIgnoreCase("prob")) {
+        if (args.size() == 2 && args.get(0).equalsIgnoreCase(PLAYER_MODE)) {
             return Completions.matching(players.onlineNames(), args.get(1));
         }
         return List.of();

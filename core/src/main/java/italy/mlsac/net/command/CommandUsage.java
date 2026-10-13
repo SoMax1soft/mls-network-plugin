@@ -30,18 +30,15 @@ public final class CommandUsage {
         DATASTATUS(SubcommandName.DATASTATUS, "usage-datastatus"),
         ALERTS(SubcommandName.ALERTS, "usage-alerts"),
         MONITOR(SubcommandName.MONITOR, "help-monitor"),
-        PROB(SubcommandName.PROB, "usage-prob"),
         SUSPECTS(SubcommandName.SUSPECTS, "usage-suspects"),
         PUNISH(SubcommandName.PUNISH, "usage-punish"),
         PROFILE(SubcommandName.PROFILE, "usage-profile"),
         RELOAD(SubcommandName.RELOAD, "usage-reload"),
         STATUS(SubcommandName.STATUS, "usage-status"),
-        ANIMATION_TEST(SubcommandName.ANIMATION, "help-animation-test"),
         ANIMATION_LIST(SubcommandName.ANIMATION, "help-animation-list"),
         ANIMATION_RELOAD(SubcommandName.ANIMATION, "help-animation-reload"),
         REINSTALL(SubcommandName.REINSTALL, "help-reinstall"),
-        KICKLIST(SubcommandName.KICKLIST, "usage-kicklist"),
-        FALSEPOSITIVE(SubcommandName.FALSEPOSITIVE, "usage-falsepositive");
+        DATA(SubcommandName.DATA, "usage-data");
 
         private final SubcommandName verb;
         private final String messageKey;

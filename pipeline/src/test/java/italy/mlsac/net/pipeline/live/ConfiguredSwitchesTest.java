@@ -45,6 +45,6 @@ class ConfiguredSwitchesTest {
         return new EffectiveConfig(base.core(), new DetectionSettings(enabled, detection.regions(), models,
                 detection.legacySequence(), detection.legacyStep()), base.alerts(), base.violation(), base.penalties(),
                 base.alertResponses(), base.suppression(), base.modules(), base.holograms(), base.menus(),
-                base.messages(), base.preset());
+                base.messages(), base.dataRestore(), base.dossier(), base.preset());
     }
 }

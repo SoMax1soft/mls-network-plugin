@@ -8,6 +8,8 @@ import italy.mlsac.net.backend.LatencyResult;
 import italy.mlsac.net.backend.PredictOutcome;
 import italy.mlsac.net.backend.TodayStats;
 import italy.mlsac.net.backend.VerdictListener;
+import italy.mlsac.net.backend.dossier.DossierQuery;
+import italy.mlsac.net.backend.dossier.DossierReply;
 import italy.mlsac.net.backend.request.AlertReport;
 import italy.mlsac.net.backend.request.WindowSubmission;
 import italy.mlsac.net.backend.request.PunishReport;
@@ -29,6 +31,7 @@ public final class BackendSession {
     private final PredictChannel predicts;
     private final EventChannel events;
     private final OperatorQueries queries;
+    private final DossierQueries dossiers;
 
     public BackendSession(BackendContext context) {
         this.context = context;
@@ -40,6 +43,7 @@ public final class BackendSession {
         this.predicts = new PredictChannel(context, state, degraded);
         this.events = new EventChannel(context, state, degraded);
         this.queries = new OperatorQueries(context, state);
+        this.dossiers = new DossierQueries(context, state);
         HeartbeatExchange heartbeat = new HeartbeatExchange(context, state, degraded, failover);
         OnlineExchange online = new OnlineExchange(context, state, degraded);
         PollExchange poll = new PollExchange(context, state, degraded);
@@ -89,6 +93,10 @@ public final class BackendSession {
 
     public CompletableFuture<Optional<TodayStats>> todayStats() {
         return queries.todayStats();
+    }
+
+    public CompletableFuture<DossierReply> dossier(DossierQuery query) {
+        return dossiers.ask(query);
     }
 
     public CompletableFuture<Void> disconnect() {

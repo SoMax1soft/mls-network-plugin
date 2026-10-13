@@ -9,7 +9,7 @@ commands:
   mlsac:
     description: MLSAC anticheat commands
     aliases: [ml, mls]
-    usage: /mlsac <alerts|monitor|suspects|punish|profile|reload|status|animation|reinstall|kicklist>
+    usage: /mlsac <alerts|monitor|menu|suspects|punish|profile|reload|status|animation|reinstall|data>
 permissions:
   mlsac.command.alerts:
     description: /mlsac alerts
@@ -18,19 +18,25 @@ permissions:
     description: /mlsac monitor
     default: false
   mlsac.command.suspects:
-    description: /mlsac suspects
+    description: /mlsac menu and /mlsac suspects
     default: false
   mlsac.command.profile:
-    description: /mlsac profile and /mlsac prob
+    description: /mlsac profile
     default: false
   mlsac.command.punish:
     description: /mlsac punish
     default: false
-  mlsac.command.kicklist:
-    description: /mlsac kicklist
+  mlsac.command.data:
+    description: /mlsac data cheat|legit restore
+    default: false
+  mlsac.command.falsepositive:
+    description: Older name of mlsac.command.data
     default: false
   mlsac.command.status:
     description: /mlsac status
+    default: false
+  mlsac.command.debug:
+    description: /mlsac debug (verbose diagnostics in the console)
     default: false
   mlsac.command.reload:
     description: /mlsac reload
@@ -60,8 +66,9 @@ permissions:
       mlsac.prob: true
       mlsac.reload: true
       mlsac.command.punish: true
-      mlsac.command.kicklist: true
+      mlsac.command.data: true
       mlsac.command.status: true
+      mlsac.command.debug: true
       mlsac.command.reinstall: true
       mlsac.command.animation: true
       mlsac.suppression.bypass: true

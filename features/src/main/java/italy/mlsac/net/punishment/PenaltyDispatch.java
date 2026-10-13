@@ -1,6 +1,7 @@
 // Copyright (c) 2026 MLSAC. All Rights Reserved.
 package italy.mlsac.net.punishment;
 
+import java.util.Optional;
 import java.util.UUID;
 
 public interface PenaltyDispatch {
@@ -9,5 +10,5 @@ public interface PenaltyDispatch {
 
     void staffNotice(String resolvedText);
 
-    void animated(UUID player, String resolvedCommand);
+    void animated(UUID player, String resolvedCommand, Optional<String> animationId);
 }

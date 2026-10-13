@@ -1,6 +1,7 @@
 // Copyright (c) 2026 MLSAC. All Rights Reserved.
 package italy.mlsac.net.pipeline.rows;
 
+import italy.mlsac.net.console.DebugTally;
 import italy.mlsac.net.pipeline.compensation.ClientSightRewind;
 import italy.mlsac.net.pipeline.compensation.TargetMeasurement;
 import italy.mlsac.net.pipeline.geometry.AimRelation;
@@ -107,7 +108,10 @@ public final class RowProducer {
         PlayerSample own = current != null && current.freshAt(nanos) ? current : null;
         clicks.add(new PendingClick(nanos, packet.entityNumber(), packet.cancelled(), target, own, position,
                 groundedBefore, memory.snapshot(nanos)));
+        DebugTally.count(target != null ? "ultra.hit-on-tracked-player" : "ultra.hit-without-tracked-player");
         if (target != null && !engagedInFight()) {
+            DebugTally.count("ultra.fight-start");
+            DebugTally.trace(player, () -> "Ultra fight started");
             sink.fightStarted();
         }
         if (target != null) {

@@ -10,6 +10,8 @@ import italy.mlsac.net.config.message.MessageSettings;
 import italy.mlsac.net.config.module.ModuleSwitches;
 import italy.mlsac.net.config.penalty.PenaltySettings;
 import italy.mlsac.net.config.response.AlertResponseSettings;
+import italy.mlsac.net.config.staff.DataRestoreSettings;
+import italy.mlsac.net.config.staff.DossierSettings;
 import italy.mlsac.net.config.suppression.SuppressionSettings;
 import italy.mlsac.net.config.violation.ViolationSettings;
 import java.util.Optional;
@@ -18,14 +20,15 @@ public record EffectiveConfig(CoreSettings core, DetectionSettings detection, Al
                               ViolationSettings violation, PenaltySettings penalties,
                               AlertResponseSettings alertResponses, Optional<SuppressionSettings> suppression,
                               ModuleSwitches modules, OverheadTagConfig holograms, MenuLayouts menus,
-                              MessageSettings messages, PresetState preset) {
+                              MessageSettings messages, DataRestoreSettings dataRestore, DossierSettings dossier,
+                              PresetState preset) {
 
     public static EffectiveConfig pluginDefaults(CoreSettings core) {
         return new EffectiveConfig(core, DetectionSettings.pluginDefaults(), AlertSettings.pluginDefaults(),
                 ViolationSettings.pluginDefaults(), PenaltySettings.pluginDefaults(),
                 AlertResponseSettings.pluginDefaults(), Optional.empty(), ModuleSwitches.pluginDefaults(),
                 OverheadTagConfig.pluginDefaults(), MenuLayouts.shipped(), MessageSettings.pluginDefaults(),
-                PresetState.none());
+                DataRestoreSettings.pluginDefaults(), DossierSettings.pluginDefaults(), PresetState.none());
     }
 
     public boolean suppressionEngineActive() {

@@ -3,7 +3,9 @@ package italy.mlsac.net.pipeline.environment;
 
 public enum UuidPurpose {
     SESSION_ID("session.id"),
-    SESSION_RETRY("session.retry");
+    SESSION_RETRY("session.retry"),
+    RESTORE_ID("restore.id"),
+    RESTORE_RETRY("restore.retry");
 
     private final String tag;
 

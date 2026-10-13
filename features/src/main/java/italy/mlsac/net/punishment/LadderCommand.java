@@ -2,19 +2,29 @@
 package italy.mlsac.net.punishment;
 
 import java.util.List;
+import java.util.Locale;
+import java.util.Optional;
 import java.util.UUID;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 public sealed interface LadderCommand permits LadderCommand.Animated, LadderCommand.StaffNotice, LadderCommand.Console {
 
     String ANIMATION_PREFIX = "{ANIMATION}";
     List<String> ANIMATION_PREFIXES = List.of(ANIMATION_PREFIX, "{BAN}", "{KICK}");
     String STAFF_NOTICE_PREFIX = "{CUSTOM_ALERT}";
+    Pattern CHOSEN_ANIMATION = Pattern.compile("^\\{ANIMATION:([A-Za-z0-9_-]{1,48})}");
 
     static LadderCommand parse(String configured) {
         String trimmed = configured.trim();
+        Matcher chosen = CHOSEN_ANIMATION.matcher(trimmed);
+        if (chosen.find()) {
+            return new Animated(configured, trimmed.substring(chosen.end()).trim(),
+                    Optional.of(chosen.group(1).toLowerCase(Locale.ROOT)));
+        }
         for (String prefix : ANIMATION_PREFIXES) {
             if (trimmed.startsWith(prefix)) {
-                return new Animated(configured, trimmed.substring(prefix.length()).trim());
+                return new Animated(configured, trimmed.substring(prefix.length()).trim(), Optional.empty());
             }
         }
         if (trimmed.startsWith(STAFF_NOTICE_PREFIX)) {
@@ -39,7 +49,7 @@ public sealed interface LadderCommand permits LadderCommand.Animated, LadderComm
         return CommandHead.of(body()).reportedAction(typeName());
     }
 
-    record Animated(String configured, String body) implements LadderCommand {
+    record Animated(String configured, String body, Optional<String> animationId) implements LadderCommand {
 
         @Override
         public boolean consoleCommand() {
@@ -58,7 +68,7 @@ public sealed interface LadderCommand permits LadderCommand.Animated, LadderComm
 
         @Override
         public void dispatch(PenaltyDispatch dispatch, UUID player, String resolved) {
-            dispatch.animated(player, resolved);
+            dispatch.animated(player, resolved, animationId);
         }
     }
 

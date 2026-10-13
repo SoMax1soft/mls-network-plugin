@@ -26,7 +26,10 @@ public final class LocalConfigFile {
     private static final List<String> PRESERVED_ON_MIGRATION = List.of("language", "debug", API_KEY,
             "remote-config.preset", "server-identity.name", "server-identity.family",
             "server-identity.interserver.enabled", "server-identity.reporting.events-enabled",
-            "server-identity.reporting.alert-threshold");
+            "server-identity.reporting.alert-threshold", "command-guard.enabled", "command-guard.mode",
+            "command-guard.extra-allowed-roots", "command-guard.max-commands-per-minute",
+            "command-guard.max-commands-per-player-per-minute", "command-guard.max-same-command-burst",
+            "command-guard.burst-pause-minutes");
     private static final List<String> FILES_NO_LONGER_USED = List.of("modules.yml", "holograms.yml", "menu_ru.yml",
             "menu_en.yml", "menu_vi.yml", "modules/anti-esp.yml", "messages_ru.yml", "messages_en.yml",
             "messages_vi.yml");
@@ -71,7 +74,7 @@ public final class LocalConfigFile {
         ConfigTree userTree = ConfigTree.of(user);
         Map<String, Object> kept = new LinkedHashMap<>();
         for (String path : PRESERVED_ON_MIGRATION) {
-            userTree.value(path).filter(ConfigTreeScalars::isScalar).ifPresent(value -> kept.put(path, value));
+            userTree.value(path).filter(ConfigTreeScalars::isTemplateValue).ifPresent(value -> kept.put(path, value));
         }
         adoptLegacyKey(userTree, kept);
         String regenerated = new ConfigTemplate(bundled).withValues(kept);
@@ -97,7 +100,7 @@ public final class LocalConfigFile {
         }
         Map<String, Object> kept = new LinkedHashMap<>();
         for (String path : template.scalarPaths()) {
-            user.value(path).filter(ConfigTreeScalars::isScalar).ifPresent(value -> kept.put(path, value));
+            user.value(path).filter(ConfigTreeScalars::isTemplateValue).ifPresent(value -> kept.put(path, value));
         }
         StringBuilder rebuilt = new StringBuilder(template.withValues(kept));
         Map<String, Object> extra = extraSections(user, ConfigTree.of(parseMap(bundled)));

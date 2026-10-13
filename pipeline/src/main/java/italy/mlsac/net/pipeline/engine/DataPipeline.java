@@ -1,12 +1,12 @@
 // Copyright (c) 2026 MLSAC. All Rights Reserved.
 package italy.mlsac.net.pipeline.engine;
 
+import italy.mlsac.net.console.DebugTally;
 import italy.mlsac.net.pipeline.compensation.ClientSightRewind;
 import italy.mlsac.net.pipeline.compensation.CompensatedViewer;
 import italy.mlsac.net.pipeline.compensation.CompensationBook;
 import italy.mlsac.net.pipeline.compensation.EntityMove;
 import italy.mlsac.net.pipeline.geometry.Vec3;
-import italy.mlsac.net.pipeline.history.RestoredHistoryFile;
 import italy.mlsac.net.pipeline.input.AttackPacket;
 import italy.mlsac.net.pipeline.input.MovementPacket;
 import italy.mlsac.net.pipeline.input.SwingPacket;
@@ -18,8 +18,6 @@ import italy.mlsac.net.pipeline.player.ServerSamples;
 import italy.mlsac.net.pipeline.player.VersionNames;
 import italy.mlsac.net.pipeline.rows.RowProducer;
 import italy.mlsac.net.pipeline.ultra.LiveStreams;
-import java.io.IOException;
-import java.io.UncheckedIOException;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -33,7 +31,6 @@ public final class DataPipeline implements PipelineInput {
     private final InputTaps taps;
     private final LiveStreams live;
     private final LegacyCollector legacy;
-    private final RestoredHistoryFile restored;
     private final TickCycle tickCycle;
 
     public DataPipeline(PipelinePorts ports) {
@@ -59,7 +56,6 @@ public final class DataPipeline implements PipelineInput {
         this.live = new LiveStreams(ports.switches(), ports.standing(), ports.monotonic(), samples, lens, probe,
                 ports.ultraWindows());
         this.legacy = new LegacyCollector(ports.switches(), ports.backend(), ports.standing(), ports.legacyWindows());
-        this.restored = new RestoredHistoryFile(ports.folder(), ports.platform(), ports.wallClock());
         this.tickCycle = new TickCycle(ports.states(), ports.switches(), samples, taps, live, legacy,
                 compensation, turns);
     }
@@ -199,7 +195,11 @@ public final class DataPipeline implements PipelineInput {
         if (rows != null) {
             rows.attack(packet);
         }
-        if (ports.connections().playerByEntity(packet.entityNumber()) != null) {
+        boolean playerTarget = ports.connections().playerByEntity(packet.entityNumber()) != null;
+        DebugTally.count(playerTarget ? "attack.on-player" : "attack.on-non-player");
+        DebugTally.trace(player, () -> (playerTarget ? "hit a player" : "hit a non-player entity")
+                + (rows == null ? ", no Ultra stream" : ", Ultra stream open"));
+        if (playerTarget) {
             legacy.attackedPlayer(player);
         }
     }
@@ -259,6 +259,7 @@ public final class DataPipeline implements PipelineInput {
         if (tap != null) {
             tap.discontinuity();
         }
+        taps.playerLeft(player);
         samples.forget(player);
         live.forget(player);
         prefilter.forget(player);
@@ -305,14 +306,5 @@ public final class DataPipeline implements PipelineInput {
 
     public boolean inLegacyCombat(UUID player) {
         return legacy.inFight(player);
-    }
-
-    @Override
-    public boolean restoreHistory(UUID player) {
-        try {
-            return restored.write(ports.connections().name(player), legacy.history(player));
-        } catch (IOException failure) {
-            throw new UncheckedIOException(failure);
-        }
     }
 }

@@ -5,7 +5,7 @@ import java.util.UUID;
 
 public sealed interface MenuReaction permits MenuReaction.Nothing, MenuReaction.Redraw, MenuReaction.Close,
         MenuReaction.CloseAndRun, MenuReaction.OpenChecks, MenuReaction.OpenSuspects, MenuReaction.CloseAndTeleport,
-        MenuReaction.Tell {
+        MenuReaction.Tell, MenuReaction.OpenKicks, MenuReaction.OpenHistory, MenuReaction.OpenProfile {
 
     void carryOut(MenuActions actions);
 
@@ -63,6 +63,31 @@ public sealed interface MenuReaction permits MenuReaction.Nothing, MenuReaction.
         @Override
         public void carryOut(MenuActions actions) {
             actions.tell(coloredMessage);
+        }
+    }
+
+    record OpenKicks(int page) implements MenuReaction {
+        @Override
+        public void carryOut(MenuActions actions) {
+            actions.openKicks(page);
+        }
+    }
+
+    record OpenHistory(String player, int page, boolean withSuppressions, MenuReaction back) implements MenuReaction {
+        @Override
+        public void carryOut(MenuActions actions) {
+            actions.openHistory(this);
+        }
+
+        OpenHistory turnedTo(int target) {
+            return new OpenHistory(player, target, withSuppressions, back);
+        }
+    }
+
+    record OpenProfile(String player) implements MenuReaction {
+        @Override
+        public void carryOut(MenuActions actions) {
+            actions.openProfile(player);
         }
     }
 }

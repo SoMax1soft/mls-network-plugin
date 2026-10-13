@@ -12,7 +12,8 @@ import java.util.Optional;
 final class MenuTranslation {
 
     MenuLayouts translate(italy.mlsac.net.config.menu.MenuLayouts layouts) {
-        return new MenuLayouts(sheet(layouts, MenuId.SUSPECTS), sheet(layouts, MenuId.CHECKS));
+        return new MenuLayouts(sheet(layouts, MenuId.SUSPECTS), sheet(layouts, MenuId.CHECKS),
+                sheet(layouts, MenuId.KICKS), sheet(layouts, MenuId.PROFILE));
     }
 
     private static Optional<PresetMenu> sheet(italy.mlsac.net.config.menu.MenuLayouts layouts, MenuId id) {

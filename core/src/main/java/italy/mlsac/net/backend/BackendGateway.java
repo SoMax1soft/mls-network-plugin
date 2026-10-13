@@ -1,6 +1,8 @@
 // Copyright (c) 2026 MLSAC. All Rights Reserved.
 package italy.mlsac.net.backend;
 
+import italy.mlsac.net.backend.dossier.DossierQuery;
+import italy.mlsac.net.backend.dossier.DossierReply;
 import italy.mlsac.net.backend.request.AlertReport;
 import italy.mlsac.net.backend.request.WindowSubmission;
 import italy.mlsac.net.backend.request.PunishReport;
@@ -29,4 +31,8 @@ public interface BackendGateway {
     CompletableFuture<LatencyResult> probeLatency();
 
     CompletableFuture<Optional<TodayStats>> todayStats();
+
+    default CompletableFuture<DossierReply> dossier(DossierQuery query) {
+        return CompletableFuture.completedFuture(new DossierReply.Unavailable());
+    }
 }

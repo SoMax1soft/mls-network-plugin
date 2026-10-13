@@ -22,8 +22,7 @@ import org.yaml.snakeyaml.constructor.SafeConstructor;
 
 class PluginDescriptorTest {
 
-    private static final Set<SubcommandName> INTERNAL_VERBS = Set.of(SubcommandName.START, SubcommandName.STOP,
-            SubcommandName.FALSEPOSITIVE);
+    private static final Set<SubcommandName> INTERNAL_VERBS = Set.of(SubcommandName.START, SubcommandName.STOP);
 
     @Test
     @SuppressWarnings("unchecked")
@@ -60,7 +59,6 @@ class PluginDescriptorTest {
             assertFalse(text.contains("collect"), "collect");
             assertFalse(text.contains("datastatus"), "datastatus");
             assertFalse(text.contains("start"), "start");
-            assertFalse(text.contains("falsepositive"), "falsepositive");
         } else {
             assertTrue(permissions.containsKey("mlsac.command.collect"));
         }

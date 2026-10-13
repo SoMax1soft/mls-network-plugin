@@ -1,6 +1,7 @@
 // Copyright (c) 2026 MLSAC. All Rights Reserved.
 package italy.mlsac.net.packet.packetevents;
 
+import italy.mlsac.net.console.DebugTally;
 import com.github.retrooper.packetevents.event.PacketListener;
 import com.github.retrooper.packetevents.event.PacketReceiveEvent;
 import com.github.retrooper.packetevents.event.PacketSendEvent;
@@ -60,6 +61,7 @@ final class OrderedDispatch implements PacketListener {
         }
         UUID player = playerOf(event.getUser());
         if (player == null) {
+            DebugTally.count("drop.packet-without-player");
             return;
         }
         long receivedNanos = receiveClock.getAsLong();

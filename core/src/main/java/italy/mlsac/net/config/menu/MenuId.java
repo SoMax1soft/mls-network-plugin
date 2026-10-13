@@ -3,7 +3,9 @@ package italy.mlsac.net.config.menu;
 
 public enum MenuId {
     SUSPECTS("suspects"),
-    CHECKS("checks");
+    CHECKS("checks"),
+    KICKS("kicks"),
+    PROFILE("profile");
 
     private final String id;
 

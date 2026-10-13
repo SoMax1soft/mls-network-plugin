@@ -22,6 +22,10 @@ gui:
     page_info:
       material: COMPASS
       name: "&fPage &7{CURRENT}&8/&7{TOTAL}"
+    kicks:
+      material: IRON_SWORD
+      name: "&cKicks"
+      lore: "&8▪ &7Latest kicks and bans"
     filler:
       material: BLACK_STAINED_GLASS_PANE
       name: " "
@@ -44,3 +48,113 @@ gui:
     exit:
       material: BARRIER
       name: "&cExit"
+
+  kicks:
+    title: "&0&l» &8&lMLSAC &8| &0Kicks"
+    entry:
+      name: "&f{PLAYER} &8- &c{ACTION}"
+      lore:
+        - "&8▪ &7When &8» &f{TIME} &8({AGO} ago)"
+        - "&8▪ &7Model &8» &f{MODEL} &8| {PERCENT}"
+        - "&8▪ &7Kicks &8» &f{KICKS} &8| &7Bans &8» &f{BANS}"
+        - ""
+        - "&8▪ &2Click &8» &fhistory"
+    empty:
+      name: "&7No kicks in the last {DAYS} days"
+    back:
+      material: ARROW
+      name: "&7« Players"
+    previous_page:
+      material: ARROW
+      name: "&7« Back &8({PAGE})"
+    next_page:
+      material: ARROW
+      name: "&7Next » &8({PAGE})"
+    page_info:
+      material: COMPASS
+      name: "&fPage &7{CURRENT}&8/&7{TOTAL}"
+    exit:
+      material: BARRIER
+      name: "&cExit"
+
+  history:
+    title: "&0&l» &8&lMLSAC &8| &0History {PLAYER}"
+    punish:
+      name: "&c{ACTION} &8- &f{TIME}"
+      lore:
+        - "&8▪ &7Model &8» &f{MODEL} &8| {PERCENT}"
+        - "&8▪ &f{AGO} &7ago"
+    suppression:
+      name: "&eSuppression &8- &f{TIME}"
+      lore:
+        - "&8▪ &7Trigger &8» &f{TRIGGER} &8#{LEVEL}"
+        - "&8▪ &7Buffer &8» &f{BUFFER}"
+        - "&8▪ &7Model &8» &f{MODEL} &8| {PERCENT}"
+        - "&8▪ &7Actions &8» &f{ACTIONS}"
+        - "&8▪ &f{AGO} &7ago"
+    detection:
+      name: "&fDetection &8- &f{TIME}"
+      lore:
+        - "&8▪ &7Model &8» &f{MODEL} &8| {PERCENT}"
+        - "&8▪ &f{AGO} &7ago"
+    empty:
+      name: "&7Nothing stored for this player"
+    back:
+      material: ARROW
+      name: "&7« Back"
+    previous_page:
+      material: ARROW
+      name: "&7« Back &8({PAGE})"
+    next_page:
+      material: ARROW
+      name: "&7Next » &8({PAGE})"
+    page_info:
+      material: COMPASS
+      name: "&fPage &7{CURRENT}&8/&7{TOTAL}"
+    exit:
+      material: BARRIER
+      name: "&cExit"
+
+  profile:
+    title: "&0&l» &8&lMLSAC &8| &0{PLAYER}"
+    entry:
+      name: "&fDetection &7#{INDEX}"
+      lore:
+        - "&8▪ &7Chance &8» {PERCENT}"
+        - "&8▪ &7Model &8» &f{MODEL}"
+        - "&8▪ &7When &8» &f{TIME} &8({AGO} ago)"
+    info:
+      material: PLAYER_HEAD
+      name: "&fPlayer: &a{PLAYER}"
+      lore:
+        - "&8▪ &7First seen &8» &f{FIRST_SEEN}"
+        - "&8▪ &7Last seen &8» &f{LAST_SEEN} &8({LAST_SEEN_AGO} ago)"
+        - "&8▪ &7Detections &8» &f{TOTAL} &8(24h &f{DAY}&8, 7d &f{WEEK}&8)"
+        - "&8▪ &7Max &8» {MAX} &8| &7avg &8» {AVG}"
+        - "&8▪ &7Models &8» &f{MODELS}"
+    unknown: "&7This player was never seen here"
+    suppressions:
+      material: SHIELD
+      name: "&eSuppressions &7({SUPPRESSIONS})"
+      lore:
+        - "&8▪ &7Latest:"
+      line: "&8▪ &f{AGO} &7{TRIGGER} &8#{LEVEL} &8» &f{ACTIONS}"
+    punishments:
+      material: IRON_SWORD
+      name: "&cPunishments &7({PUNISHMENTS})"
+      lore:
+        - "&8▪ &7Kicks &8» &f{KICKS} &8| &7Bans &8» &f{BANS}"
+        - "&8▪ &7Last &8» &f{LAST_ACTION} &8({LAST_AGO} ago)"
+        - ""
+        - "&8▪ &2Click &8» &ffull history"
+    empty:
+      name: "&7No detections stored"
+    exit:
+      material: BARRIER
+      name: "&cExit"
+
+  dossier:
+    unavailable: "&cThe backend is not reachable right now"
+    throttled: "&cToo many requests, try again in a minute"
+    invalid: "&cThat is not a valid player name"
+    busy: "&7Still loading, wait a moment"

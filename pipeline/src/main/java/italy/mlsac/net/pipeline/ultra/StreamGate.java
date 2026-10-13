@@ -1,6 +1,7 @@
 // Copyright (c) 2026 MLSAC. All Rights Reserved.
 package italy.mlsac.net.pipeline.ultra;
 
+import italy.mlsac.net.console.DebugTally;
 import italy.mlsac.net.pipeline.environment.DetectionSwitches;
 import italy.mlsac.net.pipeline.environment.MonotonicClock;
 import italy.mlsac.net.pipeline.environment.MonotonicPurpose;
@@ -32,7 +33,14 @@ final class StreamGate {
         if (cached != null && now - cached.decidedAt() < VERDICT_NANOS) {
             return cached.allowed();
         }
-        boolean allowed = !standing.exempt(player) && !standing.bedrock(player) && !standing.zoneExcluded(player);
+        String skip = standing.exempt(player) ? "bypass-permission"
+                : standing.bedrock(player) ? "bedrock"
+                : standing.zoneExcluded(player) ? "disabled-region" : null;
+        boolean allowed = skip == null;
+        if (!allowed) {
+            DebugTally.count("ultra.player-skipped." + skip);
+            DebugTally.trace(player, () -> "Ultra ignores the player: " + skip);
+        }
         verdicts.put(player, new Verdict(allowed, now));
         return allowed;
     }

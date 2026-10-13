@@ -83,7 +83,7 @@ class CommandRouterTest {
     @Test
     void tabCompletionOffersOnlyPermittedNamesInOrder() {
         FakeActor player = FakeActor.player("Mod").grant("mlsac.alerts");
-        assertEquals(List.of("alerts", "monitor", "suspects"), router.complete(player, List.of("")));
+        assertEquals(List.of("alerts", "monitor", "suspects", "menu"), router.complete(player, List.of("")));
         assertEquals(List.of("monitor"), router.complete(player, List.of("MO")));
         assertEquals(List.of("x"), router.complete(player, List.of("monitor", "")));
         assertEquals(List.of(), router.complete(player, List.of("reload", "")));

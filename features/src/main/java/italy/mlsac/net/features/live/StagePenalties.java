@@ -2,6 +2,7 @@
 package italy.mlsac.net.features.live;
 
 import italy.mlsac.net.detection.PlayerFlagged;
+import italy.mlsac.net.guard.CommandOrigin;
 import italy.mlsac.net.penalty.PenaltyCommands;
 import italy.mlsac.net.penalty.StageCommandOutcome;
 import italy.mlsac.net.punishment.LadderCommand;
@@ -23,7 +24,8 @@ public final class StagePenalties implements PenaltyCommands {
             return StageCommandOutcome.NOTHING_TO_RUN;
         }
         rungs.runWithoutCooldown(new FlagContext(flag.player(), flag.playerNick(), flag.offenceLevel(),
-                flag.probability(), flag.buffer()), ladderCommands);
+                flag.probability(), flag.buffer()), ladderCommands,
+                CommandOrigin.suppressionStage(flag.offenceLevel()));
         return StageCommandOutcome.RAN;
     }
 

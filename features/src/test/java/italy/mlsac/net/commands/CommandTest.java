@@ -4,6 +4,7 @@ package italy.mlsac.net.commands;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import italy.mlsac.net.config.staff.DossierSettings;
 import italy.mlsac.net.text.MessageBook;
 import italy.mlsac.net.text.TemplateValues;
 import italy.mlsac.net.scoring.SuspectRecord;
@@ -58,14 +59,17 @@ class CommandTest {
     @Test
     void tabCompletionForAlertsNodeOnly() {
         FakeInvoker staff = FakeInvoker.player("Staff", "mlsac.alerts");
-        assertEquals(List.of("alerts", "monitor", "suspects"), harness.command.complete(staff, List.of("")));
+        assertEquals(List.of("alerts", "monitor", "suspects", "menu"), harness.command.complete(staff, List.of("")));
+        assertEquals(List.of("menu"), harness.command.complete(staff, List.of("me")));
         assertEquals(List.of("monitor"), harness.command.complete(staff, List.of("MO")));
         assertEquals(List.of(), harness.command.complete(staff, List.of("punish", "")));
         harness.join("Steve");
-        assertEquals(List.of("chat", "prob"), harness.command.complete(staff, List.of("monitor", "")));
-        assertEquals(List.of("Steve"), harness.command.complete(staff, List.of("monitor", "prob", "st")));
+        assertEquals(List.of("player"), harness.command.complete(staff, List.of("monitor", "")));
+        assertEquals(List.of("Steve"), harness.command.complete(staff, List.of("monitor", "player", "st")));
         assertEquals(List.of("confirm"), harness.command.complete(admin, List.of("punish", "Steve", "")));
-        assertEquals(List.of("restore"), harness.command.complete(admin, List.of("falsepositive", "zzz")));
+        assertEquals(List.of("cheat", "legit"), harness.command.complete(admin, List.of("data", "")));
+        assertEquals(List.of("restore"), harness.command.complete(admin, List.of("data", "cheat", "")));
+        assertEquals(List.of("Steve"), harness.command.complete(admin, List.of("data", "legit", "restore", "S")));
     }
 
     @Test
@@ -107,7 +111,7 @@ class CommandTest {
         FakeInvoker staff = FakeInvoker.player("Staff", "mlsac.alerts");
         harness.online.put("Staff", staff.actorUuid().orElseThrow());
         assertEquals(List.of(messages.prefixed("tracking-started", TemplateValues.of("{PLAYER}", "Steve"))),
-                harness.run(staff, "monitor prob Ste"));
+                harness.run(staff, "monitor player Ste"));
         assertEquals(List.of(messages.text("monitor-no-data", TemplateValues.of("{PLAYER}", "Steve"))),
                 harness.actionBars);
         SuspectRecord record = harness.records.get(steve);
@@ -115,9 +119,12 @@ class CommandTest {
         harness.ledger.raise(steve);
         assertTrue(harness.repeating.get(0).getAsBoolean());
         assertEquals(messages.colorize("&f&l● 95.3% &7| &e▲ 13.2 &7| &bvl 1"), harness.actionBars.get(1));
-        assertEquals(List.of(messages.prefixed("tracking-stopped")), harness.run(staff, "monitor prob Whatever"));
+        assertEquals(List.of(messages.prefixed("tracking-stopped")), harness.run(staff, "monitor player Whatever"));
         assertEquals(false, harness.repeating.get(0).getAsBoolean());
-        assertEquals(List.of(messages.prefixed("prob-usage")), harness.run(staff, "monitor prob"));
+        assertEquals(List.of(messages.prefixed("prob-usage")), harness.run(staff, "monitor player"));
+        assertEquals(List.of(messages.prefixed("tracking-started", TemplateValues.of("{PLAYER}", "Steve"))),
+                harness.run(staff, "monitor prob Steve"));
+        assertEquals(List.of(messages.prefixed("tracking-stopped")), harness.run(staff, "monitor player"));
         assertEquals(List.of(messages.prefixed("monitor-usage")), harness.run(staff, "monitor what"));
         assertEquals(List.of(messages.prefixed("monitor-enabled")), harness.run(staff, "monitor"));
         assertEquals(List.of(messages.prefixed("monitor-disabled")), harness.run(staff, "monitor chat"));
@@ -128,7 +135,7 @@ class CommandTest {
         UUID steve = harness.join("Steve");
         FakeInvoker staff = FakeInvoker.player("Staff", "mlsac.alerts");
         harness.online.put("Staff", staff.actorUuid().orElseThrow());
-        harness.run(staff, "monitor prob Steve");
+        harness.run(staff, "monitor player Steve");
         harness.online.remove("Steve");
         assertEquals(false, harness.repeating.get(0).getAsBoolean());
         assertEquals(messages.text("player-offline"), harness.actionBars.get(harness.actionBars.size() - 1));
@@ -147,18 +154,19 @@ class CommandTest {
     }
 
     @Test
-    void kicklistPagesAndClamps() {
-        assertEquals(List.of(messages.prefixed("kicklist-empty")), harness.run(admin, "kicklist"));
-        UUID steve = harness.join("Steve");
-        harness.ledger.raise(steve);
-        for (int i = 0; i < 3; i++) {
-            harness.run(admin, "punish Steve");
+    void retiredCommandsAreUnknown() {
+        for (String retired : List.of("kicklist", "prob Steve", "falsepositive restore Steve")) {
+            List<String> out = harness.run(admin, retired);
+            assertEquals(messages.prefixed("unknown-command", TemplateValues.of("{ARGS}", retired.split(" ")[0])),
+                    out.get(0));
         }
-        List<String> out = harness.run(admin, "kicklist 5");
-        assertEquals(messages.prefixed("kicklist-header", TemplateValues.of("{PAGE}", 1).and("{MAX_PAGE}", 1)), out.get(0));
-        assertEquals(6, out.size());
-        assertEquals(messages.colorize("&e1. &fSteve &7[&c10:00:00&7] &8- &bProb: &f1.00 &8| &bBuf: &f100.0 &8| &bVL: &f3"),
-                out.get(2));
+    }
+
+    @Test
+    void menuIsTheSuspectsAlias() {
+        harness.run(admin, "menu");
+        harness.run(admin, "SUSPECTS");
+        assertEquals(List.of("suspects menu for Admin", "suspects menu for Admin"), harness.console);
     }
 
     @Test
@@ -170,23 +178,70 @@ class CommandTest {
     }
 
     @Test
-    void profileUsesListMessage() {
+    void profileOpensTheMenuForPlayers() {
+        harness.join("Steve");
+        assertEquals(List.of(), harness.run(admin, "profile ste"));
+        assertEquals(List.of("Admin Steve"), harness.openedProfiles);
+        assertTrue(harness.dossierQueries.isEmpty());
+        assertEquals(List.of(messages.prefixed("menu-invalid-player")), harness.run(admin, "profile bad;name"));
+        harness.run(admin, "profile Offline_Guy");
+        assertEquals("Admin Offline_Guy", harness.openedProfiles.get(1));
+    }
+
+    @Test
+    void profileIsChatTextForConsoleAndWhenTheMenuIsOff() {
         UUID steve = harness.join("Steve");
         harness.records.get(steve).count("ultra", 0.95, before -> 1);
-        List<String> out = harness.run(admin, "profile ste");
+        List<String> out = harness.run(FakeInvoker.console(), "profile ste");
         assertEquals(messages.text("profile-header", TemplateValues.of("{PLAYER}", "Steve")), out.get(0));
         assertEquals(messages.colorize("&7Sens: &fN/A%"), out.get(1));
         assertEquals(messages.colorize("&7Client: &fV_1_21_4"), out.get(2));
         assertEquals(messages.colorize("&7Detections (>80%): &f1"), out.get(3));
-        assertEquals(List.of(messages.prefixed("prob-deprecated")), harness.run(admin, "prob Steve"));
+        assertEquals(9, out.size());
+        assertTrue(out.get(5).contains("42"), out.get(5));
+        assertTrue(out.get(7).contains("ban"), out.get(7));
+        assertEquals(List.of("plugin/dossier/profile?player=Steve&scope=server&latest=14"), harness.dossierQueries);
+        assertTrue(harness.openedProfiles.isEmpty());
+        harness.dossierSettings = new DossierSettings(true, harness.dossierSettings.kicks(),
+                new DossierSettings.ProfileSheet(false, 14, true, true));
+        assertEquals(9, harness.run(admin, "profile Steve").size());
+        assertTrue(harness.openedProfiles.isEmpty());
+        assertEquals("plugin/dossier/profile?player=Steve&scope=owner&latest=14", harness.dossierQueries.get(1));
     }
 
     @Test
-    void falsepositiveRestore() {
+    void dataRestoreRunsInTheBackgroundAndIsPaced() {
         UUID steve = harness.join("Steve");
-        assertEquals(List.of(messages.prefixed("falsepositive-no-data")), harness.run(admin, "falsepositive restore Steve"));
+        TemplateValues values = TemplateValues.of("{PLAYER}", "Steve").and("{LABEL}", "CHEAT");
+        assertEquals(List.of(messages.prefixed("data-restore-started", values)),
+                harness.run(admin, "data cheat restore Ste"));
+        assertTrue(harness.restores.isEmpty());
+        assertEquals(List.of(messages.prefixed("data-restore-busy", values)),
+                harness.run(admin, "data cheat restore Steve"));
+        harness.runBackground();
+        assertEquals(messages.prefixed("data-restore-empty", values), admin.received.get(admin.received.size() - 1));
+        assertEquals(steve, harness.restores.get(0).player());
+        assertEquals("Admin", harness.restores.get(0).staffName());
+        harness.now += 10_000;
+        assertEquals(List.of(messages.prefixed("data-restore-cooldown", TemplateValues.of("{PLAYER}", "Steve")
+                .and("{LABEL}", "LEGIT").and("{SECONDS}", 20))), harness.run(admin, "data legit restore Steve"));
+        harness.now += 20_000;
         harness.records.get(steve).count("ultra", 0.5, before -> 0);
-        assertEquals(List.of(messages.prefixed("falsepositive-success")), harness.run(admin, "falsepositive restore Steve"));
-        assertEquals(List.of(messages.prefixed("falsepositive-usage")), harness.run(admin, "falsepositive Steve"));
+        harness.run(admin, "data legit restore Steve");
+        harness.runBackground();
+        assertEquals(messages.prefixed("data-restore-saved", TemplateValues.of("{PLAYER}", "Steve")
+                .and("{LABEL}", "LEGIT").and("{TICKS}", 120).and("{HITS}", 7).and("{FOLDER}", "data/restore/x")),
+                admin.received.get(admin.received.size() - 1));
+    }
+
+    @Test
+    void dataRestoreNeedsThePresetSwitchAndTheRightShape() {
+        harness.join("Steve");
+        assertEquals(List.of(messages.prefixed("data-usage")), harness.run(admin, "data cheat Steve"));
+        assertEquals(List.of(messages.prefixed("data-usage")), harness.run(admin, "data maybe restore Steve"));
+        harness.restoreEnabled = false;
+        assertEquals(List.of(messages.prefixed("data-restore-disabled")), harness.run(admin, "data cheat restore Steve"));
+        FakeInvoker oldNode = FakeInvoker.player("Old", "mlsac.command.falsepositive");
+        assertEquals(List.of(messages.prefixed("data-restore-disabled")), harness.run(oldNode, "data cheat restore Steve"));
     }
 }

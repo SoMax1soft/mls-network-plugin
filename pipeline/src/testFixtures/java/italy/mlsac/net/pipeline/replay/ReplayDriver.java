@@ -135,7 +135,6 @@ final class ReplayDriver {
             case "cmd.record_start" -> recorder.start(head.player(), head.text("label"), head.text("comment"));
             case "cmd.record_stop" -> recorder.stop(head.player());
             case "cmd.record_stop_all" -> recorder.stopAll();
-            case "cmd.restore" -> pipeline.restoreHistory(head.player());
             default -> {
             }
         }

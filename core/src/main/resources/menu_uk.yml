@@ -22,6 +22,10 @@ gui:
     page_info:
       material: COMPASS
       name: "&fСторінка &7{CURRENT}&8/&7{TOTAL}"
+    kicks:
+      material: IRON_SWORD
+      name: "&cКіки"
+      lore: "&8▪ &7Останні кіки та бани"
     filler:
       material: BLACK_STAINED_GLASS_PANE
       name: " "
@@ -44,3 +48,113 @@ gui:
     exit:
       material: BARRIER
       name: "&cВихід"
+
+  kicks:
+    title: "&0&l» &8&lMLSAC &8| &0Кіки"
+    entry:
+      name: "&f{PLAYER} &8- &c{ACTION}"
+      lore:
+        - "&8▪ &7Коли &8» &f{TIME} &8({AGO} тому)"
+        - "&8▪ &7Модель &8» &f{MODEL} &8| {PERCENT}"
+        - "&8▪ &7Кіки &8» &f{KICKS} &8| &7Бани &8» &f{BANS}"
+        - ""
+        - "&8▪ &2Клік &8» &fісторія"
+    empty:
+      name: "&7Немає кіків за останні {DAYS} дн."
+    back:
+      material: ARROW
+      name: "&7« Гравці"
+    previous_page:
+      material: ARROW
+      name: "&7« Назад &8({PAGE})"
+    next_page:
+      material: ARROW
+      name: "&7Далі » &8({PAGE})"
+    page_info:
+      material: COMPASS
+      name: "&fСторінка &7{CURRENT}&8/&7{TOTAL}"
+    exit:
+      material: BARRIER
+      name: "&cВихід"
+
+  history:
+    title: "&0&l» &8&lMLSAC &8| &0Історія {PLAYER}"
+    punish:
+      name: "&c{ACTION} &8- &f{TIME}"
+      lore:
+        - "&8▪ &7Модель &8» &f{MODEL} &8| {PERCENT}"
+        - "&8▪ &f{AGO} &7тому"
+    suppression:
+      name: "&eПридушення &8- &f{TIME}"
+      lore:
+        - "&8▪ &7Причина &8» &f{TRIGGER} &8#{LEVEL}"
+        - "&8▪ &7Буфер &8» &f{BUFFER}"
+        - "&8▪ &7Модель &8» &f{MODEL} &8| {PERCENT}"
+        - "&8▪ &7Дії &8» &f{ACTIONS}"
+        - "&8▪ &f{AGO} &7тому"
+    detection:
+      name: "&fДетект &8- &f{TIME}"
+      lore:
+        - "&8▪ &7Модель &8» &f{MODEL} &8| {PERCENT}"
+        - "&8▪ &f{AGO} &7тому"
+    empty:
+      name: "&7Для цього гравця нічого не збережено"
+    back:
+      material: ARROW
+      name: "&7« Назад"
+    previous_page:
+      material: ARROW
+      name: "&7« Назад &8({PAGE})"
+    next_page:
+      material: ARROW
+      name: "&7Далі » &8({PAGE})"
+    page_info:
+      material: COMPASS
+      name: "&fСторінка &7{CURRENT}&8/&7{TOTAL}"
+    exit:
+      material: BARRIER
+      name: "&cВихід"
+
+  profile:
+    title: "&0&l» &8&lMLSAC &8| &0{PLAYER}"
+    entry:
+      name: "&fДетект &7#{INDEX}"
+      lore:
+        - "&8▪ &7Шанс &8» {PERCENT}"
+        - "&8▪ &7Модель &8» &f{MODEL}"
+        - "&8▪ &7Коли &8» &f{TIME} &8({AGO} тому)"
+    info:
+      material: PLAYER_HEAD
+      name: "&fГравець: &a{PLAYER}"
+      lore:
+        - "&8▪ &7Вперше &8» &f{FIRST_SEEN}"
+        - "&8▪ &7Востаннє &8» &f{LAST_SEEN} &8({LAST_SEEN_AGO} тому)"
+        - "&8▪ &7Детекти &8» &f{TOTAL} &8(24г &f{DAY}&8, 7д &f{WEEK}&8)"
+        - "&8▪ &7Макс &8» {MAX} &8| &7серед &8» {AVG}"
+        - "&8▪ &7Моделі &8» &f{MODELS}"
+    unknown: "&7Цей гравець тут не з'являвся"
+    suppressions:
+      material: SHIELD
+      name: "&eПридушення &7({SUPPRESSIONS})"
+      lore:
+        - "&8▪ &7Останні:"
+      line: "&8▪ &f{AGO} &7{TRIGGER} &8#{LEVEL} &8» &f{ACTIONS}"
+    punishments:
+      material: IRON_SWORD
+      name: "&cПокарання &7({PUNISHMENTS})"
+      lore:
+        - "&8▪ &7Кіки &8» &f{KICKS} &8| &7Бани &8» &f{BANS}"
+        - "&8▪ &7Останнє &8» &f{LAST_ACTION} &8({LAST_AGO} тому)"
+        - ""
+        - "&8▪ &2Клік &8» &fуся історія"
+    empty:
+      name: "&7Детектів не збережено"
+    exit:
+      material: BARRIER
+      name: "&cВихід"
+
+  dossier:
+    unavailable: "&cБекенд зараз недоступний"
+    throttled: "&cЗабагато запитів, спробуйте за хвилину"
+    invalid: "&cНевірне ім'я гравця"
+    busy: "&7Ще завантажується, зачекайте"

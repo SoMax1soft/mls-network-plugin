@@ -4,7 +4,8 @@ package italy.mlsac.net.pipeline.environment;
 public enum WallPurpose {
     SESSION_START("session.start"),
     SESSION_SAVED("session.saved"),
-    RESTORE_STAMP("restore.stamp");
+    RESTORE_START("restore.start"),
+    RESTORE_SAVED("restore.saved");
 
     private final String tag;
 

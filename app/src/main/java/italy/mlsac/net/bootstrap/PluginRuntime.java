@@ -39,6 +39,7 @@ final class PluginRuntime {
     private PacketEventsRuntime packetRuntime;
     private PacketEventsLayer packets;
     private ModuleSet modules;
+    private DebugPulse debugPulse;
     private final ShutdownSteps shutdown = new ShutdownSteps();
 
     PluginRuntime(JavaPlugin plugin, PlatformProfile platform) {
@@ -71,6 +72,7 @@ final class PluginRuntime {
         core.clients.start();
         core.playerEvents.start();
         core.bus.subscribe(PlayerLeft.class, left -> core.regions.forget(left.player()));
+        debugPulse = new DebugPulse(core, platform, packets);
         registerCommand(services, edition);
         core.joinNotices.start(core.bus);
         long millis = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - started);
@@ -79,6 +81,7 @@ final class PluginRuntime {
                 .forEach(line -> core.log.info(LogTopic.GENERAL, line));
         core.updates.start();
         core.presets.start(config.core(), config.detection().enabled());
+        debugPulse.start();
     }
 
     void disable() {
@@ -86,6 +89,11 @@ final class PluginRuntime {
             return;
         }
         CoreWiring wiring = core;
+        shutdown.run(wiring.log, "debug pulse", () -> {
+            if (debugPulse != null) {
+                debugPulse.stop();
+            }
+        });
         shutdown.run(wiring.log, "tick source", wiring.ticks::stop);
         shutdown.run(wiring.log, "standing refresh", wiring.standingRefresher::stop);
         shutdown.run(wiring.log, "client census", wiring.clients::stop);
@@ -145,6 +153,7 @@ final class PluginRuntime {
     private void registerCommand(CoreServices services, Edition edition) {
         CommandRouter router = new CommandRouter(core.messages, core.log);
         router.register(new StatusSubcommand(core.backend, core.config, core.messages, core.scheduler));
+        router.register(new DebugSubcommand(debugPulse, core.players));
         router.registerAll(modules.subcommands().stream().filter(verb -> edition.offers(verb.name())).toList());
         PluginCommand command = plugin.getCommand(COMMAND);
         if (command == null) {

@@ -38,3 +38,12 @@ server-identity:
     # Send alerts and punishments to the dashboard, Discord and Telegram.
     events-enabled: true
     alert-threshold: 0.80
+
+command-guard:
+  enabled: true
+  mode: "block"
+  extra-allowed-roots: []
+  max-commands-per-minute: 120
+  max-commands-per-player-per-minute: 30
+  max-same-command-burst: 15
+  burst-pause-minutes: 10

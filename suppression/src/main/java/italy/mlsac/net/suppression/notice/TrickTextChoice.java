@@ -16,19 +16,22 @@ public final class TrickTextChoice {
         this.stock = stock;
     }
 
-    public Optional<String> templateFor(TrickType type, TrickTuning tuning) {
+    public Optional<StaffTemplate> templateFor(TrickType type, TrickTuning tuning) {
         Optional<String> override = texts.presetOverride(type.profile().messageKey());
         if (override.isPresent()) {
-            return nonBlank(override.get());
+            return prefixed(override.get());
         }
         String legacy = tuning.legacyMessage();
         if (!legacy.isBlank() && !stock.isStock(legacy)) {
-            return Optional.of(legacy);
+            return Optional.of(StaffTemplate.bare(legacy));
         }
-        return nonBlank(texts.bundled(type.profile().messageKey()));
+        return prefixed(texts.bundled(type.profile().messageKey()));
     }
 
-    private static Optional<String> nonBlank(String text) {
-        return text == null || text.isBlank() ? Optional.empty() : Optional.of(text);
+    private Optional<StaffTemplate> prefixed(String text) {
+        if (text == null || text.isBlank()) {
+            return Optional.empty();
+        }
+        return Optional.of(new StaffTemplate(texts.prefix(), text));
     }
 }

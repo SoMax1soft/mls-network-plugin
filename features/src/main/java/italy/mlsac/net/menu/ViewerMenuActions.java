@@ -71,4 +71,19 @@ final class ViewerMenuActions implements MenuActions, ButtonOutcomes {
     public void tell(String coloredMessage) {
         canvas.send(viewer, coloredMessage);
     }
+
+    @Override
+    public void openKicks(int page) {
+        desk.openKicks(viewer, viewerName, page);
+    }
+
+    @Override
+    public void openHistory(MenuReaction.OpenHistory request) {
+        desk.openHistory(viewer, viewerName, request);
+    }
+
+    @Override
+    public void openProfile(String player) {
+        desk.openProfile(viewer, viewerName, player);
+    }
 }

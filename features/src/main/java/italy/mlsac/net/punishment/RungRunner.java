@@ -1,6 +1,7 @@
 // Copyright (c) 2026 MLSAC. All Rights Reserved.
 package italy.mlsac.net.punishment;
 
+import italy.mlsac.net.guard.CommandOrigin;
 import italy.mlsac.net.logbook.Logbook;
 import italy.mlsac.net.scoring.FlagContext;
 import java.util.List;
@@ -23,13 +24,13 @@ public final class RungRunner {
         List<LadderCommand> rung = parsed(configuredCommands);
         RungOutcome admission = admit(target, rung);
         if (admission == RungOutcome.RAN) {
-            execute(target, rung);
+            execute(target, rung, CommandOrigin.ladderStep(target.offenceLevel()));
         }
         return admission;
     }
 
-    public void runWithoutCooldown(FlagContext target, List<String> configuredCommands) {
-        execute(target, parsed(configuredCommands));
+    public void runWithoutCooldown(FlagContext target, List<String> configuredCommands, CommandOrigin origin) {
+        execute(target, parsed(configuredCommands), origin);
     }
 
     private RungOutcome admit(FlagContext target, List<LadderCommand> rung) {
@@ -49,9 +50,9 @@ public final class RungRunner {
         return RungOutcome.SKIPPED_COOLDOWN;
     }
 
-    private void execute(FlagContext target, List<LadderCommand> rung) {
+    private void execute(FlagContext target, List<LadderCommand> rung, CommandOrigin origin) {
         for (LadderCommand command : rung) {
-            commands.run(command, target);
+            commands.run(command, target, origin);
         }
     }
 

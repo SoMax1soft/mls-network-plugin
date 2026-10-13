@@ -1,6 +1,7 @@
 // Copyright (c) 2026 MLSAC. All Rights Reserved.
 package italy.mlsac.net.punishment;
 
+import italy.mlsac.net.guard.ConsoleGate;
 import italy.mlsac.net.scoring.FlagContext;
 import italy.mlsac.net.testkit.BundledResources;
 import italy.mlsac.net.testkit.RecordingLog;
@@ -32,10 +33,14 @@ final class PenaltyHarness implements PenaltyServer, AnimationStage, StaffNotice
     final UUID player = UUID.nameUUIDFromBytes("Steve".getBytes());
 
     PenaltyHarness() {
+        this(ConsoleGate.OPEN);
+    }
+
+    PenaltyHarness(ConsoleGate gate) {
         online.add(player);
         ServerPenaltyDispatch dispatch = new ServerPenaltyDispatch(this, this, this, BundledResources.english(),
                 () -> rules, log);
-        CommandRunner commands = new CommandRunner(() -> rules, this, dispatch, history, this, log);
+        CommandRunner commands = new CommandRunner(() -> rules, this, dispatch, history, this, log, gate);
         rungs = new RungRunner(commands, cooldown, this, log);
         ladder = new LadderPenalties(() -> rules, rungs);
         maximum = new MaximumPunishment(() -> rules, rungs);

@@ -26,6 +26,10 @@ class ServerVersionTableTest {
             "1.21.11, 1.21.11",
             "1.21.8-R0.1-SNAPSHOT, 1.21.8",
             "26.1, 1.21.11",
+            "26.2.build.133-stable, 1.21.11",
+            "26.1.2.build.8-alpha, 1.21.11",
+            "26.2-R0.1-SNAPSHOT, 1.21.11",
+            "1.21.11.build.14-stable, 1.21.11",
             "1.22, 1.21.11"
     })
     void mapsKnownVersions(String raw, String expected) {

@@ -3,13 +3,13 @@ package italy.mlsac.net.module;
 
 import italy.mlsac.net.detection.AimProfiles;
 import italy.mlsac.net.detection.CombatStatus;
-import italy.mlsac.net.detection.LegacyHistoryExport;
+import italy.mlsac.net.detection.TickRestore;
 import java.util.Objects;
 
-public record PipelinePorts(LegacyHistoryExport history, AimProfiles aim, CombatStatus combat) {
+public record PipelinePorts(TickRestore restore, AimProfiles aim, CombatStatus combat) {
 
     public PipelinePorts {
-        Objects.requireNonNull(history, "history");
+        Objects.requireNonNull(restore, "restore");
         Objects.requireNonNull(aim, "aim");
         Objects.requireNonNull(combat, "combat");
     }

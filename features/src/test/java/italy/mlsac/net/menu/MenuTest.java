@@ -2,9 +2,16 @@
 package italy.mlsac.net.menu;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import italy.mlsac.net.backend.dossier.DossierQuery;
+import italy.mlsac.net.backend.dossier.DossierReply;
+import italy.mlsac.net.config.staff.DossierSettings;
+import italy.mlsac.net.dossier.DossierDesk;
+import italy.mlsac.net.dossier.DossierTimes;
+import italy.mlsac.net.backend.session.LenientJson;
 import italy.mlsac.net.text.LanguageId;
 import italy.mlsac.net.testkit.BundledResources;
 import italy.mlsac.net.testkit.RecordingLog;
@@ -15,7 +22,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.time.ZoneOffset;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import java.util.stream.IntStream;
 import org.junit.jupiter.api.Test;
 
@@ -34,6 +43,12 @@ class MenuTest implements MenuCanvas {
     private final RecordingLog log = new RecordingLog();
     private MenuLayouts layouts = MenuLayouts.shipped();
     private final UUID viewer = UUID.randomUUID();
+    private final List<String> asked = new ArrayList<>();
+    private final Map<String, String> answers = new HashMap<>();
+    private DossierReply refusal;
+    private CompletableFuture<DossierReply> pending;
+    private DossierSettings dossierSettings = DossierSettings.pluginDefaults();
+    private long now = 1_760_200_000_000L;
 
     private static SuspectRow row(String name, double... checks) {
         List<Double> values = new ArrayList<>();
@@ -46,7 +61,22 @@ class MenuTest implements MenuCanvas {
     }
 
     private MenuDesk desk() {
-        return new MenuDesk(english, () -> layouts, painter, this, BundledResources.english(), log);
+        return new MenuDesk(english, () -> layouts, painter, this, BundledResources.english(), log,
+                new DossierDesk(this::answer, () -> now), () -> dossierSettings,
+                new DossierTimes(() -> now, ZoneOffset.UTC));
+    }
+
+    private CompletableFuture<DossierReply> answer(DossierQuery query) {
+        asked.add(query.path());
+        if (pending != null) {
+            return pending;
+        }
+        if (refusal != null) {
+            return CompletableFuture.completedFuture(refusal);
+        }
+        String kind = query.path().substring("plugin/dossier/".length(), query.path().indexOf('?'));
+        return CompletableFuture.completedFuture(new DossierReply.Found(LenientJson.object(answers.get(kind))
+                .orElseThrow()));
     }
 
     @Test
@@ -208,8 +238,21 @@ class MenuTest implements MenuCanvas {
             BlueprintSource source = new BlueprintSource(BundledResources.menus(), () -> language);
             MenuBlueprint suspects = source.suspects(Optional.empty());
             assertEquals(IntStream.rangeClosed(0, 44).boxed().toList(), suspects.listSlots());
-            assertEquals(3, suspects.buttons().size());
+            assertEquals(4, suspects.buttons().size());
             assertEquals(3, source.checks(Optional.empty()).buttons().size());
+            assertEquals(5, source.kicks(Optional.empty()).buttons().size());
+            assertEquals(5, source.history().buttons().size());
+            assertEquals(2, source.profile(Optional.empty()).buttons().size());
+            assertTrue(source.history().title().contains("{PLAYER}"), language.id());
+            assertFalse(source.kicks(Optional.empty()).headLoreLines().isEmpty(), language.id());
+            assertFalse(source.profile(Optional.empty()).headLoreLines().isEmpty(), language.id());
+            assertFalse(source.historyTexts().punish().lore().isEmpty(), language.id());
+            assertFalse(source.historyTexts().suppression().lore().isEmpty(), language.id());
+            assertFalse(source.profileTexts().punishments().lore().isEmpty(), language.id());
+            for (DossierTrouble trouble : DossierTrouble.values()) {
+                assertTrue(BundledResources.menus().node(language, "gui.dossier." + trouble.key()).isPresent(),
+                        language.id() + " " + trouble);
+            }
         }
     }
 

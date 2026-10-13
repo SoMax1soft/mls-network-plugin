@@ -1,6 +1,8 @@
 // Copyright (c) 2026 MLSAC. All Rights Reserved.
 package italy.mlsac.net.backend;
 
+import italy.mlsac.net.backend.dossier.DossierQuery;
+import italy.mlsac.net.backend.dossier.DossierReply;
 import italy.mlsac.net.backend.request.AlertReport;
 import italy.mlsac.net.backend.request.WindowSubmission;
 import italy.mlsac.net.backend.request.PunishReport;
@@ -110,6 +112,13 @@ public final class BackendService implements BackendGateway {
     public CompletableFuture<Optional<TodayStats>> todayStats() {
         RunningSession current = running;
         return current == null ? CompletableFuture.completedFuture(Optional.empty()) : current.session().todayStats();
+    }
+
+    @Override
+    public CompletableFuture<DossierReply> dossier(DossierQuery query) {
+        RunningSession current = running;
+        return current == null ? CompletableFuture.completedFuture(new DossierReply.Unavailable())
+                : current.session().dossier(query);
     }
 
     private void close(RunningSession session) {

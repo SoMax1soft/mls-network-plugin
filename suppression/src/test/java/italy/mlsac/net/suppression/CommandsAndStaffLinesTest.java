@@ -13,6 +13,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import italy.mlsac.net.suppression.fixture.BuiltInTexts;
 import italy.mlsac.net.suppression.fixture.Harness;
 import italy.mlsac.net.suppression.fixture.Plans;
 import italy.mlsac.net.suppression.lag.LagKind;
@@ -132,6 +133,19 @@ class CommandsAndStaffLinesTest {
         harness.flag(1);
         assertTrue(harness.server.subscriberLines().isEmpty());
         assertEquals(50, harness.dealt());
+    }
+
+    @Test
+    void v7StaffLinesTakeTheConfiguredPrefix() {
+        Harness harness = new Harness(ladder(step(1, dealt(50, 30, 0))));
+        harness.server.prefix("&bGrim &8» &r");
+        harness.server.override("suppression-alert-flag", "{PLAYER}|{STAGE}/{STAGES}");
+        harness.flag(1);
+        assertEquals(List.of("&bGrim &8» &rSteve|1/1"), harness.server.subscriberLines());
+        Harness stock = new Harness(ladder(step(1, dealt(50, 30, 0))));
+        stock.server.prefix(BuiltInTexts.PREFIX);
+        stock.flag(1);
+        assertTrue(stock.server.subscriberLines().get(0).startsWith(BuiltInTexts.PREFIX + "&fSteve &7Suppression"));
     }
 
     @Test

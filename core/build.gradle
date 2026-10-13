@@ -11,6 +11,7 @@ dependencies {
     compileOnly libs.packetevents.spigot
 
     testImplementation libs.snakeyaml
+    testImplementation libs.packetevents.spigot
     testRuntimeOnly libs.paper.api
     testFixturesImplementation libs.snakeyaml
     testFixturesCompileOnly libs.paper.api

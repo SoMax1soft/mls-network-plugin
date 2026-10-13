@@ -57,7 +57,7 @@ public final class CommandRouter {
         String typed = args.isEmpty() ? "" : args.get(0).toLowerCase(Locale.ROOT);
         return registered().stream()
                 .filter(name -> name.permits(actor))
-                .map(SubcommandName::id)
+                .flatMap(name -> name.typedNames().stream())
                 .filter(id -> id.startsWith(typed))
                 .toList();
     }

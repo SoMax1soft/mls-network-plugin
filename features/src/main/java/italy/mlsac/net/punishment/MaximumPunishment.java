@@ -1,6 +1,7 @@
 // Copyright (c) 2026 MLSAC. All Rights Reserved.
 package italy.mlsac.net.punishment;
 
+import italy.mlsac.net.guard.CommandOrigin;
 import italy.mlsac.net.scoring.FlagContext;
 import java.util.List;
 import java.util.Map;
@@ -24,7 +25,8 @@ public final class MaximumPunishment {
     public Optional<Integer> punish(UUID player, String playerNick) {
         Optional<Map.Entry<Integer, List<String>>> top = rules.get().ladder().top();
         top.ifPresent(rung -> rungs.runWithoutCooldown(
-                new FlagContext(player, playerNick, rung.getKey(), FORCED_PROBABILITY, FORCED_BUFFER), rung.getValue()));
+                new FlagContext(player, playerNick, rung.getKey(), FORCED_PROBABILITY, FORCED_BUFFER), rung.getValue(),
+                CommandOrigin.punish(rung.getKey())));
         return top.map(Map.Entry::getKey);
     }
 }

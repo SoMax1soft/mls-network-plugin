@@ -25,7 +25,8 @@ public final class StaffLines {
         if (template == null || template.isBlank()) {
             return Optional.empty();
         }
-        return Optional.of(format.placeholders(String.join(", ", tokens)).applyTo(template));
+        return Optional.of(new StaffTemplate(texts.prefix(), template)
+                .render(format.placeholders(String.join(", ", tokens))));
     }
 
     public void send(StaffLineFormat format, List<String> tokens, ConsoleEcho echo) {

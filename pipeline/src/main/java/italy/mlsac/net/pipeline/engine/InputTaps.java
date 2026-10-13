@@ -26,4 +26,7 @@ public interface InputTaps {
     boolean anyActive();
 
     void closeAll();
+
+    default void playerLeft(UUID player) {
+    }
 }

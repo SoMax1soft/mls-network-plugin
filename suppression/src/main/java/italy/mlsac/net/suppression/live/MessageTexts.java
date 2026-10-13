@@ -25,4 +25,9 @@ public final class MessageTexts implements SuppressionTexts {
     public String bundled(String key) {
         return messages.rawText(key);
     }
+
+    @Override
+    public String prefix() {
+        return messages.rawPrefix();
+    }
 }

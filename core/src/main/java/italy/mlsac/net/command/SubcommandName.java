@@ -5,6 +5,7 @@ import italy.mlsac.net.player.GrantNode;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Optional;
 
 public enum SubcommandName {
@@ -13,16 +14,17 @@ public enum SubcommandName {
     ALERTS(true, "alerts", "alerts"),
     MONITOR(true, "monitor", "alerts"),
     SUSPECTS(true, "suspects", "alerts"),
-    PROB(true, "profile", "prob"),
     PROFILE(false, "profile", "prob"),
     RELOAD(false, "reload", "reload"),
     PUNISH(false, "punish"),
-    KICKLIST(false, "kicklist"),
-    FALSEPOSITIVE(false, "falsepositive"),
+    DATA(false, "data", "command.falsepositive"),
     STATUS(false, "status"),
+    DEBUG(false, "debug"),
     DATASTATUS(false, "status"),
     REINSTALL(false, "reinstall"),
     ANIMATION(false, "animation");
+
+    private static final Map<String, SubcommandName> TYPED_ALIASES = Map.of("MENU", SUSPECTS);
 
     private final boolean playerOnly;
     private final List<GrantNode> grants;
@@ -45,11 +47,22 @@ public enum SubcommandName {
                 return Optional.of(name);
             }
         }
-        return Optional.empty();
+        return Optional.ofNullable(TYPED_ALIASES.get(id));
     }
 
     public String id() {
         return name().toLowerCase(Locale.ROOT);
+    }
+
+    public List<String> typedNames() {
+        List<String> typed = new ArrayList<>();
+        typed.add(id());
+        TYPED_ALIASES.forEach((alias, target) -> {
+            if (target == this) {
+                typed.add(alias.toLowerCase(Locale.ROOT));
+            }
+        });
+        return typed;
     }
 
     public boolean playerOnly() {

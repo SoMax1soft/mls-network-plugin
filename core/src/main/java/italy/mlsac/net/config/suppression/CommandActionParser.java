@@ -3,10 +3,12 @@ package italy.mlsac.net.config.suppression;
 
 import italy.mlsac.net.config.SettingsLayer;
 import java.util.Optional;
+import java.util.regex.Pattern;
 
 final class CommandActionParser implements SuppressionVerbReader {
 
     private static final int MAX_COMMAND = 256;
+    private static final Pattern ANIMATION_ID = Pattern.compile("^[A-Za-z0-9_-]{1,48}$");
 
     @Override
     public String type() {
@@ -27,6 +29,8 @@ final class CommandActionParser implements SuppressionVerbReader {
         }
         CommandPreset preset = CommandPreset.fromIdOrCustom(action.text("preset", 16).orElse(""));
         boolean animation = action.bool("animation").orElse(false);
-        return Optional.of(new CommandAction(stage, preset, command.get(), animation));
+        Optional<String> animationId = animation && action.has("animation-id")
+                ? action.matching("animation-id", ANIMATION_ID) : Optional.empty();
+        return Optional.of(new CommandAction(stage, preset, command.get(), animation, animationId));
     }
 }

@@ -22,6 +22,10 @@ gui:
     page_info:
       material: COMPASS
       name: "&f页 &7{CURRENT}&8/&7{TOTAL}"
+    kicks:
+      material: IRON_SWORD
+      name: "&c踢出记录"
+      lore: "&8▪ &7最近的踢出和封禁"
     filler:
       material: BLACK_STAINED_GLASS_PANE
       name: " "
@@ -44,3 +48,113 @@ gui:
     exit:
       material: BARRIER
       name: "&c退出"
+
+  kicks:
+    title: "&0&l» &8&lMLSAC &8| &0踢出记录"
+    entry:
+      name: "&f{PLAYER} &8- &c{ACTION}"
+      lore:
+        - "&8▪ &7时间 &8» &f{TIME} &8({AGO} 前)"
+        - "&8▪ &7模型 &8» &f{MODEL} &8| {PERCENT}"
+        - "&8▪ &7踢出 &8» &f{KICKS} &8| &7封禁 &8» &f{BANS}"
+        - ""
+        - "&8▪ &2点击 &8» &f历史"
+    empty:
+      name: "&7最近 {DAYS} 天没有踢出记录"
+    back:
+      material: ARROW
+      name: "&7« 玩家"
+    previous_page:
+      material: ARROW
+      name: "&7« 返回 &8({PAGE})"
+    next_page:
+      material: ARROW
+      name: "&7下一页 » &8({PAGE})"
+    page_info:
+      material: COMPASS
+      name: "&f页 &7{CURRENT}&8/&7{TOTAL}"
+    exit:
+      material: BARRIER
+      name: "&c退出"
+
+  history:
+    title: "&0&l» &8&lMLSAC &8| &0历史 {PLAYER}"
+    punish:
+      name: "&c{ACTION} &8- &f{TIME}"
+      lore:
+        - "&8▪ &7模型 &8» &f{MODEL} &8| {PERCENT}"
+        - "&8▪ &f{AGO} &7前"
+    suppression:
+      name: "&e压制 &8- &f{TIME}"
+      lore:
+        - "&8▪ &7触发 &8» &f{TRIGGER} &8#{LEVEL}"
+        - "&8▪ &7缓冲 &8» &f{BUFFER}"
+        - "&8▪ &7模型 &8» &f{MODEL} &8| {PERCENT}"
+        - "&8▪ &7动作 &8» &f{ACTIONS}"
+        - "&8▪ &f{AGO} &7前"
+    detection:
+      name: "&f检测 &8- &f{TIME}"
+      lore:
+        - "&8▪ &7模型 &8» &f{MODEL} &8| {PERCENT}"
+        - "&8▪ &f{AGO} &7前"
+    empty:
+      name: "&7该玩家没有保存的记录"
+    back:
+      material: ARROW
+      name: "&7« 返回"
+    previous_page:
+      material: ARROW
+      name: "&7« 返回 &8({PAGE})"
+    next_page:
+      material: ARROW
+      name: "&7下一页 » &8({PAGE})"
+    page_info:
+      material: COMPASS
+      name: "&f页 &7{CURRENT}&8/&7{TOTAL}"
+    exit:
+      material: BARRIER
+      name: "&c退出"
+
+  profile:
+    title: "&0&l» &8&lMLSAC &8| &0{PLAYER}"
+    entry:
+      name: "&f检测 &7#{INDEX}"
+      lore:
+        - "&8▪ &7概率 &8» {PERCENT}"
+        - "&8▪ &7模型 &8» &f{MODEL}"
+        - "&8▪ &7时间 &8» &f{TIME} &8({AGO} 前)"
+    info:
+      material: PLAYER_HEAD
+      name: "&f玩家: &a{PLAYER}"
+      lore:
+        - "&8▪ &7首次出现 &8» &f{FIRST_SEEN}"
+        - "&8▪ &7最后出现 &8» &f{LAST_SEEN} &8({LAST_SEEN_AGO} 前)"
+        - "&8▪ &7检测 &8» &f{TOTAL} &8(24小时 &f{DAY}&8, 7天 &f{WEEK}&8)"
+        - "&8▪ &7最高 &8» {MAX} &8| &7平均 &8» {AVG}"
+        - "&8▪ &7模型 &8» &f{MODELS}"
+    unknown: "&7这个玩家从未在这里出现"
+    suppressions:
+      material: SHIELD
+      name: "&e压制 &7({SUPPRESSIONS})"
+      lore:
+        - "&8▪ &7最近:"
+      line: "&8▪ &f{AGO} &7{TRIGGER} &8#{LEVEL} &8» &f{ACTIONS}"
+    punishments:
+      material: IRON_SWORD
+      name: "&c处罚 &7({PUNISHMENTS})"
+      lore:
+        - "&8▪ &7踢出 &8» &f{KICKS} &8| &7封禁 &8» &f{BANS}"
+        - "&8▪ &7最近 &8» &f{LAST_ACTION} &8({LAST_AGO} 前)"
+        - ""
+        - "&8▪ &2点击 &8» &f完整历史"
+    empty:
+      name: "&7没有保存的检测"
+    exit:
+      material: BARRIER
+      name: "&c退出"
+
+  dossier:
+    unavailable: "&c后端暂时无法连接"
+    throttled: "&c请求过多，请一分钟后再试"
+    invalid: "&c无效的玩家名"
+    busy: "&7仍在加载，请稍候"

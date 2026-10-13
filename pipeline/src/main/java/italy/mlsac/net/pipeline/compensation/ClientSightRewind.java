@@ -36,7 +36,7 @@ public final class ClientSightRewind {
 
     private LensReading read(UUID viewer, PlayerSample eye, PlayerSample target, long now) {
         CompensatedViewer tracked = book.viewerOrNull(viewer);
-        if (tracked != null) {
+        if (tracked != null && !riding(target)) {
             LensReading acknowledged = acknowledged(tracked, target);
             if (acknowledged != null) {
                 return acknowledged;
@@ -94,6 +94,10 @@ public final class ClientSightRewind {
             return tracked.acknowledgements().roundTripMillis();
         }
         return samples.serverPing(viewer, -1);
+    }
+
+    private static boolean riding(PlayerSample target) {
+        return target.posture() != null && target.posture().riding();
     }
 
     private static Box boxOf(PlayerSample sample) {

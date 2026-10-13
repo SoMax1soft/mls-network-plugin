@@ -171,13 +171,6 @@ public final class PlayerOrderedInput implements PipelineInput {
         }
     }
 
-    @Override
-    public boolean restoreHistory(UUID player) {
-        synchronized (turns.of(player)) {
-            return pipeline.restoreHistory(player);
-        }
-    }
-
     public boolean inLegacyCombat(UUID player) {
         return pipeline.inLegacyCombat(player);
     }

@@ -3,7 +3,6 @@ package italy.mlsac.net.banimation;
 
 import italy.mlsac.net.commands.Completions;
 import italy.mlsac.net.command.CommandActor;
-import italy.mlsac.net.commands.PlayerLookup;
 import italy.mlsac.net.command.Subcommand;
 import italy.mlsac.net.command.SubcommandName;
 import italy.mlsac.net.logbook.Logbook;
@@ -18,17 +17,14 @@ import java.util.function.Supplier;
 
 public final class AnimationSubcommand implements Subcommand {
 
-    private static final List<String> HELP_KEYS = List.of("help-animation-test", "help-animation-list",
-            "help-animation-reload");
+    private static final List<String> HELP_KEYS = List.of("help-animation-list", "help-animation-reload");
 
     private final Map<String, AnimationVerb> verbs = new LinkedHashMap<>();
     private final MessageBook messages;
 
-    public AnimationSubcommand(AnimationLibrary library, AnimationDirector director,
-                               Supplier<List<AnimationFile>> files, PlayerLookup players, MessageBook messages,
+    public AnimationSubcommand(AnimationLibrary library, Supplier<List<AnimationFile>> files, MessageBook messages,
                                Logbook log) {
         this.messages = messages;
-        verbs.put("test", new AnimationPreview(library, director, players, messages));
         verbs.put("list", new AnimationCatalogue(library, messages));
         verbs.put("reload", new AnimationRefresh(library, files, messages, log));
     }

@@ -61,6 +61,7 @@ public final class ChecksMenu implements OpenMenu {
             case BACK -> new MenuReaction.OpenSuspects();
             case CLOSE -> new MenuReaction.Close();
             case COMMAND -> new MenuReaction.CloseAndRun(ButtonCommand.prepare(button.get().command(), suspect.name()));
+            case KICKS -> new MenuReaction.OpenKicks(0);
             default -> new MenuReaction.Nothing();
         };
     }

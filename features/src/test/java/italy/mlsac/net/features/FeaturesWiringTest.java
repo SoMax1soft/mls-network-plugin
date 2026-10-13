@@ -11,7 +11,7 @@ import italy.mlsac.net.module.PipelinePorts;
 import italy.mlsac.net.detection.AimProfiles;
 import italy.mlsac.net.detection.CombatStatus;
 import italy.mlsac.net.testkit.FakePlayer;
-import italy.mlsac.net.detection.LegacyHistoryExport;
+import italy.mlsac.net.detection.TickRestore;
 import italy.mlsac.net.testkit.TestCore;
 import italy.mlsac.net.config.EffectiveConfig;
 import italy.mlsac.net.config.detection.DetectionSettings;
@@ -35,9 +35,10 @@ class FeaturesWiringTest {
                 detection.regions(), new ModelRoster(models), detection.legacySequence(), detection.legacyStep()),
                 defaults.alerts(), defaults.violation(), defaults.penalties(), defaults.alertResponses(),
                 defaults.suppression(), defaults.modules(), defaults.holograms(), defaults.menus(), defaults.messages(),
+                defaults.dataRestore(), defaults.dossier(),
                 defaults.preset()));
         FeaturesAssembly features = new FeaturesAssembly(core.services(),
-                new PipelinePorts(LegacyHistoryExport.NONE, AimProfiles.NONE, CombatStatus.NONE));
+                new PipelinePorts(TickRestore.NONE, AimProfiles.NONE, CombatStatus.NONE));
         features.start();
         FakePlayer suspect = core.players.add("Suspect");
         UUID id = suspect.id();

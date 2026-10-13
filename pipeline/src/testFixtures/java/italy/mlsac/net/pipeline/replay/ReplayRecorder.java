@@ -7,6 +7,7 @@ import java.util.UUID;
 interface ReplayRecorder {
 
     String DATASET_FOLDER = "data/";
+    String RETIRED_HISTORY_FOLDER = "restored_data/";
     String STOP_ALL = "cmd.record_stop_all";
 
     ReplayRecorder ABSENT = new ReplayRecorder() {
@@ -53,6 +54,10 @@ interface ReplayRecorder {
     }
 
     default boolean expects(TraceRecord output) {
-        return writesDatasets() || !"file".equals(output.name()) || !output.text("path").startsWith(DATASET_FOLDER);
+        if (!"file".equals(output.name())) {
+            return true;
+        }
+        String path = output.text("path");
+        return !path.startsWith(RETIRED_HISTORY_FOLDER) && (writesDatasets() || !path.startsWith(DATASET_FOLDER));
     }
 }

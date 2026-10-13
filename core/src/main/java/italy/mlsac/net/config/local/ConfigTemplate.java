@@ -48,6 +48,11 @@ public final class ConfigTemplate {
         if (value instanceof Boolean || value instanceof Number) {
             return String.valueOf(value);
         }
+        if (value instanceof List<?> list) {
+            List<String> items = new ArrayList<>();
+            list.forEach(item -> items.add(render(item)));
+            return "[" + String.join(", ", items) + "]";
+        }
         String raw = String.valueOf(value);
         StringBuilder quoted = new StringBuilder("\"");
         for (char c : raw.toCharArray()) {

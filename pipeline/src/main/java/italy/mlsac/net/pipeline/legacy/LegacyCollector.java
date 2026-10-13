@@ -1,6 +1,7 @@
 // Copyright (c) 2026 MLSAC. All Rights Reserved.
 package italy.mlsac.net.pipeline.legacy;
 
+import italy.mlsac.net.console.DebugTally;
 import italy.mlsac.net.pipeline.environment.BackendAvailability;
 import italy.mlsac.net.pipeline.environment.DetectionSwitches;
 import italy.mlsac.net.pipeline.environment.LegacyWindowSink;
@@ -38,19 +39,27 @@ public final class LegacyCollector {
     }
 
     public void attackedPlayer(UUID attacker) {
-        if (switches.ultraEnabled() || !switches.detectionEnabled() || standing.exempt(attacker)
-                || standing.zoneExcluded(attacker) || !standing.valid(attacker)) {
+        String skip = switches.ultraEnabled() ? "ultra-mode"
+                : !switches.detectionEnabled() ? "detection-off"
+                : standing.exempt(attacker) ? "bypass-permission"
+                : standing.zoneExcluded(attacker) ? "disabled-region"
+                : !standing.valid(attacker) ? "player-invalid" : null;
+        if (skip != null) {
+            DebugTally.count("legacy.hit-skipped." + skip);
+            DebugTally.trace(attacker, () -> "Pro/Mini ignore the hit: " + skip);
             return;
         }
         LegacyCombat state = stateOf(attacker);
         if (state.bedrock()) {
+            DebugTally.count("legacy.hit-skipped.bedrock");
             return;
         }
+        DebugTally.count("legacy.hit");
         state.attackedPlayer();
     }
 
     public void rotation(UUID player, float yaw, float pitch) {
-        if (switches.ultraEnabled() || !switches.detectionEnabled() || !backend.usable()
+        if (switches.ultraEnabled() || !switches.detectionEnabled()
                 || !standing.valid(player) || standing.exempt(player)) {
             return;
         }
@@ -58,9 +67,18 @@ public final class LegacyCollector {
         if (state == null || !state.engagedInFight() || state.bedrock() || standing.zoneExcluded(player)) {
             return;
         }
+        if (!backend.usable()) {
+            DebugTally.count("legacy.fight-rotation-dropped.backend-not-usable");
+            return;
+        }
         List<LegacyDelta> window = state.rotate(yaw, pitch);
-        if (!window.isEmpty() && backend.clientPresent()) {
-            sink.encodeAndAccept(player, () -> LegacyWindowEncoder.encode(window));
+        if (!window.isEmpty()) {
+            if (backend.clientPresent()) {
+                DebugTally.count("legacy.window");
+                sink.encodeAndAccept(player, () -> LegacyWindowEncoder.encode(window));
+            } else {
+                DebugTally.count("legacy.window-dropped.no-backend-client");
+            }
         }
     }
 

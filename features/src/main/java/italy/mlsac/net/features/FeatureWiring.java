@@ -124,7 +124,8 @@ final class FeatureWiring {
                 () -> core.random().nextDouble(ANIMATION_CHANCE), log, animationTicker);
         Supplier<PenaltyRules> rules = () -> settings.get().penalties();
         CommandRunner runner = new CommandRunner(rules, desk, new ServerPenaltyDispatch(desk,
-                new LibraryStage(library, director), desk, core.messages(), rules, log), removalLog, desk, log);
+                new LibraryStage(library, director), desk, core.messages(), rules, log), removalLog, desk, log,
+                server.consoleGate());
         this.rungs = new RungRunner(runner, punishCooldown, desk, log);
         this.maximum = new MaximumPunishment(rules, rungs);
         this.legacyResponses = new LegacyAlertResponses(() -> settings.get().responses(), lanes, reductions,

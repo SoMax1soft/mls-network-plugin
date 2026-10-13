@@ -18,13 +18,12 @@ public final class TrickBroadcast {
     }
 
     public Optional<String> compose(TrickType type, TrickTuning tuning, TriggerContext context) {
-        return choice.templateFor(type, tuning).map(template -> new Placeholders()
+        return choice.templateFor(type, tuning).map(template -> template.render(new Placeholders()
                 .text("PLAYER", context.suspectName())
                 .oneDecimal("BUFFER", context.buffer())
                 .oneDecimal("DETECTIONS", context.buffer())
                 .twoDecimals("PROBABILITY", context.probability())
-                .integer("VL", context.vl())
-                .applyTo(template));
+                .integer("VL", context.vl())));
     }
 
     public void announce(TrickType type, TrickTuning tuning, TriggerContext context) {

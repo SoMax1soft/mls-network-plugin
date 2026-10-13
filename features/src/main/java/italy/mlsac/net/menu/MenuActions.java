@@ -18,4 +18,10 @@ public interface MenuActions {
     void teleport(UUID suspect);
 
     void tell(String coloredMessage);
+
+    void openKicks(int page);
+
+    void openHistory(MenuReaction.OpenHistory request);
+
+    void openProfile(String player);
 }

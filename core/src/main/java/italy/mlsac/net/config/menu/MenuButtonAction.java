@@ -12,7 +12,8 @@ public enum MenuButtonAction {
     PREV_PAGE("prev-page"),
     NEXT_PAGE("next-page"),
     PAGE_INFO("page-info"),
-    INFO("info");
+    INFO("info"),
+    KICKS("kicks");
 
     private final String id;
 

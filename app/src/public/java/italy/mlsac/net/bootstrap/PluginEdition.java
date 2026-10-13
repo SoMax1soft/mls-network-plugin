@@ -37,6 +37,6 @@ final class PluginEdition implements Edition {
 
     @Override
     public boolean offers(SubcommandName command) {
-        return command != SubcommandName.FALSEPOSITIVE;
+        return true;
     }
 }

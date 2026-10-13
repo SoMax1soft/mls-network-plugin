@@ -1,6 +1,7 @@
 // Copyright (c) 2026 MLSAC. All Rights Reserved.
 package italy.mlsac.net.backend.session;
 
+import italy.mlsac.net.console.DebugTally;
 import italy.mlsac.net.backend.Endpoint;
 import italy.mlsac.net.backend.PredictOutcome;
 import italy.mlsac.net.backend.VerdictListener;
@@ -130,6 +131,7 @@ final class PredictChannel {
             return new PredictOutcome.Failed("Canceled");
         }
         degraded.networkFailure("predict", target);
+        DebugTally.count("backend.transport-failure." + failure.kind());
         return new PredictOutcome.Failed("transport: " + failure.kind());
     }
 
@@ -138,6 +140,7 @@ final class PredictChannel {
             return new PredictOutcome.Failed("Canceled");
         }
         degraded.answered();
+        DebugTally.count("backend.http." + reply.status());
         StatusClass status = StatusClass.of(reply.status());
         if (status == StatusClass.SUCCESS) {
             PredictStreamReader.Result result = reader.read(reply.text(), listener);

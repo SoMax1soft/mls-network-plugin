@@ -4,6 +4,7 @@ package italy.mlsac.net.features.live;
 import italy.mlsac.net.alerting.SoundCatalog;
 import italy.mlsac.net.banimation.AnimationEffects;
 import italy.mlsac.net.banimation.EffectRegistry;
+import italy.mlsac.net.guard.ConsoleGate;
 import italy.mlsac.net.menu.MaterialCatalog;
 import italy.mlsac.net.menu.MenuCanvas;
 import italy.mlsac.net.nametag.NametagPorts;
@@ -16,6 +17,8 @@ public interface FeatureServer {
     StaffSounds staffSounds();
 
     ConsoleCommands console();
+
+    ConsoleGate consoleGate();
 
     EffectRegistry effectRegistry();
 

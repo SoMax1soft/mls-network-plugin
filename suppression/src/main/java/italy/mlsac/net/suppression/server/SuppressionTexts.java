@@ -8,4 +8,6 @@ public interface SuppressionTexts {
     Optional<String> presetOverride(String key);
 
     String bundled(String key);
+
+    String prefix();
 }

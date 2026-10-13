@@ -138,6 +138,20 @@ class TrickTest {
     }
 
     @Test
+    void t4bPresetAndBundledTextsTakeThePrefixButLegacyTextsDoNot() {
+        server.prefix("&bGrim &8» &r{PLAYER} ");
+        TriggerContext context = context(21.04, 0.9731);
+        TrickTuning stock = new TrickTuning(true, 1.2, 0.6, "");
+        assertEquals(Optional.of("&bGrim &8» &r{PLAYER} " + BuiltInTexts.LAUNCH.replace("{PLAYER}", "Steve")
+                .replace("{BUFFER}", "21.0")), broadcast().compose(TrickType.LAUNCH, stock, context));
+        TrickTuning custom = new TrickTuning(true, 1.2, 0.6, "custom {PLAYER}");
+        assertEquals(Optional.of("custom Steve"), broadcast().compose(TrickType.LAUNCH, custom, context));
+        server.override("suppression-launch", "{PLAYER} up");
+        assertEquals(Optional.of("&bGrim &8» &r{PLAYER} Steve up"),
+                broadcast().compose(TrickType.LAUNCH, custom, context));
+    }
+
+    @Test
     void t5PlaceholdersUseFixedDecimals() {
         TrickTuning tuning = new TrickTuning(true, 1.2, 0.6, "{BUFFER}|{DETECTIONS}|{PROBABILITY}|{VL}");
         assertEquals(Optional.of("21.0|21.0|0.97|3"),

@@ -22,6 +22,10 @@ gui:
     page_info:
       material: COMPASS
       name: "&fTrang &7{CURRENT}&8/&7{TOTAL}"
+    kicks:
+      material: IRON_SWORD
+      name: "&cKick"
+      lore: "&8▪ &7Các lần kick và ban gần đây"
     filler:
       material: BLACK_STAINED_GLASS_PANE
       name: " "
@@ -44,3 +48,113 @@ gui:
     exit:
       material: BARRIER
       name: "&cThoát"
+
+  kicks:
+    title: "&0&l» &8&lMLSAC &8| &0Kick"
+    entry:
+      name: "&f{PLAYER} &8- &c{ACTION}"
+      lore:
+        - "&8▪ &7Lúc &8» &f{TIME} &8({AGO} trước)"
+        - "&8▪ &7Mô hình &8» &f{MODEL} &8| {PERCENT}"
+        - "&8▪ &7Kick &8» &f{KICKS} &8| &7Ban &8» &f{BANS}"
+        - ""
+        - "&8▪ &2Nhấn &8» &flịch sử"
+    empty:
+      name: "&7Không có kick nào trong {DAYS} ngày qua"
+    back:
+      material: ARROW
+      name: "&7« Người chơi"
+    previous_page:
+      material: ARROW
+      name: "&7« Quay lại &8({PAGE})"
+    next_page:
+      material: ARROW
+      name: "&7Tiếp » &8({PAGE})"
+    page_info:
+      material: COMPASS
+      name: "&fTrang &7{CURRENT}&8/&7{TOTAL}"
+    exit:
+      material: BARRIER
+      name: "&cThoát"
+
+  history:
+    title: "&0&l» &8&lMLSAC &8| &0Lịch sử {PLAYER}"
+    punish:
+      name: "&c{ACTION} &8- &f{TIME}"
+      lore:
+        - "&8▪ &7Mô hình &8» &f{MODEL} &8| {PERCENT}"
+        - "&8▪ &f{AGO} &7trước"
+    suppression:
+      name: "&eÁp chế &8- &f{TIME}"
+      lore:
+        - "&8▪ &7Lý do &8» &f{TRIGGER} &8#{LEVEL}"
+        - "&8▪ &7Bộ đệm &8» &f{BUFFER}"
+        - "&8▪ &7Mô hình &8» &f{MODEL} &8| {PERCENT}"
+        - "&8▪ &7Hành động &8» &f{ACTIONS}"
+        - "&8▪ &f{AGO} &7trước"
+    detection:
+      name: "&fPhát hiện &8- &f{TIME}"
+      lore:
+        - "&8▪ &7Mô hình &8» &f{MODEL} &8| {PERCENT}"
+        - "&8▪ &f{AGO} &7trước"
+    empty:
+      name: "&7Không có dữ liệu nào của người chơi này"
+    back:
+      material: ARROW
+      name: "&7« Quay lại"
+    previous_page:
+      material: ARROW
+      name: "&7« Quay lại &8({PAGE})"
+    next_page:
+      material: ARROW
+      name: "&7Tiếp » &8({PAGE})"
+    page_info:
+      material: COMPASS
+      name: "&fTrang &7{CURRENT}&8/&7{TOTAL}"
+    exit:
+      material: BARRIER
+      name: "&cThoát"
+
+  profile:
+    title: "&0&l» &8&lMLSAC &8| &0{PLAYER}"
+    entry:
+      name: "&fPhát hiện &7#{INDEX}"
+      lore:
+        - "&8▪ &7Tỉ lệ &8» {PERCENT}"
+        - "&8▪ &7Mô hình &8» &f{MODEL}"
+        - "&8▪ &7Lúc &8» &f{TIME} &8({AGO} trước)"
+    info:
+      material: PLAYER_HEAD
+      name: "&fNgười chơi: &a{PLAYER}"
+      lore:
+        - "&8▪ &7Lần đầu &8» &f{FIRST_SEEN}"
+        - "&8▪ &7Lần cuối &8» &f{LAST_SEEN} &8({LAST_SEEN_AGO} trước)"
+        - "&8▪ &7Phát hiện &8» &f{TOTAL} &8(24h &f{DAY}&8, 7 ngày &f{WEEK}&8)"
+        - "&8▪ &7Cao nhất &8» {MAX} &8| &7TB &8» {AVG}"
+        - "&8▪ &7Mô hình &8» &f{MODELS}"
+    unknown: "&7Người chơi này chưa từng xuất hiện ở đây"
+    suppressions:
+      material: SHIELD
+      name: "&eÁp chế &7({SUPPRESSIONS})"
+      lore:
+        - "&8▪ &7Gần đây:"
+      line: "&8▪ &f{AGO} &7{TRIGGER} &8#{LEVEL} &8» &f{ACTIONS}"
+    punishments:
+      material: IRON_SWORD
+      name: "&cHình phạt &7({PUNISHMENTS})"
+      lore:
+        - "&8▪ &7Kick &8» &f{KICKS} &8| &7Ban &8» &f{BANS}"
+        - "&8▪ &7Gần nhất &8» &f{LAST_ACTION} &8({LAST_AGO} trước)"
+        - ""
+        - "&8▪ &2Nhấn &8» &ftoàn bộ lịch sử"
+    empty:
+      name: "&7Chưa có phát hiện nào"
+    exit:
+      material: BARRIER
+      name: "&cThoát"
+
+  dossier:
+    unavailable: "&cHiện không kết nối được backend"
+    throttled: "&cQuá nhiều yêu cầu, thử lại sau một phút"
+    invalid: "&cTên người chơi không hợp lệ"
+    busy: "&7Vẫn đang tải, đợi một chút"

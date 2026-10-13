@@ -14,18 +14,26 @@ import italy.mlsac.net.alerting.AlertsSubcommand;
 import italy.mlsac.net.alerting.MonitorSubcommand;
 import italy.mlsac.net.alerting.ProbTracking;
 import italy.mlsac.net.alerting.SubscriberSet;
-import italy.mlsac.net.detection.RestoreResult;
-import italy.mlsac.net.history.FalsepositiveSubcommand;
+import italy.mlsac.net.backend.dossier.DossierQuery;
+import italy.mlsac.net.backend.dossier.DossierReply;
+import italy.mlsac.net.config.staff.DossierSettings;
+import italy.mlsac.net.detection.RestoreAnswer;
+import italy.mlsac.net.dossier.DossierDesk;
+import italy.mlsac.net.dossier.DossierTimes;
+import italy.mlsac.net.backend.session.LenientJson;
+import italy.mlsac.net.detection.RestoreOutcome;
+import italy.mlsac.net.detection.RestoreRequest;
+import italy.mlsac.net.restore.DataSubcommand;
+import italy.mlsac.net.restore.RestorePace;
+import italy.mlsac.net.guard.ConsoleGate;
 import italy.mlsac.net.maintenance.ReinstallSubcommand;
 import italy.mlsac.net.maintenance.ReloadDesk;
 import italy.mlsac.net.maintenance.ReloadSubcommand;
 import italy.mlsac.net.text.MessageBook;
-import italy.mlsac.net.profile.ProbSubcommand;
 import italy.mlsac.net.profile.ProfileFacts;
 import italy.mlsac.net.profile.ProfileSubcommand;
 import italy.mlsac.net.punishment.CommandRunner;
 import italy.mlsac.net.punishment.KickHistory;
-import italy.mlsac.net.punishment.KicklistSubcommand;
 import italy.mlsac.net.punishment.LadderRungs;
 import italy.mlsac.net.punishment.MaximumPunishment;
 import italy.mlsac.net.punishment.PenaltyClock;
@@ -49,11 +57,13 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
 
+import java.time.ZoneOffset;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import java.util.function.BooleanSupplier;
 
 final class CommandHarness implements PlayerLookup, ProfileFacts, ReloadDesk, ActionBarPorts,
-        PenaltyServer, PenaltyClock {
+        PenaltyServer, PenaltyClock, CommandLanes {
 
     final MessageBook messages = BundledResources.english();
     final RecordingLog log = new RecordingLog();
@@ -70,6 +80,17 @@ final class CommandHarness implements PlayerLookup, ProfileFacts, ReloadDesk, Ac
             List.of("ban {PLAYER} {VL}"))), true, "classic_ban", false, false);
     long now = 1_000;
     boolean syncSucceeds = true;
+    boolean restoreEnabled = true;
+    final List<RestoreRequest> restores = new ArrayList<>();
+    final List<Runnable> background = new ArrayList<>();
+    final List<String> openedProfiles = new ArrayList<>();
+    final List<String> dossierQueries = new ArrayList<>();
+    DossierSettings dossierSettings = DossierSettings.pluginDefaults();
+    String profileAnswer = "{\"player\":\"Steve\",\"known\":true,\"firstSeen\":0,\"lastSeen\":0,"
+            + "\"detections\":{\"total\":42,\"day\":3,\"week\":12,\"max\":0.973,\"avg\":0.884,"
+            + "\"models\":[{\"model\":\"pro\",\"count\":30,\"max\":0.973}]},"
+            + "\"punishments\":{\"total\":3,\"kicks\":2,\"bans\":1,\"last\":{\"t\":0,\"action\":\"animation\"}},"
+            + "\"suppressions\":{\"total\":5,\"latest\":[]},\"latest\":[]}";
     int reloads;
     final CommandRouter command;
 
@@ -86,11 +107,12 @@ final class CommandHarness implements PlayerLookup, ProfileFacts, ReloadDesk, Ac
             }
 
             @Override
-            public void animated(UUID player, String resolvedCommand) {
+            public void animated(UUID player, String resolvedCommand, Optional<String> animationId) {
                 console.add(resolvedCommand);
             }
         };
-        RungRunner rungs = new RungRunner(new CommandRunner(() -> rules, this, dispatch, history, this, log),
+        RungRunner rungs = new RungRunner(new CommandRunner(() -> rules, this, dispatch, history, this, log,
+                ConsoleGate.OPEN),
                 new PunishCooldown(), this, log);
         PunishSubcommand.PunishEvidence evidence = new PunishSubcommand.PunishEvidence() {
             @Override
@@ -112,12 +134,13 @@ final class CommandHarness implements PlayerLookup, ProfileFacts, ReloadDesk, Ac
         command.registerAll(List.of(
                 new AlertsSubcommand(alerts, messages),
                 new MonitorSubcommand(monitors, tracking, this, messages),
-                new ProbSubcommand(messages),
-                new ProfileSubcommand(this, this, messages),
+                new ProfileSubcommand(this, this, messages, (viewer, viewerName, player) -> openedProfiles.add(
+                        viewerName + " " + player), () -> dossierSettings, new DossierDesk(this::dossier, () -> now),
+                        new DossierTimes(() -> 3_600_000L, ZoneOffset.UTC), this),
                 new ReloadSubcommand(this, messages, log),
                 new PunishSubcommand(this, evidence, new MaximumPunishment(() -> rules, rungs), messages, log),
-                new KicklistSubcommand(history, messages),
-                new FalsepositiveSubcommand(this::restore, this, messages),
+                new DataSubcommand(this::restore, this, () -> restoreEnabled, new RestorePace(() -> now), this,
+                        messages),
                 new ReinstallSubcommand(this, messages, () -> now),
                 new Subcommand() {
                     @Override
@@ -192,8 +215,33 @@ final class CommandHarness implements PlayerLookup, ProfileFacts, ReloadDesk, Ac
         return syncSucceeds;
     }
 
-    private RestoreResult restore(UUID player) {
-        return records.get(player).hasChecks() ? RestoreResult.SAVED : RestoreResult.NOTHING_STORED;
+    private RestoreAnswer restore(RestoreRequest request) {
+        restores.add(request);
+        return records.get(request.player()).hasChecks()
+                ? new RestoreAnswer(RestoreOutcome.SAVED, 120, 7, "data/restore/x")
+                : RestoreAnswer.of(RestoreOutcome.NOTHING_BUFFERED);
+    }
+
+    @Override
+    public void inBackground(Runnable task) {
+        background.add(task);
+    }
+
+    @Override
+    public void reply(CommandActor actor, List<String> lines) {
+        lines.forEach(actor::send);
+    }
+
+    private CompletableFuture<DossierReply> dossier(DossierQuery query) {
+        dossierQueries.add(query.path());
+        return CompletableFuture.completedFuture(new DossierReply.Found(LenientJson.object(profileAnswer)
+                .orElseThrow()));
+    }
+
+    void runBackground() {
+        List<Runnable> pending = new ArrayList<>(background);
+        background.clear();
+        pending.forEach(Runnable::run);
     }
 
     @Override

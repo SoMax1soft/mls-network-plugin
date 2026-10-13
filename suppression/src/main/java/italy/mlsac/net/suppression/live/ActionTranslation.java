@@ -36,7 +36,7 @@ final class ActionTranslation {
 
     private static Optional<PlannedAction> command(CommandAction action) {
         return Optional.of(new italy.mlsac.net.suppression.plan.CommandAction(action.stage(), action.command(),
-                action.animation()));
+                action.animation(), action.animationId()));
     }
 
     private static Optional<PlannedAction> dealt(DamageDealtAction action) {

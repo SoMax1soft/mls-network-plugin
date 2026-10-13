@@ -3,6 +3,7 @@ package italy.mlsac.net.punishment;
 
 import italy.mlsac.net.logbook.Logbook;
 import italy.mlsac.net.text.MessageBook;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.function.Supplier;
 
@@ -40,13 +41,13 @@ public final class ServerPenaltyDispatch implements PenaltyDispatch {
     }
 
     @Override
-    public void animated(UUID player, String resolvedCommand) {
+    public void animated(UUID player, String resolvedCommand, Optional<String> animationId) {
         PenaltyRules current = rules.get();
         if (!current.banShowOn() || !server.online(player)) {
             server.dispatchConsoleNextTick(resolvedCommand);
             return;
         }
-        String wanted = current.animationOrDefault();
+        String wanted = animationId.filter(animations::knows).orElseGet(current::animationOrDefault);
         if (!animations.knows(wanted)) {
             log.warn("[Penalty] Animation '" + wanted + "' not found, using " + PenaltyRules.DEFAULT_ANIMATION);
             wanted = PenaltyRules.DEFAULT_ANIMATION;

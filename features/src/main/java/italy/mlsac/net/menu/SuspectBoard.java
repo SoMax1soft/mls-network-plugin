@@ -20,12 +20,14 @@ public final class SuspectBoard implements OpenMenu {
     private final String viewerName;
     private final List<SuspectRow> suspects;
     private final SuspectPresence presence;
+    private final boolean kicksShown;
     private int page;
     private MenuFrame frame;
 
     public SuspectBoard(MenuBlueprint blueprint, FramePainter painter, String viewerName, List<SuspectRow> onlineOrder,
-                        SuspectPresence presence) {
+                        SuspectPresence presence, boolean kicksShown) {
         this.presence = presence;
+        this.kicksShown = kicksShown;
         this.blueprint = blueprint;
         this.painter = painter;
         this.viewerName = viewerName;
@@ -92,6 +94,7 @@ public final class SuspectBoard implements OpenMenu {
             case NEXT_PAGE -> turn(hasNextPage() ? page + 1 : page);
             case CLOSE -> new MenuReaction.Close();
             case COMMAND -> new MenuReaction.CloseAndRun(ButtonCommand.prepare(button.command(), viewerName));
+            case KICKS -> kicksShown ? new MenuReaction.OpenKicks(0) : new MenuReaction.Nothing();
             default -> new MenuReaction.Nothing();
         };
     }
@@ -112,6 +115,7 @@ public final class SuspectBoard implements OpenMenu {
         return switch (button.action()) {
             case PREV_PAGE -> page > 0 ? Optional.of(TemplateValues.of("{PAGE}", page)) : Optional.empty();
             case NEXT_PAGE -> hasNextPage() ? Optional.of(TemplateValues.of("{PAGE}", page + 2)) : Optional.empty();
+            case KICKS -> kicksShown ? Optional.of(TemplateValues.of("{PLAYER}", viewerName)) : Optional.empty();
             default -> Optional.of(TemplateValues.of("{CURRENT}", page + 1)
                     .and("{TOTAL}", Math.max(1, pages()))
                     .and("{PAGE}", page + 1)

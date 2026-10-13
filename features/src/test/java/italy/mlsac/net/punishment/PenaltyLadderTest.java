@@ -176,7 +176,7 @@ class PenaltyLadderTest {
         CommandRunner runner = new CommandRunner(() -> harness.rules, failing,
                 new ServerPenaltyDispatch(failing, harness, harness,
                         italy.mlsac.net.testkit.BundledResources.english(), () -> harness.rules, harness.log),
-                harness.history, harness, harness.log);
+                harness.history, harness, harness.log, italy.mlsac.net.guard.ConsoleGate.OPEN);
         RungRunner rungs = new RungRunner(runner, new PunishCooldown(), harness, harness.log);
         rungs.run(harness.flag("Steve", 1), List.of("boom", "say ok"));
         assertEquals(List.of("say ok"), harness.console);

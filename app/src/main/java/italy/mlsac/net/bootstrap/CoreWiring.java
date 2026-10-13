@@ -25,6 +25,7 @@ import italy.mlsac.net.config.EffectiveConfig;
 import italy.mlsac.net.config.PresetLayout;
 import italy.mlsac.net.config.core.CoreSettingsReader;
 import italy.mlsac.net.config.local.LocalConfigFile;
+import italy.mlsac.net.console.DebugTally;
 import italy.mlsac.net.console.ConsoleLog;
 import italy.mlsac.net.console.SecretRedactor;
 import italy.mlsac.net.console.jul.JulLogSink;
@@ -122,7 +123,7 @@ final class CoreWiring {
         this.platform = platform;
         this.version = buildVersion(plugin);
         this.config = new ConfigReference(EffectiveConfig.pluginDefaults(coreReader.read(ConfigTree.empty()).settings()));
-        this.log = new ConsoleLog(new JulLogSink(plugin.getLogger()), redactor, () -> config.get().core().debug(), clock);
+        this.log = new ConsoleLog(new JulLogSink(plugin.getLogger()), redactor, () -> DebugTally.on(config.get().core().debug()), clock);
         this.address = LoopbackOverride.fromSystemProperty().resolve(log);
         this.bus = new SynchronousEventBus(log);
         this.scheduler = platform.folia() ? new FoliaTaskScheduler(plugin, new FoliaTickTiming())

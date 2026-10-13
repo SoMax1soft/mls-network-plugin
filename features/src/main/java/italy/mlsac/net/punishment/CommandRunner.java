@@ -1,8 +1,13 @@
 // Copyright (c) 2026 MLSAC. All Rights Reserved.
 package italy.mlsac.net.punishment;
 
+import italy.mlsac.net.guard.CommandOrigin;
+import italy.mlsac.net.guard.ConsoleGate;
+import italy.mlsac.net.guard.ConsoleOrder;
+import italy.mlsac.net.guard.PunishedPlayer;
 import italy.mlsac.net.logbook.Logbook;
 import italy.mlsac.net.scoring.FlagContext;
+import java.util.Optional;
 import java.util.function.Supplier;
 
 public final class CommandRunner {
@@ -16,37 +21,53 @@ public final class CommandRunner {
     private final KickHistory history;
     private final PenaltyClock clock;
     private final Logbook log;
+    private final ConsoleGate gate;
 
     public CommandRunner(Supplier<PenaltyRules> rules, PenaltyServer server, PenaltyDispatch dispatch,
-                         KickHistory history, PenaltyClock clock, Logbook log) {
+                         KickHistory history, PenaltyClock clock, Logbook log, ConsoleGate gate) {
         this.rules = rules;
         this.server = server;
         this.dispatch = dispatch;
         this.history = history;
         this.clock = clock;
         this.log = log;
+        this.gate = gate;
     }
 
-    public void run(LadderCommand command, FlagContext target) {
+    public void run(LadderCommand command, FlagContext target, CommandOrigin origin) {
         try {
-            execute(command, target);
+            execute(command, target, origin);
         } catch (RuntimeException failure) {
             log.severe("[Penalty] Command failed for " + target.playerNick() + ": " + command.configured(), failure);
         }
     }
 
-    private void execute(LadderCommand command, FlagContext target) {
+    private void execute(LadderCommand command, FlagContext target, CommandOrigin origin) {
         if (rules.get().nickGuard() && command.consoleCommand() && !SafeNames.safe(target.playerNick())) {
             kickUnsafeName(command, target);
             return;
         }
+        Optional<String> resolved = guarded(command, target, origin, PenaltyText.resolve(command.body(), target));
+        if (resolved.isEmpty()) {
+            return;
+        }
         history.add(record(target, command.configured()));
         server.handedOver(command.configured());
-        command.dispatch(dispatch, target.player(), PenaltyText.resolve(command.body(), target));
+        command.dispatch(dispatch, target.player(), resolved.get());
         if (command.punishing()) {
             server.punishReport(new PunishEvent(target.player(), target.playerNick(), target.probability(),
                     target.buffer(), target.offenceLevel(), command.reportedAction(), command.configured()));
         }
+    }
+
+    private Optional<String> guarded(LadderCommand command, FlagContext target, CommandOrigin origin,
+                                     String resolved) {
+        if (!command.consoleCommand()) {
+            return Optional.of(resolved);
+        }
+        CommandOrigin source = command instanceof LadderCommand.Animated ? origin.animated() : origin;
+        return gate.admit(ConsoleOrder.against(resolved, source,
+                new PunishedPlayer(target.playerNick(), target.player())));
     }
 
     private void kickUnsafeName(LadderCommand command, FlagContext target) {

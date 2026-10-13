@@ -40,6 +40,7 @@ public final class FakeServer implements ServerThreads, SuspectStatus, Exemption
     private final Map<UUID, FakeBody> bodies = new HashMap<>();
     private final Map<String, String> overrides = new HashMap<>();
     private final Map<String, String> bundled = new HashMap<>(BuiltInTexts.english());
+    private String prefix = "";
     private final List<RanCommand> commands = new ArrayList<>();
     private final List<String> subscriberLines = new ArrayList<>();
     private final List<String> staffLines = new ArrayList<>();
@@ -93,6 +94,10 @@ public final class FakeServer implements ServerThreads, SuspectStatus, Exemption
 
     public void override(String key, String text) {
         overrides.put(key, text);
+    }
+
+    public void prefix(String text) {
+        prefix = text;
     }
 
     public void terrain(boolean isPassable, boolean isLoaded) {
@@ -216,6 +221,11 @@ public final class FakeServer implements ServerThreads, SuspectStatus, Exemption
     @Override
     public String bundled(String key) {
         return bundled.getOrDefault(key, "");
+    }
+
+    @Override
+    public String prefix() {
+        return prefix;
     }
 
     @Override

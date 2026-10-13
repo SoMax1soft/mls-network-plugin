@@ -7,6 +7,7 @@ import com.github.retrooper.packetevents.protocol.packettype.PacketTypeCommon;
 import com.github.retrooper.packetevents.protocol.player.InteractionHand;
 import com.github.retrooper.packetevents.protocol.world.Location;
 import com.github.retrooper.packetevents.wrapper.play.client.WrapperPlayClientAnimation;
+import com.github.retrooper.packetevents.wrapper.play.client.WrapperPlayClientAttack;
 import com.github.retrooper.packetevents.wrapper.play.client.WrapperPlayClientHeldItemChange;
 import com.github.retrooper.packetevents.wrapper.play.client.WrapperPlayClientInteractEntity;
 import com.github.retrooper.packetevents.wrapper.play.client.WrapperPlayClientPlayerFlying;
@@ -59,7 +60,12 @@ final class InboundDecoders {
         add(PacketType.Play.Client.HELD_ITEM_CHANGE, new Entry(HeldSlotPacket.class,
                 (event, player, receivedNanos) -> Optional.of(new HeldSlotPacket(player,
                         new WrapperPlayClientHeldItemChange(event).getSlot()))));
+        add(PacketType.Play.Client.PUNCH, new Entry(SwingPacket.class,
+                (event, player, receivedNanos) -> Optional.of(new SwingPacket(player, receivedNanos, true))));
         add(PacketType.Play.Client.INTERACT_ENTITY, new Entry(AttackPacket.class, InboundDecoders::attack));
+        add(PacketType.Play.Client.ATTACK, new Entry(AttackPacket.class,
+                (event, player, receivedNanos) -> Optional.of(new AttackPacket(player, receivedNanos,
+                        new WrapperPlayClientAttack(event).getEntityId(), event.isCancelled()))));
         add(PacketType.Play.Client.PONG, new Entry(PongPacket.class,
                 (event, player, receivedNanos) -> Optional.of(new PongPacket(player, new WrapperPlayClientPong(event).getId()))));
         add(PacketType.Play.Client.WINDOW_CONFIRMATION, new Entry(PongPacket.class,
@@ -85,6 +91,7 @@ final class InboundDecoders {
         action(PacketType.Play.Client.PLAYER_BLOCK_PLACEMENT, PlayerActionKind.BLOCK_PLACEMENT);
         action(PacketType.Play.Client.USE_ITEM, PlayerActionKind.USE_ITEM);
         action(PacketType.Play.Client.INTERACT_ENTITY, PlayerActionKind.INTERACT_ENTITY);
+        action(PacketType.Play.Client.ATTACK, PlayerActionKind.INTERACT_ENTITY);
         action(PacketType.Play.Client.ENTITY_ACTION, PlayerActionKind.ENTITY_ACTION);
         action(PacketType.Play.Client.PLAYER_ABILITIES, PlayerActionKind.ABILITIES);
         action(PacketType.Play.Client.CLIENT_STATUS, PlayerActionKind.CLIENT_STATUS);

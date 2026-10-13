@@ -15,6 +15,13 @@ final class ConfigTreeScalars {
         return value instanceof String || value instanceof Number || value instanceof Boolean;
     }
 
+    static boolean isTemplateValue(Object value) {
+        if (value instanceof List<?> list) {
+            return list.stream().allMatch(ConfigTreeScalars::isScalar);
+        }
+        return isScalar(value);
+    }
+
     static Object mutableCopy(Object value) {
         if (value instanceof Map<?, ?> map) {
             Map<String, Object> copy = new LinkedHashMap<>();
