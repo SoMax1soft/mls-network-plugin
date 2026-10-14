@@ -17,7 +17,7 @@ import java.util.List;
 import java.util.Map;
 import org.bukkit.Bukkit;
 
-final class DebugPulse {
+final class DebugPulse implements DebugReport {
 
     private static final long EVERY_TICKS = 200L;
     private static final Map<String, String> GROUPS = new LinkedHashMap<>();
@@ -32,6 +32,7 @@ final class DebugPulse {
         GROUPS.put("legacy.", "Pro/Mini");
         GROUPS.put("ultra.", "Ultra");
         GROUPS.put("backend.", "Backend");
+        GROUPS.put("badpackets.", "Bad packets");
     }
 
     private final CoreWiring core;
@@ -66,7 +67,8 @@ final class DebugPulse {
         DebugTally.traceSink(null);
     }
 
-    void refreshNow() {
+    @Override
+    public void refreshNow() {
         boolean on = DebugTally.on(core.config.get().core().debug());
         DebugTally.counting(on);
         if (on && !wasOn) {
@@ -75,7 +77,8 @@ final class DebugPulse {
         wasOn = on;
     }
 
-    List<String> summary() {
+    @Override
+    public List<String> summary() {
         List<String> lines = new ArrayList<>();
         lines.add("Server: " + Bukkit.getName() + " " + Bukkit.getVersion());
         lines.add("Bukkit version '" + Bukkit.getBukkitVersion() + "' -> MLSAC rules " + platform.serverVersion().version()

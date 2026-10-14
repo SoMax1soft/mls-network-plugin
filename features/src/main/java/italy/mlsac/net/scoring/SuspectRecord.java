@@ -69,6 +69,11 @@ public final class SuspectRecord {
         return buffer;
     }
 
+    public synchronized double moveBuffer(DoubleUnaryOperator bufferUpdate) {
+        buffer = bufferUpdate.applyAsDouble(buffer);
+        return buffer;
+    }
+
     public synchronized void resetBuffer(double value) {
         buffer = value;
     }

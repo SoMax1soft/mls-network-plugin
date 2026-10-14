@@ -1,6 +1,7 @@
 // Copyright (c) 2026 MLSAC. All Rights Reserved.
 package italy.mlsac.net.alerting;
 
+import italy.mlsac.net.detection.BadPacketKind;
 import italy.mlsac.net.text.MessageBook;
 import italy.mlsac.net.text.DisplayNumbers;
 import italy.mlsac.net.text.TemplateValues;
@@ -15,13 +16,22 @@ public final class AlertTexts {
         this.messages = messages;
     }
 
-    public String stepAlert(String player, double probability, double buffer, String model, long stepPercent) {
-        return messages.prefixed("alert-format", common(player, probability, buffer, 0, model)
+    public String stepAlert(StepAlertTemplate template, String player, double probability, double buffer,
+                            String model, long stepPercent) {
+        return messages.prefixed(template.messageKey(), common(player, probability, buffer, 0, model)
                 .aliases(stepPercent, "{STEP_PERCENT}", "<step_percent>"));
     }
 
     public String flagAlert(String player, double probability, double buffer, int offenceLevel) {
         return messages.prefixed("alert-format-vl", common(player, probability, buffer, offenceLevel, FLAG_MODEL));
+    }
+
+    public String badPackets(String player, BadPacketKind kind, int count, int windowSeconds) {
+        return messages.prefixed("alert-bad-packets", TemplateValues.none()
+                .aliases(player, "{PLAYER}", "<player>")
+                .and("{CHECK}", messages.rawText("bad-packets-" + kind.slug()))
+                .and("{COUNT}", count)
+                .and("{WINDOW}", windowSeconds));
     }
 
     public String monitorLine(String model, String player, double probability) {

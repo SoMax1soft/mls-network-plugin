@@ -4,7 +4,7 @@ package italy.mlsac.net.packet;
 import java.util.UUID;
 
 public sealed interface OutboundPacket permits TransactionPingPacket, EntitySpawnPacket, EntityMovePacket,
-        EntityDestroyPacket, ViewResetPacket, EntityMetadataPacket, PassengersPacket {
+        EntityDestroyPacket, ViewResetPacket, EntityMetadataPacket, PassengersPacket, PlayerPositionPacket {
 
     UUID viewer();
 }

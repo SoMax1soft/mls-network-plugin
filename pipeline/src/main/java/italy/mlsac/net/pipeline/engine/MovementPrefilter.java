@@ -25,7 +25,7 @@ final class MovementPrefilter {
     }
 
     boolean accepts(MovementPacket packet) {
-        if (!packet.carriesPosition()) {
+        if (!packet.carriesPosition() || packet.cancelled()) {
             return true;
         }
         UUID player = packet.player();

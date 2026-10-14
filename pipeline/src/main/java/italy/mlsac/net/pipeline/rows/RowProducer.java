@@ -32,6 +32,7 @@ public final class RowProducer {
     private final ClientSightRewind lens;
     private final OcclusionQueue occlusion;
     private final ClickResolver clicks;
+    private final NoPacketRowInput noPacketInput;
     private final RotationChain chain = new RotationChain();
     private final AttackMemory memory = new AttackMemory();
     private final AimedTargetSearch targetSearch = new AimedTargetSearch(memory);
@@ -54,8 +55,9 @@ public final class RowProducer {
     private boolean movementSinceTickEnd = true;
 
     public RowProducer(UUID player, long start, RowSink sink, ServerSamples samples, ClientSightRewind lens,
-            OcclusionQueue occlusion) {
+            OcclusionQueue occlusion, NoPacketRowInput noPacketInput) {
         this.player = player;
+        this.noPacketInput = noPacketInput;
         this.start = start;
         this.sink = sink;
         this.samples = samples;
@@ -121,6 +123,11 @@ public final class RowProducer {
         memory.attacked(nanos, target == null ? null : target.player());
     }
 
+    public void serverTeleported() {
+        segmentBreak();
+        position = null;
+    }
+
     public void discontinuity() {
         segmentBreak();
         lookKnown = false;
@@ -157,14 +164,13 @@ public final class RowProducer {
             return;
         }
         if (!packet.finite()) {
-            discontinuity();
             return;
         }
         boolean echo = echoMarker && packet.carriesRotation() && !origin.noPacket();
-        boolean jumped = position != null && packet.carriesPosition()
+        boolean jumped = !packet.cancelled() && position != null && packet.carriesPosition()
                 && Math.abs(packet.x() - position.x()) + Math.abs(packet.y() - position.y())
                         + Math.abs(packet.z() - position.z()) > JUMP_DISTANCE;
-        if (echo || jumped) {
+        if (echo) {
             segmentBreak();
             position = null;
         }
@@ -182,8 +188,11 @@ public final class RowProducer {
         double dtMillis = newSegment ? 0.0 : (now - lastRowTime) / 1e6;
         PlayerSample me = samples.current(player);
         boolean selfFresh = me != null && me.freshAt(now);
+        if (jumped && selfFresh) {
+            position = me.feet();
+        }
         LookUpdate lookUpdate = updateLook(packet, origin, me, selfFresh);
-        MoveDelta move = updatePosition(packet, newSegment);
+        MoveDelta move = updatePosition(packet, newSegment, !jumped && !packet.cancelled());
         Vec3 previousPosition = move.valid() ? lookUpdate.previousPosition() : null;
         Vec3 aimPosition = position != null ? position : (selfFresh ? me.feet() : null);
         PlayerSample eye = selfFresh && aimPosition != null
@@ -200,10 +209,12 @@ public final class RowProducer {
         AimRelation aim = measurement.valid()
                 ? AimRelation.between(eye.eye(), measurement.lens().tight(), yaw, pitch) : AimRelation.NONE;
         OnTarget onTarget = view.onTarget(now);
-        clicks.resolveWithRow(new RowContext(nextRow, segmentOrdinal, gameTick, now, origin.rotationSource(), eye,
+        boolean takesInput = noPacketInput.takesInput(origin);
+        if (takesInput) {
+            clicks.resolveWithRow(new RowContext(nextRow, segmentOrdinal, gameTick, now, origin.rotationSource(), eye,
                 previousEye, choice.target(), measurement, aim, onTarget, lookUpdate.step(), look, yaw, pitch));
-        int airSwings = counters.airSwings();
-        memory.airSwings(airSwings);
+            memory.airSwings(counters.airSwings());
+        }
         OcclusionCell cell = new OcclusionCell();
         TickRow row = new TickRow(
                 new RowTiming(nextRow, segmentOrdinal, gameTick, now - start, dtMillis,
@@ -211,7 +222,9 @@ public final class RowProducer {
                         memory.millisSinceAttack(now)),
                 new PacketTraits(packet.carriesRotation(), packet.carriesPosition(), packet.grounded(), packet.cancelled(),
                         echo, origin.noPacket(), yaw, pitch),
-                lookUpdate.step(), move, counters.snapshot(memory.rowsAfterLastSwing()),
+                lookUpdate.step(), move, takesInput
+                        ? counters.snapshot(memory.rowsAfterLastSwing())
+                        : new InputCounts(0, 0, 0, 0, 0, memory.rowsAfterLastSwing()),
                 SelfState.of(selfFresh ? me : null),
                 new TargetView(choice.source(), changed && rowExisted && !newSegment, view.lockedOnMillis(now),
                         choice.inRange()),
@@ -224,8 +237,10 @@ public final class RowProducer {
         nextRow++;
         lastRowTime = now;
         rowWritten = true;
-        counters.reset();
-        memory.rowCompleted();
+        if (takesInput) {
+            counters.reset();
+            memory.rowCompleted();
+        }
     }
 
     private LookUpdate updateLook(MovementPacket packet, RowOrigin origin, PlayerSample me, boolean selfFresh) {
@@ -239,7 +254,7 @@ public final class RowProducer {
             pitch = packet.pitch();
             lookKnown = true;
         } else {
-            step = chain.still();
+            step = noPacketInput.stepWithoutRotation(chain, origin);
             if (!lookKnown && selfFresh && Float.isFinite(me.yaw()) && Float.isFinite(me.pitch())) {
                 yaw = me.yaw();
                 pitch = me.pitch();
@@ -256,14 +271,14 @@ public final class RowProducer {
         return new LookUpdate(step, yawAtLastPacket, pitchAtLastPacket, position);
     }
 
-    private MoveDelta updatePosition(MovementPacket packet, boolean newSegment) {
-        boolean hadPosition = position != null && !newSegment;
+    private MoveDelta updatePosition(MovementPacket packet, boolean newSegment, boolean acceptPosition) {
+        boolean hadPosition = position != null && !newSegment && (!packet.carriesPosition() || acceptPosition);
         MoveDelta move = new MoveDelta(hadPosition, 0.0, 0.0, 0.0);
-        if (hadPosition && packet.carriesPosition()) {
+        if (hadPosition && packet.carriesPosition() && acceptPosition) {
             move = new MoveDelta(true, packet.x() - position.x(), packet.y() - position.y(),
                     packet.z() - position.z());
         }
-        if (packet.carriesPosition()) {
+        if (packet.carriesPosition() && acceptPosition) {
             position = new Vec3(packet.x(), packet.y(), packet.z());
         }
         groundedBefore = packet.grounded();

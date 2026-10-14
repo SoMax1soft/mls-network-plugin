@@ -46,10 +46,11 @@ public final class DetectionFlow {
 
     private void apply(SuspectRecord suspect, ScreenedVerdict verdict, ScoringRules current) {
         double buffer = verdict.onlyAlert() ? suspect.buffer()
-                : suspect.count(verdict.model(), verdict.probability(),
+                : verdict.origin().count(suspect, verdict,
                         before -> BufferFormula.next(before, verdict.probability(), current));
         audience.answerSeen(suspect, verdict);
-        if (fireSteps(suspect, verdict, buffer, current) && reporting.get().reports(verdict.probability())) {
+        if (fireSteps(suspect, verdict, buffer, current) && reporting.get().reports(verdict.probability())
+                && !IntegrityVerdict.concerns(verdict.model())) {
             reports.alert(new AlertEvent(suspect.id(), suspect.name(), verdict.model(), verdict.probability(), buffer));
         }
         BufferReactions currentReactions = reactions.get();
@@ -59,7 +60,7 @@ public final class DetectionFlow {
         }
         currentReactions.answerAccepted(moment);
         if (!verdict.onlyAlert() && current.flags(buffer)) {
-            scheduleFlag(suspect, verdict.probability());
+            scheduleFlag(suspect, verdict.probability(), verdict.origin());
             double reset = current.resetBuffer();
             suspect.resetBuffer(reset);
             currentReactions.bufferReset(suspect, reset);
@@ -84,8 +85,8 @@ public final class DetectionFlow {
         return true;
     }
 
-    private void scheduleFlag(SuspectRecord suspect, double probability) {
-        boolean scheduled = players.runNextTick(suspect.id(), () -> flags.process(suspect, probability));
+    private void scheduleFlag(SuspectRecord suspect, double probability, VerdictOrigin origin) {
+        boolean scheduled = players.runNextTick(suspect.id(), () -> flags.process(suspect, probability, origin));
         if (!scheduled) {
             log.warn("[Detection] " + suspect.name() + " left before the flag could be handled");
         }

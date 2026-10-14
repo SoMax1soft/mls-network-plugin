@@ -40,6 +40,28 @@ class ServerVersionTableTest {
     }
 
     @ParameterizedTest
+    @CsvSource({
+            "1.16.5-R0.1-SNAPSHOT, 1.16.5",
+            "1.17.1-R0.1-SNAPSHOT, 1.17.1",
+            "1.19.4-R0.1-SNAPSHOT, 1.19.4",
+            "1.20.6-R0.1-SNAPSHOT, 1.20.6",
+            "1.21.3, 1.21.3",
+            "26.2.build.133-stable, 26.2",
+            "26.1.2.build.74-stable, 26.1.2",
+            "26.3.build.181-stable, 26.3",
+            "abc, abc"
+    })
+    void reportsTheRunningVersionNotTheRulesBucket(String raw, String detected) {
+        assertEquals(detected, table.resolve(raw).detected());
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"", "   "})
+    void blankVersionReportsTheFallbackRules(String raw) {
+        assertEquals("1.16.5", table.resolve(raw).detected());
+    }
+
+    @ParameterizedTest
     @ValueSource(strings = {"0.9", "abc", "1", "", "1.x.2"})
     void unknownVersionsRunAsMinimum(String raw) {
         VersionResolution resolution = table.resolve(raw);

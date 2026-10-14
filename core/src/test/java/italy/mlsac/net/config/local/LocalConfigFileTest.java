@@ -87,6 +87,42 @@ class LocalConfigFileTest {
     }
 
     @Test
+    void noGeneratedOrRewrittenConfigMentionsBadPackets() throws Exception {
+        file.prepare();
+        assertNoBadPackets(folder.files().get("config.yml"));
+        assertFalse(file.syncMissing());
+        assertNoBadPackets(folder.files().get("config.yml"));
+
+        MemoryDataFolder legacyFolder = new MemoryDataFolder();
+        legacyFolder.writeText("config.yml", "ai:\n  api-key: legacy-key-99\nlanguage: ru\ndebug: false\n"
+                + "violation:\n  threshold: 40\ndetection:\n  endpoint: http://old\n");
+        LocalConfigFile legacy = new LocalConfigFile(legacyFolder, resources, new SnakeYamlParser(), log);
+        assertEquals("legacy-key-99", legacy.prepare().value("detection.api-key").orElseThrow());
+        assertNoBadPackets(legacyFolder.files().get("config.yml"));
+
+        MemoryDataFolder devFolder = new MemoryDataFolder();
+        devFolder.writeText("config.yml", "_schema-version: 'b55'\nlanguage: en\ndetection:\n  api-key: k-7\n"
+                + "bad-packets:\n  enabled: true\n  alert-threshold: 3\n  tick-end-burst: 200\n");
+        LocalConfigFile dev = new LocalConfigFile(devFolder, resources, new SnakeYamlParser(), log);
+        dev.prepare();
+        assertNoBadPackets(devFolder.files().get("config.yml"));
+        assertFalse(sink.contains("bad-packets"));
+
+        MemoryDataFolder partialFolder = new MemoryDataFolder();
+        partialFolder.writeText("config.yml", "_schema-version: '2.0'\nlanguage: uk\n");
+        LocalConfigFile partial = new LocalConfigFile(partialFolder, resources, new SnakeYamlParser(), log);
+        assertTrue(partial.syncMissing());
+        assertNoBadPackets(partialFolder.files().get("config.yml"));
+        assertEquals("uk", partial.prepare().value("language").orElseThrow());
+        assertNoBadPackets(partialFolder.files().get("config.yml"));
+    }
+
+    private static void assertNoBadPackets(String configText) {
+        assertFalse(configText.contains("bad-packets") || configText.contains("tick-end")
+                || configText.contains("strike-interval"), configText);
+    }
+
+    @Test
     void templateRenderingQuotesStrings() {
         assertEquals("\"a\\\\b\\\"c\"", ConfigTemplate.render("a\\b\"c"));
         assertEquals("true", ConfigTemplate.render(true));

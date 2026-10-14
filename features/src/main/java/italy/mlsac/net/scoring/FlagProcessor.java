@@ -16,12 +16,13 @@ public final class FlagProcessor {
         this.penalties = penalties;
     }
 
-    public void process(SuspectRecord suspect, double probability) {
+    public void process(SuspectRecord suspect, double probability, VerdictOrigin origin) {
         if (!players.online(suspect.id())) {
             return;
         }
         int offenceLevel = ledger.raise(suspect.id());
-        FlagContext flag = new FlagContext(suspect.id(), suspect.name(), offenceLevel, probability, suspect.buffer());
+        FlagContext flag = new FlagContext(suspect.id(), suspect.name(), offenceLevel, probability, suspect.buffer(),
+                origin);
         audience.flagRaised(flag);
         penalties.onFlag(flag);
     }

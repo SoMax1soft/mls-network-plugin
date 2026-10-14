@@ -2,6 +2,7 @@
 package italy.mlsac.net.pipeline.server;
 
 import italy.mlsac.net.module.CoreServices;
+import italy.mlsac.net.pipeline.live.ServerHooks;
 import italy.mlsac.net.pipeline.live.ServerSide;
 import java.util.List;
 import org.bukkit.plugin.Plugin;
@@ -12,6 +13,7 @@ public final class BukkitServerSide {
 
     public BukkitServerSide(CoreServices core) {
         ServerRoster roster = new BukkitRoster(core.host().plugin().map(Plugin::getServer));
+        ServerTickPace pace = new ServerTickPace(core.bus(), core.host().plugin().map(Plugin::getServer), core.log());
         boolean regionThreaded = core.platform().folia();
         ThreadOwnership ownership = regionThreaded ? new RegionThreadOwnership() : new MainThreadOwnership();
         PlaceBook places = new PlaceBook(ownership);
@@ -24,7 +26,7 @@ public final class BukkitServerSide {
                 new BukkitPlayerStates(roster, ownership, reading, PingReading.forRunningServer(), core.log()),
                 new BukkitSightLines(roster, ownership, AirReading.forRunningServer(), core.log()),
                 new BukkitServerFacts(roster, core.packets().clients(), places),
-                new TickedPlayers(core.bus(), roster, works));
+                ServerHooks.inOrder(new TickedPlayers(core.bus(), roster, works), pace), pace);
     }
 
     public ServerSide ports() {

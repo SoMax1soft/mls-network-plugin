@@ -31,8 +31,16 @@ public final class SubscriberBroadcast {
         for (UUID subscriber : subscribers.members()) {
             lane.onPlayerThread(subscriber, () -> deliverAlert(subscriber, line, sound, current.sound()));
         }
-        if (current.console()) {
-            lane.onMainThread(() -> log.info(texts.strip(line)));
+        consoleCopy(current, line, ConsoleCopy.WHEN_CONFIGURED);
+    }
+
+    public void consoleOnly(String line, ConsoleCopy copy) {
+        consoleCopy(output.get(), line, copy);
+    }
+
+    private void consoleCopy(AlertOutput current, String line, ConsoleCopy copy) {
+        if (copy.wanted(current)) {
+            lane.onMainThread(() -> copy.write(log, texts.strip(line)));
         }
     }
 

@@ -3,6 +3,7 @@ package italy.mlsac.net.config.core;
 
 import italy.mlsac.net.config.ConfigTree;
 import italy.mlsac.net.config.guard.CommandGuardReader;
+import italy.mlsac.net.config.integrity.BadPacketSettingsReader;
 import italy.mlsac.net.text.LanguageId;
 import java.util.ArrayList;
 import java.util.List;
@@ -15,6 +16,7 @@ public final class CoreSettingsReader {
     private static final double BUILT_IN_ALERT_EVENT_THRESHOLD = 0.75;
 
     private final CommandGuardReader guard = new CommandGuardReader();
+    private final BadPacketSettingsReader badPackets = new BadPacketSettingsReader();
 
     public Result read(ConfigTree file) {
         List<String> warnings = new ArrayList<>();
@@ -30,7 +32,7 @@ public final class CoreSettingsReader {
                 bool(file, "server-identity.reporting.events-enabled", true),
                 threshold(file));
         return new Result(new CoreSettings(debug, language, accessKey, preset.selection(), identity,
-                guard.read(file, warnings)), warnings);
+                guard.read(file, warnings), badPackets.read(file, warnings)), warnings);
     }
 
     private static double threshold(ConfigTree file) {

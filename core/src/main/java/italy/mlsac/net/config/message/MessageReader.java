@@ -19,6 +19,8 @@ public final class MessageReader {
     private static final int MAX_LINES = 10;
     private static final int MAX_LINE = 96;
 
+    private final LocalOnlyMessages localOnly = new LocalOnlyMessages();
+
     public MessageSettings read(MessageSettings lower, SettingsLayer layer) {
         MessageOverrides overrides = readOverrides(layer).orElse(lower.overrides());
         Optional<LanguageId> language = lower.presetLanguage();
@@ -46,6 +48,10 @@ public final class MessageReader {
             }
             if (!KEY.matcher(entry.getKey()).matches()) {
                 section.get().drop(entry.getKey(), "invalid message key");
+                continue;
+            }
+            if (localOnly.contains(entry.getKey())) {
+                section.get().drop(entry.getKey(), "local-only message, a preset cannot change it");
                 continue;
             }
             toOverride(entry.getValue()).ifPresentOrElse(value -> {

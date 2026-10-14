@@ -8,6 +8,7 @@ import italy.mlsac.net.pipeline.engine.DataPipeline;
 import italy.mlsac.net.pipeline.environment.CountedStates;
 import italy.mlsac.net.pipeline.engine.InputTapSource;
 import italy.mlsac.net.pipeline.engine.JointTapSource;
+import italy.mlsac.net.pipeline.integrity.PacketIntegrityGuard;
 import italy.mlsac.net.pipeline.live.AnimatingPlayers;
 import italy.mlsac.net.pipeline.live.ConfiguredRestoreLimits;
 import italy.mlsac.net.pipeline.live.ConfiguredSwitches;
@@ -31,6 +32,7 @@ public final class PipelineAssembly implements PipelineModule {
 
     private final PlayerOrderedInput pipeline;
     private final PacketFeed packetFeed;
+    private final PacketIntegrityGuard integrityGuard;
     private final LifeFeed lifeFeed;
     private final ServerHooks serverHooks;
     private final PipelinePorts ports;
@@ -50,7 +52,8 @@ public final class PipelineAssembly implements PipelineModule {
     public PipelineAssembly(CoreServices core, ServerSide realServer, InputTapSource taps) {
         Objects.requireNonNull(core, "core");
         CountedStates states = new CountedStates(realServer.states());
-        ServerSide server = new ServerSide(states, realServer.rays(), realServer.facts(), realServer.hooks());
+        ServerSide server = new ServerSide(states, realServer.rays(), realServer.facts(), realServer.hooks(),
+                realServer.pace());
         AnimatingPlayers animations = new AnimatingPlayers();
         PlayerFacts facts = new PlayerFacts(core.standings(), core.regions(), animations, core.packets().clients(),
                 core.players(), server.facts());
@@ -67,7 +70,9 @@ public final class PipelineAssembly implements PipelineModule {
                 new JointTapSource(Objects.requireNonNull(taps, "taps"), restore));
         this.pipeline = new PlayerOrderedInput(engine);
         MeteredInput metered = new MeteredInput(pipeline, core.workload(), System::nanoTime, states::lastRosterSize);
-        this.packetFeed = new PacketFeed(core.packets(), metered);
+        this.packetFeed = new PacketFeed(core.packets(), metered, core.bus());
+        this.integrityGuard = new PacketIntegrityGuard(core.packets(), core.bus(),
+                () -> core.config().get().core().badPackets(), facts, server.pace(), System::nanoTime);
         this.lifeFeed = new LifeFeed(core.bus(), metered, animations);
         this.serverHooks = server.hooks();
         this.ports = new PipelinePorts(restore, AimProfiles.NONE, pipeline::inLegacyCombat);
@@ -82,6 +87,7 @@ public final class PipelineAssembly implements PipelineModule {
     public void start() {
         serverHooks.start();
         lifeFeed.start();
+        integrityGuard.start();
         packetFeed.start();
         pipeline.enabled();
     }
@@ -89,6 +95,7 @@ public final class PipelineAssembly implements PipelineModule {
     @Override
     public void stop() {
         packetFeed.stop();
+        integrityGuard.stop();
         lifeFeed.stop();
         serverHooks.stop();
         pipeline.disabled();

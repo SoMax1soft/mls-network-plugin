@@ -26,8 +26,12 @@ public final class VerdictScreen {
                     + " cannot be a probability, the payload is damaged or forged");
             return Optional.empty();
         }
-        ModelSwitchboard switchboard = models.get();
         String model = verdict.model();
+        if (IntegrityVerdict.concerns(model)) {
+            return Optional.of(new ScreenedVerdict(IntegrityVerdict.MODEL, probability, VerdictWeight.COUNTED,
+                    IntegrityVerdict.DISPLAY_NAME, VerdictOrigin.PACKET_INTEGRITY));
+        }
+        ModelSwitchboard switchboard = models.get();
         if (!switchboard.enabled(model) || !exclusiveModeAllows(switchboard, model)) {
             return Optional.empty();
         }

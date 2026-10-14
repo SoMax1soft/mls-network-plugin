@@ -12,11 +12,13 @@ import italy.mlsac.net.pipeline.occlusion.WallCheckRequest;
 import italy.mlsac.net.pipeline.occlusion.OcclusionKind;
 import italy.mlsac.net.pipeline.occlusion.OcclusionQueue;
 import italy.mlsac.net.pipeline.player.PlayerSample;
+import italy.mlsac.net.console.DebugTally;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
 final class ClickResolver {
+    private static final int PENDING_LIMIT = 256;
     private static final double[] EYE_OFFSETS = {1.62, 1.27, 0.4};
 
     private final UUID player;
@@ -35,6 +37,10 @@ final class ClickResolver {
     }
 
     void add(PendingClick click) {
+        if (pending.size() >= PENDING_LIMIT) {
+            pending.remove(0);
+            DebugTally.count("drop.pending-click-overflow");
+        }
         pending.add(click);
     }
 

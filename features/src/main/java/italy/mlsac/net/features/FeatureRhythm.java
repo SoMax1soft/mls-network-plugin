@@ -9,6 +9,7 @@ import italy.mlsac.net.config.ConfigApplied;
 import italy.mlsac.net.config.ConfigChangeCause;
 import italy.mlsac.net.console.LogTopic;
 import italy.mlsac.net.console.PluginLog;
+import italy.mlsac.net.detection.BadPacketObserved;
 import italy.mlsac.net.detection.ModelVerdict;
 import italy.mlsac.net.detection.WindowSubmitted;
 import italy.mlsac.net.features.live.NametagStage;
@@ -59,6 +60,7 @@ final class FeatureRhythm {
         subscriptions.add(bus.subscribe(ConfigApplied.class, this::configApplied));
         subscriptions.add(bus.subscribe(WindowSubmitted.class, wiring.verdicts::submitted));
         subscriptions.add(bus.subscribe(ModelVerdict.class, wiring.verdicts::answered));
+        subscriptions.add(bus.subscribe(BadPacketObserved.class, wiring.badPackets::observed));
         subscriptions.add(bus.subscribe(InterServerAlert.class, wiring.crossServer::received));
         subscriptions.add(bus.subscribe(ServerTick.class, tick -> wiring.admission.everyOnline()));
         subscriptions.add(bus.subscribe(PlayerTick.class, tick -> wiring.admission.one(tick.player())));
@@ -81,6 +83,7 @@ final class FeatureRhythm {
         wiring.animationTicker.haltEvery();
         wiring.removalLog.clear();
         wiring.verdicts.clear();
+        wiring.badPackets.clear();
         wiring.roster.clear();
     }
 
@@ -119,6 +122,7 @@ final class FeatureRhythm {
     private void left(UUID player) {
         wiring.enrollment.left(player);
         wiring.admission.departed(player);
+        wiring.badPackets.left(player);
         wiring.punishCooldown.forget(player);
         wiring.reductions.forget(player);
         wiring.trickCooldowns.forget(player);

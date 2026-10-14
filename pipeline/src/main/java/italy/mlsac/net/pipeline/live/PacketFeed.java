@@ -12,6 +12,10 @@ import italy.mlsac.net.packet.ListenerOrder;
 import italy.mlsac.net.packet.MovementPacket;
 import italy.mlsac.net.packet.PacketLayer;
 import italy.mlsac.net.packet.PongPacket;
+import italy.mlsac.net.packet.PlayerPositionPacket;
+import italy.mlsac.net.bus.EventBus;
+import italy.mlsac.net.bus.Subscription;
+import italy.mlsac.net.player.PlayerLeft;
 import italy.mlsac.net.packet.Registration;
 import italy.mlsac.net.packet.SwingPacket;
 import italy.mlsac.net.packet.TeleportConfirmPacket;
@@ -29,24 +33,55 @@ public final class PacketFeed {
     private final PacketLayer packets;
     private final PipelineInput pipeline;
     private final List<Registration> registrations = new ArrayList<>();
+    private final TeleportReceipts teleports = new TeleportReceipts(System::nanoTime);
+    private final EventBus bus;
+    private Subscription departure;
 
     public PacketFeed(PacketLayer packets, PipelineInput pipeline) {
+        this(packets, pipeline, null);
+    }
+
+    public PacketFeed(PacketLayer packets, PipelineInput pipeline, EventBus bus) {
         this.packets = packets;
         this.pipeline = pipeline;
+        this.bus = bus;
     }
 
     public void start() {
+        if (bus != null) {
+            departure = bus.subscribe(PlayerLeft.class, left -> teleports.forget(left.player()));
+        }
         registrations.add(packets.onInbound(MovementPacket.class, ListenerOrder.LATE, this::movement));
         registrations.add(packets.onInbound(ClientTickEndPacket.class, ListenerOrder.LATE, this::clientTickEnded));
         registrations.add(packets.onInbound(TeleportConfirmPacket.class, ListenerOrder.LATE,
-                context -> pipeline.teleportConfirmed(context.packet().player())));
+                context -> {
+                    TeleportConfirmPacket packet = context.packet();
+                    if (!context.cancelled() && teleports.accept(packet.player(), packet.warpSequence())) {
+                        pipeline.teleportConfirmed(packet.player());
+                    }
+                }));
+        registrations.add(packets.onOutbound(PlayerPositionPacket.class, ListenerOrder.OBSERVE, context -> {
+            if (!context.cancelled()) {
+                PlayerPositionPacket packet = context.packet();
+                context.afterSend(() -> teleports.sent(packet.viewer(), packet.teleportId()));
+            }
+        }));
         registrations.add(packets.onInbound(SwingPacket.class, ListenerOrder.LATE, this::swing));
         registrations.add(packets.onInbound(HeldSlotPacket.class, ListenerOrder.LATE,
-                context -> pipeline.slotChanged(context.packet().player())));
+                context -> {
+                    int slot = context.packet().slot();
+                    if (!context.cancelled() && slot >= 0 && slot <= 8) {
+                        pipeline.slotChanged(context.packet().player());
+                    }
+                }));
         registrations.add(packets.onInbound(AttackPacket.class, ListenerOrder.LATE, this::attack));
         registrations.add(packets.onInbound(PongPacket.class, ListenerOrder.LATE, this::pong));
         registrations.add(packets.onOutbound(TransactionPingPacket.class, ListenerOrder.OBSERVE,
-                context -> pipeline.pingWritten(context.packet().viewer(), context.packet().id())));
+                context -> {
+                    if (!context.cancelled()) {
+                        context.afterSend(() -> pipeline.pingWritten(context.packet().viewer(), context.packet().id()));
+                    }
+                }));
         registrations.add(packets.onOutbound(EntitySpawnPacket.class, ListenerOrder.OBSERVE, context -> {
             EntitySpawnPacket spawn = context.packet();
             if (spawn.playerEntity() && !context.cancelled()) {
@@ -66,12 +101,22 @@ public final class PacketFeed {
             }
         }));
         registrations.add(packets.onOutbound(ViewResetPacket.class, ListenerOrder.OBSERVE,
-                context -> pipeline.viewReset(context.packet().viewer())));
+                context -> {
+                    if (!context.cancelled()) {
+                        teleports.forget(context.packet().viewer());
+                        pipeline.viewReset(context.packet().viewer());
+                    }
+                }));
     }
 
     public void stop() {
         registrations.forEach(Registration::unregister);
         registrations.clear();
+        if (departure != null) {
+            departure.cancel();
+            departure = null;
+        }
+        teleports.clear();
     }
 
     private void movement(InboundContext<MovementPacket> context) {
@@ -82,6 +127,9 @@ public final class PacketFeed {
     }
 
     private void clientTickEnded(InboundContext<ClientTickEndPacket> context) {
+        if (context.cancelled()) {
+            return;
+        }
         ClientTickEndPacket packet = context.packet();
         String version = packets.clients().versionName(packet.player()).orElse(null);
         pipeline.clientTickEnd(new TickEndPacket(packet.player(), packet.receivedNanos(), version));
@@ -100,6 +148,9 @@ public final class PacketFeed {
     }
 
     private void pong(InboundContext<PongPacket> context) {
+        if (context.cancelled()) {
+            return;
+        }
         PongPacket packet = context.packet();
         if (pipeline.pong(packet.player(), packet.id())) {
             context.cancel();

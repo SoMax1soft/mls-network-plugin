@@ -34,6 +34,24 @@ class StartupSummaryTest {
     }
 
     @Test
+    void firstLineNamesTheRunningVersion() {
+        EffectiveConfig config = EffectiveConfig.pluginDefaults(TestConfigs.core("detection:\n  api-key: abcd-1234\n"));
+        PlatformProfile paper26 = new PlatformProfile(ServerSoftware.PAPER,
+                new ServerVersionTable().resolve("26.2.build.133-stable"), true, 25);
+        PlatformProfile paper119 = new PlatformProfile(ServerSoftware.PAPER,
+                new ServerVersionTable().resolve("1.19.4-R0.1-SNAPSHOT"), true, 17);
+        assertEquals("MLSAC 2.0.dev enabled in 9 ms: Paper 26.2 (Modern (1.20.5+)), Java 25",
+                firstLine(paper26, config));
+        assertEquals("MLSAC 2.0.dev enabled in 9 ms: Paper 1.19.4 (Legacy-Modern (1.17-1.20.4)), Java 17",
+                firstLine(paper119, config));
+    }
+
+    private String firstLine(PlatformProfile platform, EffectiveConfig config) {
+        return new StartupSummary().lines("2.0.dev", 9, platform, config, "https://api.mlsac.net",
+                new StartupSummary.Integrations(false, false), edition).get(0);
+    }
+
+    @Test
     void missingKeyAndFoliaAreExplained() {
         PlatformProfile folia = new PlatformProfile(ServerSoftware.FOLIA,
                 new ServerVersionTable().resolve("1.20.4"), false, 17);

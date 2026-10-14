@@ -16,6 +16,7 @@ import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerEn
 import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerEntityRotation;
 import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerEntityTeleport;
 import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerPing;
+import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerPlayerPositionAndLook;
 import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerSetPassengers;
 import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerSpawnEntity;
 import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerSpawnLivingEntity;
@@ -28,6 +29,7 @@ import italy.mlsac.net.packet.EntitySpawnPacket;
 import italy.mlsac.net.packet.MoveKind;
 import italy.mlsac.net.packet.OutboundPacket;
 import italy.mlsac.net.packet.PassengersPacket;
+import italy.mlsac.net.packet.PlayerPositionPacket;
 import italy.mlsac.net.packet.PoseKind;
 import italy.mlsac.net.packet.ResetCause;
 import italy.mlsac.net.packet.SpawnKind;
@@ -53,6 +55,9 @@ final class OutboundDecoders {
     private final Map<PacketTypeCommon, Entry> entries = new HashMap<>();
 
     OutboundDecoders() {
+        entries.put(PacketType.Play.Server.PLAYER_POSITION_AND_LOOK, new Entry(PlayerPositionPacket.class,
+                (event, viewer) -> new PlayerPositionPacket(viewer,
+                        new WrapperPlayServerPlayerPositionAndLook(event).getTeleportId())));
         entries.put(PacketType.Play.Server.PING, new Entry(TransactionPingPacket.class,
                 (event, viewer) -> new TransactionPingPacket(viewer, new WrapperPlayServerPing(event).getId())));
         entries.put(PacketType.Play.Server.WINDOW_CONFIRMATION, new Entry(TransactionPingPacket.class,

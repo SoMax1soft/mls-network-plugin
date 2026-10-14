@@ -7,6 +7,8 @@ import italy.mlsac.net.command.SubcommandName;
 import italy.mlsac.net.console.DebugTally;
 import italy.mlsac.net.player.PlayerDirectory;
 import italy.mlsac.net.player.PlayerView;
+import italy.mlsac.net.text.MessageBook;
+import italy.mlsac.net.text.TemplateValues;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
@@ -16,12 +18,14 @@ final class DebugSubcommand implements Subcommand {
 
     private static final List<String> MODES = List.of("on", "off", "auto", "status", "player");
 
-    private final DebugPulse pulse;
+    private final DebugReport pulse;
     private final PlayerDirectory players;
+    private final MessageBook messages;
 
-    DebugSubcommand(DebugPulse pulse, PlayerDirectory players) {
+    DebugSubcommand(DebugReport pulse, PlayerDirectory players, MessageBook messages) {
         this.pulse = pulse;
         this.players = players;
+        this.messages = messages;
     }
 
     @Override
@@ -36,40 +40,45 @@ final class DebugSubcommand implements Subcommand {
             case "on" -> {
                 DebugTally.force(Boolean.TRUE);
                 pulse.refreshNow();
-                actor.send("&aMLSAC debug ON: a summary every 10 s in the console. &7/mlsac debug off to stop.");
+                reply(actor, "debug-on", TemplateValues.none());
             }
             case "off" -> {
                 DebugTally.force(Boolean.FALSE);
                 DebugTally.traceTarget(null, null);
                 pulse.refreshNow();
-                actor.send("&eMLSAC debug OFF.");
+                reply(actor, "debug-off", TemplateValues.none());
             }
             case "auto" -> {
                 DebugTally.force(null);
                 pulse.refreshNow();
-                actor.send("&7MLSAC debug follows config.yml (debug: true/false) again.");
+                reply(actor, "debug-auto", TemplateValues.none());
             }
             case "player" -> tracePlayer(actor, args);
-            default -> pulse.summary().forEach(line -> actor.send("&7" + line));
+            default -> pulse.summary().forEach(line -> reply(actor, "debug-status-line",
+                    TemplateValues.of("{LINE}", line)));
         }
     }
 
     private void tracePlayer(CommandActor actor, List<String> args) {
         if (args.size() < 2 || args.get(1).equalsIgnoreCase("off")) {
             DebugTally.traceTarget(null, null);
-            actor.send("&7Player trace off.");
+            reply(actor, "debug-trace-off", TemplateValues.none());
             return;
         }
         Optional<PlayerView> found = players.online().stream()
                 .filter(p -> p.name().equalsIgnoreCase(args.get(1))).findFirst();
         if (found.isEmpty()) {
-            actor.send("&cPlayer " + args.get(1) + " is not online.");
+            reply(actor, "debug-player-offline", TemplateValues.of("{PLAYER}", args.get(1)));
             return;
         }
         DebugTally.force(Boolean.TRUE);
         DebugTally.traceTarget(found.get().id(), found.get().name());
         pulse.refreshNow();
-        actor.send("&aTracing " + found.get().name() + ": every hit, window and answer goes to the console.");
+        reply(actor, "debug-trace-on", TemplateValues.of("{PLAYER}", found.get().name()));
+    }
+
+    private void reply(CommandActor actor, String key, TemplateValues values) {
+        actor.send(messages.text(key, values));
     }
 
     @Override

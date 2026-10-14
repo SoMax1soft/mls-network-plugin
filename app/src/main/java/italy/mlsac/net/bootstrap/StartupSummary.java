@@ -21,7 +21,7 @@ final class StartupSummary {
                        String backend, Integrations integrations, Edition edition) {
         List<String> lines = new ArrayList<>();
         lines.add("MLSAC " + version + " enabled in " + enableMillis + " ms: " + platform.software().displayName()
-                + " " + platform.serverVersion().version() + " (" + platform.serverVersion().mode().label()
+                + " " + platform.serverVersion().detected() + " (" + platform.serverVersion().mode().label()
                 + "), Java " + platform.javaFeatureVersion());
         lines.add("Detection: " + detection(config) + " | preset: " + preset(config) + " | backend: " + backend
                 + (config.detection().enabled() && config.core().accessKey().configured() ? " (connecting...)" : ""));

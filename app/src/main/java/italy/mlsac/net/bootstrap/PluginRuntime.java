@@ -153,7 +153,7 @@ final class PluginRuntime {
     private void registerCommand(CoreServices services, Edition edition) {
         CommandRouter router = new CommandRouter(core.messages, core.log);
         router.register(new StatusSubcommand(core.backend, core.config, core.messages, core.scheduler));
-        router.register(new DebugSubcommand(debugPulse, core.players));
+        router.register(new DebugSubcommand(debugPulse, core.players, core.messages));
         router.registerAll(modules.subcommands().stream().filter(verb -> edition.offers(verb.name())).toList());
         PluginCommand command = plugin.getCommand(COMMAND);
         if (command == null) {

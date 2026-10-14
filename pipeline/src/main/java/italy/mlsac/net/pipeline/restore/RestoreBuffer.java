@@ -9,6 +9,7 @@ import italy.mlsac.net.pipeline.occlusion.MarginOcclusion;
 import italy.mlsac.net.pipeline.occlusion.OcclusionProbe;
 import italy.mlsac.net.pipeline.occlusion.OcclusionQueue;
 import italy.mlsac.net.pipeline.player.ServerSamples;
+import italy.mlsac.net.pipeline.rows.NoPacketRowInput;
 import italy.mlsac.net.pipeline.rows.RowProducer;
 import java.time.Instant;
 import java.util.UUID;
@@ -37,7 +38,7 @@ final class RestoreBuffer implements InputTap, ChunkClaim {
         this.lastFightNanos = originNanos;
         this.kept = new KeptRing(new RowRing(TICK_ROWS, CHUNK_ROWS), new RowRing(HIT_ROWS, CHUNK_ROWS), this);
         this.producer = new RowProducer(player, originNanos, kept, samples, lens,
-                new OcclusionQueue(new MarginOcclusion(probe)));
+                new OcclusionQueue(new MarginOcclusion(probe)), NoPacketRowInput.CONSUMED);
     }
 
     UUID player() {

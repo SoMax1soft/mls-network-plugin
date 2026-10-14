@@ -3,8 +3,6 @@ package italy.mlsac.net.platform;
 
 import java.util.List;
 import java.util.Optional;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 public final class ServerVersionTable {
 
@@ -15,8 +13,6 @@ public final class ServerVersionTable {
             GameVersion.of(1, 21, 4), GameVersion.of(1, 21, 5), GameVersion.of(1, 21, 6),
             GameVersion.of(1, 21, 7), GameVersion.of(1, 21, 8), GameVersion.of(1, 21, 9),
             GameVersion.of(1, 21, 10), GameVersion.of(1, 21, 11));
-
-    private static final Pattern NUMERIC_PREFIX = Pattern.compile("^\\s*(\\d+(?:\\.\\d+)*)(?!\\d|\\.\\d)");
 
     private final List<GameVersion> entries;
 
@@ -38,8 +34,7 @@ public final class ServerVersionTable {
 
     public VersionResolution resolve(String bukkitVersion) {
         String raw = bukkitVersion == null ? "" : bukkitVersion;
-        Matcher prefix = NUMERIC_PREFIX.matcher(raw);
-        String numeric = prefix.find() ? prefix.group(1) : raw;
+        String numeric = VersionResolution.numericPrefix(raw).orElse(raw);
         Optional<GameVersion> parsed = GameVersion.parse(numeric);
         Optional<GameVersion> entry = parsed.flatMap(this::entryFor);
         return entry.map(version -> VersionResolution.recognised(raw, version))

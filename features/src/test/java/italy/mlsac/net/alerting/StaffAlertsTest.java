@@ -13,6 +13,7 @@ import italy.mlsac.net.scoring.FlagContext;
 import italy.mlsac.net.scoring.ScreenedVerdict;
 import italy.mlsac.net.scoring.SuspectKind;
 import italy.mlsac.net.scoring.SuspectRecord;
+import italy.mlsac.net.scoring.VerdictOrigin;
 import italy.mlsac.net.scoring.VerdictWeight;
 import italy.mlsac.net.testkit.BundledResources;
 import italy.mlsac.net.testkit.FakeStaff;
@@ -69,6 +70,63 @@ class StaffAlertsTest {
         assertEquals(List.of(AlertSound.DEFAULT_TYPE), mod.sounds());
         assertEquals(1, log.infos.size());
         assertFalse(log.infos.get(0).contains("§"));
+    }
+
+    @Test
+    void integrityStepAlertGoesOnlyToTheDebugConsoleWithoutAFakeProbability() {
+        FakeStaff mod = roster.add("Mod", true, false);
+        alerts.add(mod.id());
+        monitors.add(mod.id());
+        SuspectRecord suspect = new SuspectRecord(UUID.randomUUID(), "Forger", SuspectKind.JAVA);
+        ScreenedVerdict verdict = new ScreenedVerdict("integrity", 1.0, VerdictWeight.COUNTED, "Bad packets",
+                VerdictOrigin.PACKET_INTEGRITY);
+        staffAlerts.answerSeen(suspect, verdict);
+        staffAlerts.stepsCrossed(suspect, verdict, List.of(AlertStep.of(0.33)), 16.1);
+        staffAlerts.badPackets("Forger", italy.mlsac.net.detection.BadPacketKind.TICK_END_SPAM, 3, 60);
+        assertTrue(mod.received().isEmpty(), mod.received().toString());
+        assertTrue(mod.sounds().isEmpty());
+        assertTrue(log.infos.isEmpty(), log.infos.toString());
+        assertEquals(2, log.debugs.size());
+        assertTrue(log.debugs.get(0).endsWith("[Bad packets] Forger Failed check (Packet integrity) (Buffer: 16.1)"),
+                log.debugs.get(0));
+        assertTrue(log.debugs.get(1).endsWith("Forger Bad packets: tick-end spam (3/60s)"), log.debugs.get(1));
+        log.debugs.forEach(line -> assertFalse(line.contains("§") || line.contains("Aim-Ai") || line.contains("100%"),
+                line));
+    }
+
+    @Test
+    void integrityFlagIsConsoleOnlyEvenWithTheConsoleCopyOff() {
+        output = new AlertOutput(false, AlertSound.pluginDefaults());
+        FakeStaff mod = roster.add("Mod", true, false);
+        alerts.add(mod.id());
+        monitors.add(mod.id());
+        staffAlerts.flagRaised(new FlagContext(UUID.randomUUID(), "Forger", 1, 1.0, 20.0,
+                VerdictOrigin.PACKET_INTEGRITY));
+        assertTrue(mod.received().isEmpty(), mod.received().toString());
+        assertTrue(mod.sounds().isEmpty());
+        assertEquals(1, log.infos.size());
+        assertTrue(log.infos.get(0).endsWith("Forger Got VL (VL:1) (Buffer: 20.0)"), log.infos.get(0));
+        assertFalse(log.infos.get(0).contains("100%"));
+        staffAlerts.flagRaised(new FlagContext(UUID.randomUUID(), "Cheater", 1, 0.97, 20.0));
+        assertEquals(2, mod.received().size());
+        assertEquals(1, log.infos.size());
+    }
+
+    @Test
+    void modelStepAlertsKeepTheirTemplateAndConsoleCopy() {
+        FakeStaff mod = roster.add("Mod", true, false);
+        alerts.add(mod.id());
+        SuspectRecord suspect = new SuspectRecord(UUID.randomUUID(), "Cheater", SuspectKind.JAVA);
+        staffAlerts.stepsCrossed(suspect, new ScreenedVerdict("ultra", 0.97, VerdictWeight.COUNTED, "Ultra",
+                VerdictOrigin.MODEL_ANSWER), List.of(AlertStep.of(0.33)), 13.2);
+        assertTrue(messages.strip(mod.received().get(0)).contains("[Ultra] Cheater Failed check (Aim-Ai: 97%)"));
+        assertEquals(1, log.infos.size());
+        assertTrue(log.debugs.isEmpty());
+        output = new AlertOutput(false, AlertSound.pluginDefaults());
+        staffAlerts.stepsCrossed(suspect, new ScreenedVerdict("ultra", 0.97, VerdictWeight.COUNTED, "Ultra"),
+                List.of(AlertStep.of(0.66)), 26.4);
+        assertEquals(1, log.infos.size());
+        assertTrue(log.debugs.isEmpty());
     }
 
     @Test

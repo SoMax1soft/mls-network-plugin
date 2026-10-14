@@ -8,6 +8,7 @@ import italy.mlsac.net.pipeline.occlusion.LiveOcclusion;
 import italy.mlsac.net.pipeline.occlusion.OcclusionProbe;
 import italy.mlsac.net.pipeline.occlusion.OcclusionQueue;
 import italy.mlsac.net.pipeline.player.ServerSamples;
+import italy.mlsac.net.pipeline.rows.NoPacketRowInput;
 import italy.mlsac.net.pipeline.rows.RowProducer;
 import java.util.UUID;
 
@@ -23,7 +24,7 @@ public final class LiveTracker {
                     sink.encodeAndAccept(player, () -> MlsuWire.encode(WireVersion.V6, window));
                 });
         this.recorder = new RowProducer(player, start, assembler, samples, lens,
-                new OcclusionQueue(new LiveOcclusion(probe)));
+                new OcclusionQueue(new LiveOcclusion(probe)), NoPacketRowInput.CARRIED_TO_NEXT_PACKET);
     }
 
     public RowProducer rows() {

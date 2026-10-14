@@ -32,6 +32,9 @@ import italy.mlsac.net.features.live.SuspectFacts;
 import italy.mlsac.net.features.live.VerdictRouting;
 import italy.mlsac.net.features.settings.LiveSettings;
 import italy.mlsac.net.handoff.AuthorityRoute;
+import italy.mlsac.net.integrity.BadPacketStrike;
+import italy.mlsac.net.integrity.BadPacketTally;
+import italy.mlsac.net.integrity.BadPacketWatch;
 import italy.mlsac.net.handoff.PenaltyAuthority;
 import italy.mlsac.net.logbook.Logbook;
 import italy.mlsac.net.logbook.WarnOnce;
@@ -50,6 +53,8 @@ import italy.mlsac.net.punishment.ServerPenaltyDispatch;
 import italy.mlsac.net.response.DamageReductions;
 import italy.mlsac.net.response.LegacyAlertResponses;
 import italy.mlsac.net.response.TrickCooldowns;
+import italy.mlsac.net.schedule.TaskLane;
+import italy.mlsac.net.schedule.TaskTiming;
 import italy.mlsac.net.scoring.DetectionFlow;
 import italy.mlsac.net.scoring.FlagProcessor;
 import italy.mlsac.net.scoring.LegacyIntake;
@@ -70,6 +75,7 @@ final class FeatureWiring {
 
     private static final String ANIMATION_CHANCE = "animation.random";
     private static final String RESPONSE_CLOCK = "responses.clock";
+    private static final String BAD_PACKET_CLOCK = "badpackets.window";
 
     final LiveSettings settings;
     final Logbook log;
@@ -96,6 +102,7 @@ final class FeatureWiring {
     final TrickCooldowns trickCooldowns = new TrickCooldowns();
     final LegacyAlertResponses legacyResponses;
     final VerdictRouting verdicts;
+    final BadPacketWatch badPackets;
     final SuspectAdmission admission;
     final ViolationDecayRun decay;
     final SuspectFacts facts;
@@ -138,6 +145,10 @@ final class FeatureWiring {
         DetectionFlow flow = new DetectionFlow(() -> settings.get().scoring(), () -> settings.get().reporting(),
                 new VerdictScreen(() -> settings.get().models(), log), staffAlerts, desk,
                 route, playerThreads, flags, log);
+        this.badPackets = new BadPacketWatch(new BadPacketTally(), () -> core.config().get().core().badPackets(),
+                () -> settings.get().detectionEnabled(), () -> core.clock().monotonicMillis(BAD_PACKET_CLOCK),
+                task -> core.scheduler().submit(TaskLane.BACKGROUND, TaskTiming.immediately(), task),
+                new BadPacketStrike(roster, flow, staffAlerts), roster, log);
         this.verdicts = new VerdictRouting(roster, flow, new UltraIntake(),
                 new LegacyIntake(new LegacySequenceReply(fixedLegacyWindow(core), log)));
         this.admission = new SuspectAdmission(roster, core.players(), core.standings(), core.regions(),

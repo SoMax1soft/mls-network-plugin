@@ -94,7 +94,7 @@ public final class DataPipeline implements PipelineInput {
 
     @Override
     public void movement(MovementPacket packet) {
-        if (!prefilter.accepts(packet)) {
+        if (!packet.finite() || !prefilter.accepts(packet)) {
             return;
         }
         UUID player = packet.player();
@@ -297,6 +297,10 @@ public final class DataPipeline implements PipelineInput {
     @Override
     public void teleported(UUID player) {
         samples.removeSample(player);
+        RowProducer rows = live.existingRows(player);
+        if (rows != null) {
+            rows.serverTeleported();
+        }
         InputTap tap = taps.tapOrNull(player);
         if (tap != null) {
             tap.sampleDiscontinuity();
