@@ -9,10 +9,12 @@ dependencies {
     compileOnly libs.paper.api
     compileOnly libs.worldguard.bukkit
     compileOnly libs.packetevents.spigot
+    compileOnly libs.netty.transport
 
     testImplementation libs.snakeyaml
     testImplementation libs.packetevents.spigot
-    testRuntimeOnly libs.paper.api
+    testImplementation libs.netty.transport
+    testImplementation libs.paper.api
     testFixturesImplementation libs.snakeyaml
     testFixturesCompileOnly libs.paper.api
 }

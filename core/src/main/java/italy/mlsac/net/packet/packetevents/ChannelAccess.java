@@ -12,4 +12,6 @@ interface ChannelAccess {
     boolean injected(Object channel);
 
     void execute(Object channel, Runnable task);
+
+    Object loopOf(Object channel);
 }

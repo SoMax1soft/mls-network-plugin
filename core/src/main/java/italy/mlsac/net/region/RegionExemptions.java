@@ -55,10 +55,11 @@ public final class RegionExemptions {
         if (!current.enabled() || current.entries().isEmpty()) {
             return false;
         }
-        if (current.needsRegionLookup() && !lookup.available() && missingWarned.compareAndSet(false, true)) {
+        boolean lookupNeeded = current.needsRegionLookup();
+        if (lookupNeeded && !lookup.available() && missingWarned.compareAndSet(false, true)) {
             log.warn(LogTopic.CONFIG, "WorldGuard not available, region checking disabled");
         }
-        Optional<String> top = current.needsRegionLookup() && lookup.available()
+        Optional<String> top = lookupNeeded && lookup.available()
                 ? lookup.topRegion(position) : Optional.empty();
         for (RegionEntry entry : current.entries()) {
             if (entry.exempts(position.worldLabel(), top)) {

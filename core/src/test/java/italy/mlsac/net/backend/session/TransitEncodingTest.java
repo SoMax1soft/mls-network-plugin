@@ -69,6 +69,17 @@ class TransitEncodingTest {
     }
 
     @Test
+    void versionFivePredictBodiesAreEncodedExactlyOnce() throws Exception {
+        SessionHarness h = connected(OFFER);
+        h.transport.reply("/predict-stream", 200, "{\"model\":\"ultra\",\"probability\":0.5}");
+        assertEquals(new PredictOutcome.Completed(1), h.session.predict(ULTRA, verdict -> { }).join());
+        HttpCall call = lastPredict(h);
+        assertEquals(List.of(PackedBody.GZIP), encodings(call));
+        JsonObject body = JsonParser.parseObject(new String(gunzip(call.body()), StandardCharsets.UTF_8));
+        assertEquals(5.0, body.number("wire_version").orElseThrow().doubleValue());
+    }
+
+    @Test
     void theApiKeyAndVersionHeadersStayInFrontOfTheEncoding() {
         SessionHarness h = connected(SessionHarness.init());
         h.transport.reply("/predict-stream", 200, "{\"model\":\"ultra\",\"probability\":0.5}");

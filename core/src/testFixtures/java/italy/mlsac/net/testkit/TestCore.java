@@ -7,6 +7,7 @@ import italy.mlsac.net.config.ConfigChangeCause;
 import italy.mlsac.net.config.ConfigReference;
 import italy.mlsac.net.config.EffectiveConfig;
 import italy.mlsac.net.console.ConsoleLog;
+import italy.mlsac.net.detection.choice.ModelSelections;
 import italy.mlsac.net.lifecycle.ReloadOutcome;
 import italy.mlsac.net.module.CoreServices;
 import italy.mlsac.net.module.HostHandles;
@@ -45,6 +46,7 @@ public final class TestCore {
     public final RegionExemptions regions = new RegionExemptions(() -> config.get().detection().regions(),
             RegionLookup.NONE, log);
     public final WorkloadCounters workload = new WorkloadCounters();
+    public final ModelSelections selections = startedSelections();
 
     public CoreServices services() {
         PlatformProfile platform = PlatformProfile.detect(ClassProbe.of(getClass().getClassLoader()),
@@ -53,7 +55,14 @@ public final class TestCore {
                 clock, random, log, bus, config, messages, backend, packets, players,
                 new NoticeBoard(players, scheduler), standings, regions, online, storageRoot,
                 new ClasspathResources(getClass().getClassLoader()), new SnakeYamlParser(),
-                kind -> CompletableFuture.completedFuture(ReloadOutcome.succeeded()), HostHandles.detached(), workload);
+                kind -> CompletableFuture.completedFuture(ReloadOutcome.succeeded()), HostHandles.detached(), workload,
+                selections);
+    }
+
+    private ModelSelections startedSelections() {
+        ModelSelections started = new ModelSelections(config, bus, log);
+        started.start();
+        return started;
     }
 
     public void apply(EffectiveConfig next) {

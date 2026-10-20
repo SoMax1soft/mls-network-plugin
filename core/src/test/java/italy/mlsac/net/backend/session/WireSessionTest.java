@@ -27,6 +27,21 @@ class WireSessionTest {
     private static final String UNKNOWN = "{\"success\":false,\"error\":{\"code\":\"SESSION_UNKNOWN\"},\"reinit\":true}";
 
     @Test
+    void offeredSeedSendsVersionFiveGzipBodies() throws Exception {
+        SessionHarness h = connected(OFFER);
+        h.transport.reply("/predict-stream", 200, "{\"model\":\"ultra\",\"probability\":0.5}");
+        assertEquals(new PredictOutcome.Completed(1), h.session.predict(ULTRA, verdict -> { }).join());
+        HttpCall call = lastPredict(h);
+        assertTrue(call.headers().stream().anyMatch(header -> header.name().equals("Content-Encoding")
+                && header.value().equals("gzip")));
+        JsonObject body = JsonParser.parseObject(gunzip(call.body()));
+        assertEquals(5.0, body.number("wire_version").orElseThrow().doubleValue());
+        assertEquals("s-5", body.string("sessionId").orElseThrow());
+        assertEquals(60 * 94, body.array("data").orElseThrow().size());
+        assertTrue(body.string("playerData").isEmpty());
+    }
+
+    @Test
     void withoutAnOfferTheBodyStaysVersionFour() throws Exception {
         SessionHarness h = connected(SessionHarness.init());
         h.transport.reply("/predict-stream", 200, "{\"model\":\"ultra\",\"probability\":0.5}");

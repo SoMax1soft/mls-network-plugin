@@ -13,6 +13,7 @@ final class StandInChannel {
     private final boolean failingCheck;
     private final AtomicInteger scheduled = new AtomicInteger();
     private final AtomicInteger escaped = new AtomicInteger();
+    private final AtomicInteger injectionChecks = new AtomicInteger();
 
     private StandInChannel(ExecutorService loop, boolean open, boolean handlers, boolean failingCheck) {
         this.loop = loop;
@@ -46,6 +47,11 @@ final class StandInChannel {
             public void execute(Object channel, Runnable task) {
                 throw new AssertionError("no channel to run on");
             }
+
+            @Override
+            public Object loopOf(Object channel) {
+                throw new AssertionError("no channel to run on");
+            }
         };
     }
 
@@ -69,6 +75,10 @@ final class StandInChannel {
         return escaped.get();
     }
 
+    int injectionChecks() {
+        return injectionChecks.get();
+    }
+
     ChannelAccess access() {
         StandInChannel channel = this;
         return new ChannelAccess() {
@@ -84,6 +94,7 @@ final class StandInChannel {
 
             @Override
             public boolean injected(Object target) {
+                injectionChecks.incrementAndGet();
                 if (failingCheck) {
                     throw new IllegalStateException("pipeline gone");
                 }
@@ -100,6 +111,11 @@ final class StandInChannel {
                         escaped.incrementAndGet();
                     }
                 });
+            }
+
+            @Override
+            public Object loopOf(Object target) {
+                return loop;
             }
         };
     }

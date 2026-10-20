@@ -38,7 +38,8 @@ public final class CommandUsage {
         ANIMATION_LIST(SubcommandName.ANIMATION, "help-animation-list"),
         ANIMATION_RELOAD(SubcommandName.ANIMATION, "help-animation-reload"),
         REINSTALL(SubcommandName.REINSTALL, "help-reinstall"),
-        DATA(SubcommandName.DATA, "usage-data");
+        DATA(SubcommandName.DATA, "usage-data"),
+        MODEL(SubcommandName.MODEL, "usage-model");
 
         private final SubcommandName verb;
         private final String messageKey;

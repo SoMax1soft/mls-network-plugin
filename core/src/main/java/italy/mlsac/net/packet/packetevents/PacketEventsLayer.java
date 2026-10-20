@@ -43,7 +43,7 @@ public final class PacketEventsLayer implements PacketLayer, AutoCloseable {
             registered.add(api.getEventManager().registerListener(dispatch, priorityOf(order)));
         }
         this.sender = new PacketEventsSender(api, new ServerVersionRules(serverVersion),
-                new ReachableChannels(new PacketEventsChannels(api), faults));
+                new ReachableChannels(new PacketEventsChannels(api), faults), PingSendMode.fromSystemProperty());
         this.clients = new PeClientVersions(api);
     }
 

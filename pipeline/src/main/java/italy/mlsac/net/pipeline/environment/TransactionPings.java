@@ -5,4 +5,10 @@ import java.util.UUID;
 
 public interface TransactionPings {
     void send(UUID viewer, int transactionId);
+
+    default void openBurst() {
+    }
+
+    default void closeBurst() {
+    }
 }

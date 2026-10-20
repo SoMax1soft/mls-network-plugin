@@ -25,7 +25,7 @@ final class StreamGate {
     }
 
     boolean passes(UUID player) {
-        if (!switches.ultraEnabled() || !standing.valid(player)) {
+        if (!switches.ultraEnabledFor(player) || !standing.valid(player)) {
             return false;
         }
         long now = clock.nanos(MonotonicPurpose.STREAM_GATE);

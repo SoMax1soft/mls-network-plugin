@@ -43,19 +43,35 @@ final class PacketEventsSender implements PacketSender {
     private final ServerVersionRules rules;
     private final ReachableChannels channels;
     private final MetadataEncoder metadata = new MetadataEncoder();
+    private final PingDelivery pings;
 
-    PacketEventsSender(PacketEventsAPI<?> api, ServerVersionRules rules, ReachableChannels channels) {
+    PacketEventsSender(PacketEventsAPI<?> api, ServerVersionRules rules, ReachableChannels channels,
+                       PingSendMode pingMode) {
         this.api = api;
         this.rules = rules;
         this.channels = channels;
+        this.pings = pingMode.delivery(channels, this::writePing);
     }
 
     @Override
     public void sendTransactionPing(UUID viewer, int id) {
         Object channel = channels.channelOrNull(viewer);
-        if (channel == null) {
-            return;
+        if (channel != null) {
+            pings.deliver(channel, id);
         }
+    }
+
+    @Override
+    public void openPingBurst() {
+        pings.openBurst();
+    }
+
+    @Override
+    public void closePingBurst() {
+        pings.closeBurst();
+    }
+
+    private void writePing(Object channel, int id) {
         PacketWrapper<?> ping = rules.server().atLeast(PING_PACKET_FROM)
                 ? new WrapperPlayServerPing(id)
                 : new WrapperPlayServerWindowConfirmation(0, (short) id, false);

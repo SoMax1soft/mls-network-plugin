@@ -44,10 +44,15 @@ final class TickCycle {
         } finally {
             samples.endCaptureBatch();
         }
-        for (UUID viewer : compensation.viewerIds()) {
-            synchronized (turns.of(viewer)) {
-                compensation.endViewerTick(viewer);
+        compensation.openProbeBurst();
+        try {
+            for (UUID viewer : compensation.viewerIds()) {
+                synchronized (turns.of(viewer)) {
+                    compensation.endViewerTick(viewer);
+                }
             }
+        } finally {
+            compensation.closeProbeBurst();
         }
     }
 

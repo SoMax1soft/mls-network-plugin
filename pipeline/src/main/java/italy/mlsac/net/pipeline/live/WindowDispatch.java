@@ -32,6 +32,7 @@ public final class WindowDispatch implements UltraWindowSink {
     private final PluginLog log;
     private final WorkloadCounters counters;
     private final LongSupplier nanos;
+    private final ServedModelWatch served;
     private final AtomicLong tickets = new AtomicLong();
     private final LegacyWindowSink legacy = new LegacyWindowSink() {
         @Override
@@ -46,13 +47,14 @@ public final class WindowDispatch implements UltraWindowSink {
     };
 
     public WindowDispatch(BackendGateway backend, EventBus bus, Function<UUID, String> names, PluginLog log,
-                          WorkloadCounters counters, LongSupplier nanos) {
+                          WorkloadCounters counters, LongSupplier nanos, ServedModelWatch served) {
         this.backend = backend;
         this.bus = bus;
         this.names = names;
         this.log = log;
         this.counters = counters;
         this.nanos = nanos;
+        this.served = served;
     }
 
     @Override
@@ -82,9 +84,16 @@ public final class WindowDispatch implements UltraWindowSink {
         bus.publish(new WindowSubmitted(player, nick, kind, ticket));
         DebugTally.count("backend.sent." + kind.name().toLowerCase(Locale.ROOT));
         DebugTally.trace(player, () -> kind + " window sent (" + window.length + " bytes)");
-        backend.predict(WindowSubmission.handedOver(player, nick, window),
-                verdict -> answered(player, nick, kind, ticket, verdict))
-                .whenComplete((outcome, failure) -> settled(player, nick, kind, outcome, failure));
+        AnswerWatch watch = served.open(player, kind);
+        backend.predict(WindowSubmission.handedOver(player, nick, window), verdict -> {
+            watch.verdict(verdict.model());
+            answered(player, nick, kind, ticket, verdict);
+        }).whenComplete((outcome, failure) -> {
+            settled(player, nick, kind, outcome, failure);
+            if (failure == null) {
+                watch.settled(outcome);
+            }
+        });
     }
 
     private void answered(UUID player, String nick, WindowKind kind, long ticket, BackendVerdict verdict) {

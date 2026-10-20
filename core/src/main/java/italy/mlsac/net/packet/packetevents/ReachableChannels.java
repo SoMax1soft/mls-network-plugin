@@ -1,13 +1,17 @@
 // Copyright (c) 2026 MLSAC. All Rights Reserved.
 package italy.mlsac.net.packet.packetevents;
 
+import java.util.Collections;
+import java.util.Set;
 import java.util.UUID;
-import java.util.concurrent.RejectedExecutionException;
+import java.util.WeakHashMap;
 
 final class ReachableChannels {
 
     private final ChannelAccess access;
     private final PacketFaultLog faults;
+    private final Set<Object> injectedSeen =
+            Collections.synchronizedSet(Collections.newSetFromMap(new WeakHashMap<>()));
 
     ReachableChannels(ChannelAccess access, PacketFaultLog faults) {
         this.access = access;
@@ -21,24 +25,42 @@ final class ReachableChannels {
 
     boolean carries(Object channel) {
         try {
-            return access.open(channel) && access.injected(channel);
+            return access.open(channel) && (injectedSeen.contains(channel) || confirmInjected(channel));
         } catch (RuntimeException failure) {
             faults.recordNetworkFault("a channel check", failure);
             return false;
         }
     }
 
-    boolean runOnLoop(UUID player, Runnable task) {
-        Object channel = channelOrNull(player);
-        if (channel == null) {
+    private boolean confirmInjected(Object channel) {
+        if (!access.injected(channel)) {
             return false;
         }
+        injectedSeen.add(channel);
+        return true;
+    }
+
+    boolean runOnLoop(UUID player, Runnable task) {
+        Object channel = channelOrNull(player);
+        return channel != null && submit(channel, "handing a task to a player's network thread", task);
+    }
+
+    boolean submit(Object channel, String what, Runnable task) {
         try {
             access.execute(channel, new ContainedTask(task, faults));
             return true;
-        } catch (RejectedExecutionException refused) {
-            faults.recordNetworkFault("handing a task to a player's network thread", refused);
+        } catch (RuntimeException refused) {
+            faults.recordNetworkFault(what, refused);
             return false;
+        }
+    }
+
+    Object loopOrNull(Object channel) {
+        try {
+            return access.loopOf(channel);
+        } catch (RuntimeException failure) {
+            faults.recordNetworkFault("finding a channel's network thread", failure);
+            return null;
         }
     }
 

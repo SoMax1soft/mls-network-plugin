@@ -24,6 +24,8 @@ import italy.mlsac.net.menu.BlueprintSource;
 import italy.mlsac.net.menu.FramePainter;
 import italy.mlsac.net.menu.MenuDesk;
 import italy.mlsac.net.menu.SuspectsSubcommand;
+import italy.mlsac.net.modelchoice.ModelChoiceTexts;
+import italy.mlsac.net.modelchoice.ModelSubcommand;
 import italy.mlsac.net.module.CoreServices;
 import italy.mlsac.net.module.FeaturePorts;
 import italy.mlsac.net.module.FeaturesModule;
@@ -34,6 +36,7 @@ import italy.mlsac.net.restore.DataSubcommand;
 import italy.mlsac.net.restore.RestorePace;
 import italy.mlsac.net.text.HexColorNormalizer;
 import italy.mlsac.net.text.LegacyColorizer;
+import italy.mlsac.net.text.MessageDefaults;
 import java.time.ZoneId;
 import java.util.List;
 import java.util.Objects;
@@ -94,7 +97,8 @@ public final class FeaturesAssembly implements FeaturesModule {
                 new ReinstallSubcommand(reloads, core.messages(), () -> core.clock().wallMillis(REINSTALL_CLOCK)),
                 new AnimationSubcommand(wiring.library, wiring.animationFiles, core.messages(), wiring.log),
                 new DataSubcommand(pipeline.restore(), wiring.lookup, () -> core.config().get().dataRestore().enabled(),
-                        new RestorePace(() -> core.clock().wallMillis(RESTORE_CLOCK)), replies, core.messages()));
+                        new RestorePace(() -> core.clock().wallMillis(RESTORE_CLOCK)), replies, core.messages()),
+                new ModelSubcommand(wiring.lookup, core.modelSelection(), core.messages()));
     }
 
     @Override
@@ -119,6 +123,11 @@ public final class FeaturesAssembly implements FeaturesModule {
     @Override
     public List<Subcommand> subcommands() {
         return subcommands;
+    }
+
+    @Override
+    public MessageDefaults messageDefaults() {
+        return ModelChoiceTexts.defaults();
     }
 
     @Override

@@ -18,4 +18,6 @@ interface Edition {
     String featureLine(String nametags);
 
     boolean offers(SubcommandName command);
+
+    boolean exposesModelApi();
 }

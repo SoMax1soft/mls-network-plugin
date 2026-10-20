@@ -20,6 +20,10 @@ public final class AnimationLockdown implements EventBinding {
     @Override
     public void bindTo(Plugin plugin, PluginManager events) {
         actions.forEach(action -> events.registerEvent(action.kind(), this, action.priority(),
-                (listener, event) -> action.enforce(event, animations::animating), plugin));
+                (listener, event) -> {
+                    if (animations.anyAnimating()) {
+                        action.enforce(event, animations::animating);
+                    }
+                }, plugin));
     }
 }

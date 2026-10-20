@@ -122,6 +122,17 @@ class AnimationTest {
     }
 
     @Test
+    void anyAnimatingFollowsRunningAnimations() {
+        effects.online.put(player, origin);
+        AnimationDirector director = new AnimationDirector(effects, () -> 0.5, log);
+        assertFalse(director.anyAnimating());
+        director.start(player, bundled().find("classic_ban").orElseThrow(), "ban a");
+        assertTrue(director.anyAnimating());
+        director.quit(player);
+        assertFalse(director.anyAnimating());
+    }
+
+    @Test
     void secondAnimationWhileAnimatingIsDropped() {
         effects.online.put(player, origin);
         AnimationDirector director = new AnimationDirector(effects, () -> 0.5, log);

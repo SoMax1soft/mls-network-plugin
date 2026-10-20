@@ -19,6 +19,8 @@ import italy.mlsac.net.pipeline.live.PacketFeed;
 import italy.mlsac.net.pipeline.live.PlayerFacts;
 import italy.mlsac.net.pipeline.live.PlayerOrderedInput;
 import italy.mlsac.net.pipeline.live.RestoreLogbook;
+import italy.mlsac.net.pipeline.live.SenderPings;
+import italy.mlsac.net.pipeline.live.ServedModelWatch;
 import italy.mlsac.net.pipeline.live.ServerSide;
 import italy.mlsac.net.pipeline.live.WindowDispatch;
 import italy.mlsac.net.pipeline.live.ServerHooks;
@@ -59,14 +61,14 @@ public final class PipelineAssembly implements PipelineModule {
                 core.players(), server.facts());
         CoreTimeSources time = new CoreTimeSources(core.clock(), core.random());
         DiskFiles storage = new DiskFiles(core.storageRoot());
-        ConfiguredSwitches switches = new ConfiguredSwitches(core.config(), core.backend());
+        ConfiguredSwitches switches = new ConfiguredSwitches(core.config(), core.backend(), core.modelSelection());
         WindowDispatch windows = new WindowDispatch(core.backend(), core.bus(), facts::name, core.log(),
-                core.workload(), System::nanoTime);
+                core.workload(), System::nanoTime, new ServedModelWatch(core.modelSelection(), core.modelSelection()));
         RestoreDesk restore = new RestoreDesk(new ConfiguredRestoreLimits(core.config()),
                 new RestoreLogbook(core.log()));
         DataPipeline engine = new DataPipeline(new italy.mlsac.net.pipeline.engine.PipelinePorts(server.states(),
                 facts, facts, server.rays(), time, time, time, storage, storage, switches, switches, windows,
-                windows.legacy(), (viewer, id) -> core.packets().sender().sendTransactionPing(viewer, id)),
+                windows.legacy(), new SenderPings(() -> core.packets().sender())),
                 new JointTapSource(Objects.requireNonNull(taps, "taps"), restore));
         this.pipeline = new PlayerOrderedInput(engine);
         MeteredInput metered = new MeteredInput(pipeline, core.workload(), System::nanoTime, states::lastRosterSize);

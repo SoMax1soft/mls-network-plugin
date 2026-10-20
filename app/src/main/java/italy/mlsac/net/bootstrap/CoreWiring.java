@@ -29,6 +29,8 @@ import italy.mlsac.net.console.DebugTally;
 import italy.mlsac.net.console.ConsoleLog;
 import italy.mlsac.net.console.SecretRedactor;
 import italy.mlsac.net.console.jul.JulLogSink;
+import italy.mlsac.net.detection.choice.ModelSelections;
+import italy.mlsac.net.detection.choice.bukkit.BukkitModelApi;
 import italy.mlsac.net.lifecycle.JoinNotices;
 import italy.mlsac.net.lifecycle.PerPlayerTickSource;
 import italy.mlsac.net.lifecycle.RepeatingTickSource;
@@ -117,6 +119,8 @@ final class CoreWiring {
     final BukkitPlayerEventBridge playerEvents;
     final StandingRefresher standingRefresher;
     final TickSource ticks;
+    final ModelSelections modelSelection;
+    final BukkitModelApi modelApi;
 
     private CoreWiring(JavaPlugin plugin, PlatformProfile platform, MessageCatalog catalog) {
         this.plugin = plugin;
@@ -156,6 +160,8 @@ final class CoreWiring {
         this.playerEvents = new BukkitPlayerEventBridge(plugin, bus, online, standings);
         this.standingRefresher = new StandingRefresher(scheduler, players, standings);
         this.ticks = chooseTickSource();
+        this.modelSelection = new ModelSelections(config, bus, log);
+        this.modelApi = new BukkitModelApi(plugin, bus, modelSelection, log);
     }
 
     static CoreWiring create(JavaPlugin plugin, PlatformProfile platform) throws StartupFailure {

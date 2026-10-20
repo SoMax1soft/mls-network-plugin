@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import italy.mlsac.net.command.SubcommandName;
 import italy.mlsac.net.module.CoreServices;
 import italy.mlsac.net.module.PluginModule;
 import italy.mlsac.net.pipeline.PipelineAssembly;
@@ -47,6 +48,15 @@ class EditionTest {
         new PipelineAssembly(services, edition.inputTaps());
         assertFalse(edition.lagExemptions().exempt(UUID.randomUUID()));
         assertEquals("Data collection: output data | nametags on", edition.featureLine("on"));
+    }
+
+    @Test
+    void theModelCommandIsOfferedByTheInternalEditionOnly() {
+        boolean internal = "internal".equals(System.getProperty("mlsac.edition"));
+        assertEquals(internal, edition.offers(SubcommandName.MODEL));
+        assertEquals(internal, edition.exposesModelApi());
+        assertTrue(edition.offers(SubcommandName.STATUS));
+        assertTrue(classExists("italy.mlsac.net.api.MlsacModelSelection"));
     }
 
     private static boolean classExists(String name) {

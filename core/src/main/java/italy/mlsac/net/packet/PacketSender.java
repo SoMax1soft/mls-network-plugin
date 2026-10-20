@@ -8,6 +8,12 @@ public interface PacketSender {
 
     void sendTransactionPing(UUID viewer, int id);
 
+    default void openPingBurst() {
+    }
+
+    default void closePingBurst() {
+    }
+
     void spawnVirtual(UUID viewer, VirtualEntity entity);
 
     void updateVirtualMetadata(UUID viewer, int entityNumber, List<MetadataEntry> entries);

@@ -13,7 +13,7 @@ import org.bukkit.entity.Player;
 
 public final class RegionPatrol implements PlayerTickWork {
 
-    static final int SPACING_TICKS = 4;
+    static final int SPACING_TICKS = 20;
     static final String CHECK_PURPOSE = "region.check";
 
     private final RegionExemptions regions;
@@ -28,7 +28,7 @@ public final class RegionPatrol implements PlayerTickWork {
     @Override
     public void perform(Player player, long tick) {
         UUID id = player.getUniqueId();
-        boolean firstSight = watched.add(id);
+        boolean firstSight = !watched.contains(id) && watched.add(id);
         if (!firstSight && Math.floorMod(id.hashCode() + tick, SPACING_TICKS) != 0) {
             return;
         }

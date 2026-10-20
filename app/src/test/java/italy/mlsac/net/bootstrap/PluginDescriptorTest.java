@@ -22,7 +22,8 @@ import org.yaml.snakeyaml.constructor.SafeConstructor;
 
 class PluginDescriptorTest {
 
-    private static final Set<SubcommandName> INTERNAL_VERBS = Set.of(SubcommandName.START, SubcommandName.STOP);
+    private static final Set<SubcommandName> INTERNAL_VERBS = Set.of(SubcommandName.START, SubcommandName.STOP,
+            SubcommandName.MODEL);
 
     @Test
     @SuppressWarnings("unchecked")

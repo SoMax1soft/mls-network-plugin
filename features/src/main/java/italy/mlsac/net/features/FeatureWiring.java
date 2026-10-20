@@ -21,6 +21,7 @@ import italy.mlsac.net.features.live.CrossServerRelay;
 import italy.mlsac.net.features.live.DirectoryLookup;
 import italy.mlsac.net.features.live.DirectoryStaff;
 import italy.mlsac.net.features.live.FeatureServer;
+import italy.mlsac.net.features.live.ModelCheckRelay;
 import italy.mlsac.net.features.live.PenaltyDesk;
 import italy.mlsac.net.features.live.PluginLogbook;
 import italy.mlsac.net.features.live.RosterStates;
@@ -36,6 +37,7 @@ import italy.mlsac.net.integrity.BadPacketStrike;
 import italy.mlsac.net.integrity.BadPacketTally;
 import italy.mlsac.net.integrity.BadPacketWatch;
 import italy.mlsac.net.handoff.PenaltyAuthority;
+import italy.mlsac.net.detection.choice.PlayerModelRoutes;
 import italy.mlsac.net.logbook.Logbook;
 import italy.mlsac.net.logbook.WarnOnce;
 import italy.mlsac.net.module.CoreServices;
@@ -142,9 +144,10 @@ final class FeatureWiring {
                 new LadderPenalties(rules, rungs), legacyResponses, new BusHandoff(core.bus(), roster, ledger));
         PlayerThread playerThreads = lanes;
         FlagProcessor flags = new FlagProcessor(ledger, playerThreads, staffAlerts, route);
+        PlayerModelRoutes routes = core.modelSelection();
         DetectionFlow flow = new DetectionFlow(() -> settings.get().scoring(), () -> settings.get().reporting(),
-                new VerdictScreen(() -> settings.get().models(), log), staffAlerts, desk,
-                route, playerThreads, flags, log);
+                new VerdictScreen(() -> settings.get().models(), routes, log), staffAlerts, desk,
+                route, playerThreads, flags, new ModelCheckRelay(core.bus()), log);
         this.badPackets = new BadPacketWatch(new BadPacketTally(), () -> core.config().get().core().badPackets(),
                 () -> settings.get().detectionEnabled(), () -> core.clock().monotonicMillis(BAD_PACKET_CLOCK),
                 task -> core.scheduler().submit(TaskLane.BACKGROUND, TaskTiming.immediately(), task),
@@ -154,7 +157,8 @@ final class FeatureWiring {
         this.admission = new SuspectAdmission(roster, core.players(), core.standings(), core.regions(),
                 () -> settings.get().detectionEnabled(), core.clock());
         this.decay = new ViolationDecayRun(ledger, () -> settings.get().vlDecay(),
-                player -> !settings.get().models().ultraMode() && pipeline.combat().inLegacyCombat(player));
+                player -> routes.routeOf(player).runsLegacy(settings.get().models().ultraMode())
+                        && pipeline.combat().inLegacyCombat(player));
         this.facts = new SuspectFacts(roster, ledger, pipeline.aim(), core.packets().clients());
         this.ports = new FeaturePorts(new StagePenalties(rungs), new StaffLines(broadcast, alertSubscribers, desk),
                 new RosterStates(roster, ledger));

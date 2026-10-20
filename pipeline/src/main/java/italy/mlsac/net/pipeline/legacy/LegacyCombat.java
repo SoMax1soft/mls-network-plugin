@@ -34,7 +34,9 @@ final class LegacyCombat {
             ticksAfterHit++;
         }
         if (ticksAfterHit > WINDOW) {
-            window.clear();
+            if (!window.isEmpty()) {
+                window.clear();
+            }
             stepCounter = 0;
         }
     }

@@ -43,6 +43,25 @@ class ReachableChannelsTest {
     }
 
     @Test
+    void injectedChannelIsCheckedForHandlersOnlyOnce() {
+        StandInChannel channel = StandInChannel.injected(loop);
+        ReachableChannels channels = new ReachableChannels(channel.access(), faults);
+        for (int tick = 0; tick < 50; tick++) {
+            assertSame(channel, channels.channelOrNull(PLAYER));
+        }
+        assertEquals(1, channel.injectionChecks());
+    }
+
+    @Test
+    void channelWithoutHandlersIsCheckedAgainUntilInjected() {
+        StandInChannel channel = StandInChannel.injected(loop).withoutHandlers();
+        ReachableChannels channels = new ReachableChannels(channel.access(), faults);
+        assertNull(channels.channelOrNull(PLAYER));
+        assertNull(channels.channelOrNull(PLAYER));
+        assertEquals(2, channel.injectionChecks());
+    }
+
+    @Test
     void channelWithoutPacketHandlersIsNeverWrittenOrScheduled() {
         StandInChannel channel = StandInChannel.injected(loop).withoutHandlers();
         ReachableChannels channels = new ReachableChannels(channel.access(), faults);

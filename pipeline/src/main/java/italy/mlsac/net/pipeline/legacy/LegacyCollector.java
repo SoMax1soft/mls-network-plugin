@@ -32,14 +32,14 @@ public final class LegacyCollector {
             return;
         }
         LegacyCombat state = stateOf(player);
-        if (state.bedrock() || switches.ultraEnabled()) {
+        if (state.bedrock() || !switches.legacyEnabledFor(player)) {
             return;
         }
         state.gameTick();
     }
 
     public void attackedPlayer(UUID attacker) {
-        String skip = switches.ultraEnabled() ? "ultra-mode"
+        String skip = !switches.legacyEnabledFor(attacker) ? "ultra-mode"
                 : !switches.detectionEnabled() ? "detection-off"
                 : standing.exempt(attacker) ? "bypass-permission"
                 : standing.zoneExcluded(attacker) ? "disabled-region"
@@ -59,7 +59,7 @@ public final class LegacyCollector {
     }
 
     public void rotation(UUID player, float yaw, float pitch) {
-        if (switches.ultraEnabled() || !switches.detectionEnabled()
+        if (!switches.legacyEnabledFor(player) || !switches.detectionEnabled()
                 || !standing.valid(player) || standing.exempt(player)) {
             return;
         }
@@ -83,7 +83,7 @@ public final class LegacyCollector {
     }
 
     public void teleported(UUID player) {
-        if (standing.animating(player) || switches.ultraEnabled() || !switches.detectionEnabled()
+        if (standing.animating(player) || !switches.legacyEnabledFor(player) || !switches.detectionEnabled()
                 || standing.exempt(player) || !standing.valid(player)) {
             return;
         }

@@ -177,6 +177,25 @@ class BackendSessionTest {
     }
 
     @Test
+    void conflictCarriesTheCodeTheBackendDeclinedWith() {
+        SessionHarness h = connected(false);
+        h.transport.reply("/predict-stream", 409, "{\"error\":{\"code\":\"ULTRA_NOT_ALLOWED\"}}");
+        PredictOutcome.Failed declined = assertInstanceOf(PredictOutcome.Failed.class,
+                h.session.predict(WINDOW, v -> { }).join());
+        assertTrue(declined.declinedByBackend());
+        assertEquals("ULTRA_NOT_ALLOWED", declined.declineCode().orElseThrow());
+        assertEquals("Failed[reason=predict HTTP 409]", declined.toString());
+        h.transport.reply("/predict-stream", 409, "{}");
+        PredictOutcome.Failed bare = assertInstanceOf(PredictOutcome.Failed.class,
+                h.session.predict(WINDOW, v -> { }).join());
+        assertEquals("CONFLICT", bare.declineCode().orElseThrow());
+        h.transport.reply("/predict-stream", 400, "{\"error\":{\"code\":\"BAD_WINDOW\"}}");
+        PredictOutcome.Failed rejected = assertInstanceOf(PredictOutcome.Failed.class,
+                h.session.predict(WINDOW, v -> { }).join());
+        assertFalse(rejected.declinedByBackend());
+    }
+
+    @Test
     void windowsOverTheLimitWaitTheirTurnInsteadOfBeingLost() {
         SessionHarness h = connected(false);
         int limit = PredictChannel.MAX_IN_FLIGHT;

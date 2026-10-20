@@ -53,6 +53,7 @@ final class PluginRuntime {
         platform.serverVersion().warnings().forEach(line -> core.log.warn(LogTopic.PLATFORM, line));
         startPacketLibrary();
         EffectiveConfig config = loadConfiguration();
+        core.modelSelection.start();
         CoreServices services = services();
         Edition edition = new PluginEdition(services);
         PipelineAssembly pipeline = new PipelineAssembly(services, edition.inputTaps());
@@ -63,6 +64,9 @@ final class PluginRuntime {
         modules = new ModuleSet(all, core.log);
         modules.registerMessages(core.messages);
         modules.startAll();
+        if (edition.exposesModelApi()) {
+            core.modelApi.start();
+        }
         if (config.detection().enabled()) {
             core.backend.start(config.core());
         }
@@ -97,11 +101,13 @@ final class PluginRuntime {
         shutdown.run(wiring.log, "tick source", wiring.ticks::stop);
         shutdown.run(wiring.log, "standing refresh", wiring.standingRefresher::stop);
         shutdown.run(wiring.log, "client census", wiring.clients::stop);
+        shutdown.run(wiring.log, "model selection API", wiring.modelApi::stop);
         shutdown.run(wiring.log, "modules", () -> {
             if (modules != null) {
                 modules.haltEvery();
             }
         });
+        shutdown.run(wiring.log, "model selections", wiring.modelSelection::stop);
         shutdown.run(wiring.log, "preset poller", wiring.presets::stop);
         shutdown.run(wiring.log, "update checker", wiring.updates::stop);
         shutdown.run(wiring.log, "join notices", wiring.joinNotices::stop);
@@ -147,7 +153,7 @@ final class PluginRuntime {
                 core.scheduler, core.clock, core.random, core.log, core.bus, core.config, core.messages, core.backend,
                 packets, core.players, core.notices, core.standings, core.regions, core.online, core.storageRoot,
                 core.resources, core.yaml, new ReloadProcedure(core), HostHandles.of(plugin),
-                core.workload);
+                core.workload, core.modelSelection);
     }
 
     private void registerCommand(CoreServices services, Edition edition) {

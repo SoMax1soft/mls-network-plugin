@@ -7,6 +7,7 @@ import italy.mlsac.net.clock.Clock;
 import italy.mlsac.net.clock.RandomSource;
 import italy.mlsac.net.config.ConfigReference;
 import italy.mlsac.net.console.PluginLog;
+import italy.mlsac.net.detection.choice.ModelSelectionDesk;
 import italy.mlsac.net.lifecycle.ConfigReloader;
 import italy.mlsac.net.packet.PacketLayer;
 import italy.mlsac.net.platform.PlatformProfile;
@@ -46,5 +47,6 @@ public record CoreServices(
         YamlParser yaml,
         ConfigReloader reloader,
         HostHandles host,
-        WorkloadCounters workload) {
+        WorkloadCounters workload,
+        ModelSelectionDesk modelSelection) {
 }

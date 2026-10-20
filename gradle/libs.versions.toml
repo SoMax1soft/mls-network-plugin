@@ -1,6 +1,7 @@
 [versions]
 paper = "1.20.4-R0.1-SNAPSHOT"
 packetevents = "2.14.0"
+netty = "4.1.72.Final"
 worldguard = "7.0.9"
 snakeyaml = "2.2"
 junit = "5.11.3"
@@ -9,6 +10,7 @@ shadow = "9.1.0"
 [libraries]
 paper-api = { module = "io.papermc.paper:paper-api", version.ref = "paper" }
 packetevents-spigot = { module = "com.github.retrooper:packetevents-spigot", version.ref = "packetevents" }
+netty-transport = { module = "io.netty:netty-transport", version.ref = "netty" }
 worldguard-bukkit = { module = "com.sk89q.worldguard:worldguard-bukkit", version.ref = "worldguard" }
 snakeyaml = { module = "org.yaml:snakeyaml", version.ref = "snakeyaml" }
 junit-bom = { module = "org.junit:junit-bom", version.ref = "junit" }

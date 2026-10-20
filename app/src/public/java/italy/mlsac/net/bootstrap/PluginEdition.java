@@ -37,6 +37,11 @@ final class PluginEdition implements Edition {
 
     @Override
     public boolean offers(SubcommandName command) {
-        return true;
+        return command != SubcommandName.MODEL;
+    }
+
+    @Override
+    public boolean exposesModelApi() {
+        return false;
     }
 }

@@ -6,7 +6,7 @@ import italy.mlsac.net.backend.request.RequestIdentity;
 import italy.mlsac.net.backend.request.WindowSubmission;
 import java.util.Optional;
 
-public sealed interface UltraWire permits PlainWire {
+public sealed interface UltraWire permits PlainWire, ScrambledWire {
 
     UltraWire PLAIN = new PlainWire();
 

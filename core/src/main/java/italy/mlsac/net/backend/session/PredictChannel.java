@@ -20,6 +20,7 @@ final class PredictChannel {
 
     static final int MAX_IN_FLIGHT = 32;
     private static final String SESSION_UNKNOWN = "SESSION_UNKNOWN";
+    private static final String CONFLICT = "CONFLICT";
 
     private final BackendContext context;
     private final ConnectionState state;
@@ -172,7 +173,16 @@ final class PredictChannel {
             }
             default -> context.console().cause("predict refused: " + reason);
         }
+        if (status == StatusClass.CONFLICT) {
+            return PredictOutcome.Failed.declined(reason, answer.flatMap(PredictChannel::errorCode).orElse(CONFLICT));
+        }
         return new PredictOutcome.Failed(reason);
+    }
+
+    private static Optional<String> errorCode(JsonObject answer) {
+        return answer.object("error").flatMap(error -> error.string("code"))
+                .or(() -> answer.string("code"))
+                .or(() -> answer.string("error"));
     }
 
     private static boolean asksForNewSession(JsonObject answer) {

@@ -181,7 +181,7 @@ public final class DataPipeline implements PipelineInput {
     }
 
     private boolean movementNeeded(UUID player) {
-        return ports.switches().ultraEnabled() || taps.tapOrNull(player) != null;
+        return ports.switches().ultraEnabledFor(player) || taps.tapOrNull(player) != null;
     }
 
     @Override

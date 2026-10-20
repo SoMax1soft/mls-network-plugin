@@ -22,7 +22,8 @@ public enum SubcommandName {
     DEBUG(false, "debug"),
     DATASTATUS(false, "status"),
     REINSTALL(false, "reinstall"),
-    ANIMATION(false, "animation");
+    ANIMATION(false, "animation"),
+    MODEL(false, "model");
 
     private static final Map<String, SubcommandName> TYPED_ALIASES = Map.of("MENU", SUSPECTS);
 

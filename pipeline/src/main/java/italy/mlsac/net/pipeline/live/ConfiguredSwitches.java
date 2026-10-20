@@ -4,18 +4,27 @@ package italy.mlsac.net.pipeline.live;
 import italy.mlsac.net.backend.BackendGateway;
 import italy.mlsac.net.config.ConfigReference;
 import italy.mlsac.net.config.EffectiveConfig;
+import italy.mlsac.net.detection.choice.ModelRoute;
+import italy.mlsac.net.detection.choice.PlayerModelRoutes;
 import italy.mlsac.net.pipeline.environment.BackendAvailability;
 import italy.mlsac.net.pipeline.environment.DetectionSwitches;
+import java.util.UUID;
 
 public final class ConfiguredSwitches implements DetectionSwitches, BackendAvailability {
 
     private final ConfigReference config;
     private final BackendGateway backend;
+    private final PlayerModelRoutes routes;
     private volatile SwitchReading reading = SwitchReading.UNREAD;
 
     public ConfiguredSwitches(ConfigReference config, BackendGateway backend) {
+        this(config, backend, PlayerModelRoutes.SERVER_DEFAULT);
+    }
+
+    public ConfiguredSwitches(ConfigReference config, BackendGateway backend, PlayerModelRoutes routes) {
         this.config = config;
         this.backend = backend;
+        this.routes = routes;
     }
 
     @Override
@@ -25,7 +34,17 @@ public final class ConfiguredSwitches implements DetectionSwitches, BackendAvail
 
     @Override
     public boolean ultraEnabled() {
-        return current().ultra();
+        return current().ultra() || routes.anyPlayerOn(ModelRoute.ULTRA);
+    }
+
+    @Override
+    public boolean ultraEnabledFor(UUID player) {
+        return routes.routeOf(player).runsUltra(current().ultra());
+    }
+
+    @Override
+    public boolean legacyEnabledFor(UUID player) {
+        return routes.routeOf(player).runsLegacy(current().ultra());
     }
 
     @Override

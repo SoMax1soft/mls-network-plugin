@@ -81,6 +81,10 @@ public final class AnimationDirector {
         return runs.containsKey(player);
     }
 
+    public boolean anyAnimating() {
+        return !runs.isEmpty();
+    }
+
     public int abandonAll() {
         int abandoned = 0;
         for (Map.Entry<UUID, AnimationRun> entry : Map.copyOf(runs).entrySet()) {

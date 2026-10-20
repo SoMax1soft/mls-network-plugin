@@ -72,6 +72,14 @@ public final class CompensationBook {
         }
     }
 
+    public void openProbeBurst() {
+        pings.openBurst();
+    }
+
+    public void closeProbeBurst() {
+        pings.closeBurst();
+    }
+
     private static void probeIfRoom(CompensatedViewer viewer) {
         if (viewer.acknowledgements().backlogSmall()) {
             viewer.acknowledgements().sendProbe();

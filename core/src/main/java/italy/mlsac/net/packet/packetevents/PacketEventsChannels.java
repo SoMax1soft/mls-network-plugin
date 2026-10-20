@@ -4,6 +4,7 @@ package italy.mlsac.net.packet.packetevents;
 import com.github.retrooper.packetevents.PacketEvents;
 import com.github.retrooper.packetevents.PacketEventsAPI;
 import com.github.retrooper.packetevents.netty.channel.ChannelHelper;
+import io.netty.channel.Channel;
 import java.util.UUID;
 
 final class PacketEventsChannels implements ChannelAccess {
@@ -35,5 +36,10 @@ final class PacketEventsChannels implements ChannelAccess {
     @Override
     public void execute(Object channel, Runnable task) {
         ChannelHelper.runInEventLoop(channel, task);
+    }
+
+    @Override
+    public Object loopOf(Object channel) {
+        return ((Channel) channel).eventLoop();
     }
 }

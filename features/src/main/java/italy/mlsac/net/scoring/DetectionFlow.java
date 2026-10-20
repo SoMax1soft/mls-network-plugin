@@ -18,11 +18,18 @@ public final class DetectionFlow {
     private final Supplier<BufferReactions> reactions;
     private final PlayerThread players;
     private final FlagProcessor flags;
+    private final CheckObserver checks;
     private final Logbook log;
 
     public DetectionFlow(Supplier<ScoringRules> rules, Supplier<ReportingPolicy> reporting, VerdictScreen screen,
                          DetectionAudience audience, DetectionReports reports, Supplier<BufferReactions> reactions,
                          PlayerThread players, FlagProcessor flags, Logbook log) {
+        this(rules, reporting, screen, audience, reports, reactions, players, flags, CheckObserver.NONE, log);
+    }
+
+    public DetectionFlow(Supplier<ScoringRules> rules, Supplier<ReportingPolicy> reporting, VerdictScreen screen,
+                         DetectionAudience audience, DetectionReports reports, Supplier<BufferReactions> reactions,
+                         PlayerThread players, FlagProcessor flags, CheckObserver checks, Logbook log) {
         this.rules = rules;
         this.reporting = reporting;
         this.screen = screen;
@@ -31,11 +38,12 @@ public final class DetectionFlow {
         this.reactions = reactions;
         this.players = players;
         this.flags = flags;
+        this.checks = checks;
         this.log = log;
     }
 
     public void process(SuspectRecord suspect, Verdict verdict) {
-        Optional<ScreenedVerdict> screened = screen.screen(suspect.name(), verdict);
+        Optional<ScreenedVerdict> screened = screen.screen(suspect.id(), suspect.name(), verdict);
         if (screened.isEmpty()) {
             return;
         }
@@ -59,7 +67,9 @@ public final class DetectionFlow {
             currentReactions.bufferMoved(moment);
         }
         currentReactions.answerAccepted(moment);
-        if (!verdict.onlyAlert() && current.flags(buffer)) {
+        boolean flagged = !verdict.onlyAlert() && current.flags(buffer);
+        checks.checked(new CheckOutcome(suspect.id(), suspect.name(), verdict, buffer, flagged));
+        if (flagged) {
             scheduleFlag(suspect, verdict.probability(), verdict.origin());
             double reset = current.resetBuffer();
             suspect.resetBuffer(reset);
