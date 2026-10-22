@@ -8,5 +8,11 @@ public interface BedrockDetector {
 
     BedrockDetector NONE = player -> false;
 
+    BedrockDetector FLOODGATE_UUID = BedrockDetector::floodgateUuid;
+
     boolean bedrockClient(UUID player);
+
+    static boolean floodgateUuid(UUID player) {
+        return player != null && player.getMostSignificantBits() == 0L;
+    }
 }

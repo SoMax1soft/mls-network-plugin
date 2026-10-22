@@ -39,14 +39,15 @@ public final class ReflectiveBedrockDetector implements BedrockDetector {
             geyser = null;
         }
         if (floodgate == null && geyser == null) {
-            return BedrockDetector.NONE;
+            return BedrockDetector.FLOODGATE_UUID;
         }
         return new ReflectiveBedrockDetector(floodgate, floodgateCheck, geyser, geyserCheck);
     }
 
     @Override
     public boolean bedrockClient(UUID player) {
-        return check(floodgate, floodgateCheck, player) || check(geyser, geyserCheck, player);
+        return BedrockDetector.floodgateUuid(player)
+                || check(floodgate, floodgateCheck, player) || check(geyser, geyserCheck, player);
     }
 
     private static boolean check(Object api, Method method, UUID player) {

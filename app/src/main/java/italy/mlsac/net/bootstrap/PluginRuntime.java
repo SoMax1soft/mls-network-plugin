@@ -172,7 +172,8 @@ final class PluginRuntime {
     }
 
     private StartupSummary.Integrations integrations() {
-        return new StartupSummary.Integrations(core.regionLookup.available(), core.bedrock != BedrockDetector.NONE);
+        return new StartupSummary.Integrations(core.regionLookup.available(), core.bedrock != BedrockDetector.NONE
+                && core.bedrock != BedrockDetector.FLOODGATE_UUID);
     }
 
     private static void stopBackend(CoreWiring wiring) {
