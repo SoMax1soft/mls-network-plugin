@@ -32,7 +32,14 @@ public final class CoreSettingsReader {
                 bool(file, "server-identity.reporting.events-enabled", true),
                 threshold(file));
         return new Result(new CoreSettings(debug, language, accessKey, preset.selection(), identity,
-                guard.read(file, warnings), badPackets.read(file, warnings)), warnings);
+                guard.read(file, warnings), badPackets.read(file, warnings), wallChecks(file)), warnings);
+    }
+
+    private static int wallChecks(ConfigTree file) {
+        Optional<Object> raw = file.value("performance.wall-checks-per-second");
+        int value = raw.filter(Number.class::isInstance).map(v -> ((Number) v).intValue())
+                .orElse(CoreSettings.HALF_WALL_CHECKS);
+        return value == CoreSettings.FULL_WALL_CHECKS ? CoreSettings.FULL_WALL_CHECKS : CoreSettings.HALF_WALL_CHECKS;
     }
 
     private static double threshold(ConfigTree file) {

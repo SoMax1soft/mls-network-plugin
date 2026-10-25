@@ -1,4 +1,4 @@
-# MLSAC 2.0.9 an AI anticheat for Minecraft servers
+# MLSAC 2.0.10 an AI anticheat for Minecraft servers
 
 **MLSAC** is a machine-learning anticheat. The plugin watches how players fight — aim, clicks, movement
 around the target — and sends compact feature windows to the MLSAC cloud, where neural networks score
@@ -56,7 +56,7 @@ not redistribute it, sell it or use it to build other anticheats or cheats. Thir
 
 ---
 
-# MLSAC 2.0.9 это ИИ-античит для серверов Minecraft
+# MLSAC 2.0.10 это ИИ-античит для серверов Minecraft
 
 **MLSAC** — античит на машинном обучении. Плагин смотрит, как игрок дерётся: прицел, клики, движение
 вокруг цели, — и отправляет компактные окна признаков в облако MLSAC. Там нейросети оценивают их на

@@ -39,6 +39,10 @@ server-identity:
     events-enabled: true
     alert-threshold: 0.80
 
+performance:
+  # Wall (line of sight) checks per second for Ultra: 10 or 20. 10 halves the cost with the same detection.
+  wall-checks-per-second: 10
+
 command-guard:
   enabled: true
   mode: "block"

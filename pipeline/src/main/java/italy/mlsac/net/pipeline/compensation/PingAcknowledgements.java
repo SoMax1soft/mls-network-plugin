@@ -17,6 +17,7 @@ public final class PingAcknowledgements {
     private final FlushedProbes flushed = new FlushedProbes();
     private final AcknowledgedWork work = new AcknowledgedWork(flushed::answeredTotal);
     private long lastRoundTripNanos = NOT_MEASURED;
+    private Object route;
 
     public PingAcknowledgements(UUID viewer, TransactionPings pings, MonotonicClock clock) {
         this.viewer = viewer;
@@ -33,7 +34,10 @@ public final class PingAcknowledgements {
     }
 
     public void sendProbe() {
-        pings.send(viewer, ids.issue());
+        if (route == null) {
+            route = pings.route(viewer);
+        }
+        pings.send(route, viewer, ids.issue());
     }
 
     public void probeFlushed(int id) {

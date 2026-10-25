@@ -9,6 +9,7 @@ import italy.mlsac.net.pipeline.player.PlayerSample;
 import italy.mlsac.net.pipeline.player.ServerSamples;
 import italy.mlsac.net.pipeline.rows.RowProducer;
 import italy.mlsac.net.pipeline.ultra.LiveStreams;
+import italy.mlsac.net.pipeline.turn.PlayerTurn;
 import java.util.UUID;
 
 final class TickCycle {
@@ -34,11 +35,13 @@ final class TickCycle {
     }
 
     void run() {
+        boolean ultra = switches.ultraEnabled();
         samples.beginCaptureBatch();
         try {
             for (UUID player : states.connectedPlayers()) {
-                synchronized (turns.of(player)) {
-                    tickOf(player);
+                PlayerTurn turn = turns.of(player);
+                synchronized (turn) {
+                    tickOf(player, turn, ultra);
                 }
             }
         } finally {
@@ -47,8 +50,9 @@ final class TickCycle {
         compensation.openProbeBurst();
         try {
             for (UUID viewer : compensation.viewerIds()) {
-                synchronized (turns.of(viewer)) {
-                    compensation.endViewerTick(viewer);
+                PlayerTurn turn = turns.of(viewer);
+                synchronized (turn) {
+                    compensation.endViewerTick(viewer, turn);
                 }
             }
         } finally {
@@ -57,24 +61,24 @@ final class TickCycle {
     }
 
     void runFor(UUID player) {
-        tickOf(player);
-        compensation.endViewerTick(player);
-    }
-
-    private void tickOf(UUID player) {
-        if (taps.anyActive() || switches.ultraEnabled()) {
-            sample(player);
+        PlayerTurn turn = turns.of(player);
+        synchronized (turn) {
+            tickOf(player, turn, switches.ultraEnabled());
+            compensation.endViewerTick(player, turn);
         }
-        legacy.gameTick(player);
     }
 
-    private void sample(UUID player) {
-        PlayerSample sample = states.sample(player);
+    private void tickOf(UUID player, PlayerTurn turn, boolean ultra) {
+        boolean sampled = (taps.anyActive() || ultra) && sample(player, turn);
+        legacy.gameTick(player, sampled, turn);
+    }
+
+    private boolean sample(UUID player, PlayerTurn turn) {
+        PlayerSample sample = states.sample(player, taps.anyActive(), turn);
         if (sample == null) {
-            return;
+            return false;
         }
-        PlayerSample previous = samples.capture(sample);
-        samples.storePing(player, states.serverPing(player));
+        PlayerSample previous = samples.capture(turn, sample, states.serverPingAfterSample(player));
         boolean discontinuous = previous != null
                 && (!previous.world().equals(sample.world()) || previous.alive() != sample.alive());
         InputTap tap = taps.tapOrNull(player);
@@ -82,7 +86,7 @@ final class TickCycle {
             if (tap != null) {
                 tap.discontinuity();
             }
-            RowProducer brokenRows = live.rowsFor(player);
+            RowProducer brokenRows = live.rowsForOnline(player, turn);
             if (brokenRows != null) {
                 brokenRows.discontinuity();
             }
@@ -90,9 +94,10 @@ final class TickCycle {
         if (tap != null) {
             tap.gameTick();
         }
-        RowProducer liveRows = live.rowsFor(player);
+        RowProducer liveRows = live.rowsForOnline(player, turn);
         if (liveRows != null) {
             liveRows.gameTick();
         }
+        return true;
     }
 }

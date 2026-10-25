@@ -8,6 +8,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import italy.mlsac.net.console.LogLevel;
 import italy.mlsac.net.pipeline.environment.RayVerdict;
+import italy.mlsac.net.pipeline.environment.SightRays;
 import italy.mlsac.net.pipeline.geometry.Box;
 import italy.mlsac.net.pipeline.geometry.Vec3;
 import italy.mlsac.net.testkit.CapturingLogSink;
@@ -21,8 +22,8 @@ import java.util.function.Function;
 import java.util.function.Predicate;
 import org.bukkit.FluidCollisionMode;
 import org.bukkit.Location;
-import org.bukkit.Material;
 import org.bukkit.World;
+import org.bukkit.block.Block;
 import org.bukkit.util.RayTraceResult;
 import org.bukkit.util.Vector;
 import org.junit.jupiter.api.Test;
@@ -142,6 +143,31 @@ class BukkitSightLinesTest {
     }
 
     @Test
+    void sharedRaysReadEachBlockOnceAndSkipAirWithoutCasting() {
+        List<List<Integer>> read = new ArrayList<>();
+        World world = blockWorld(Set.of(0L), read, block -> false);
+        BukkitSightLines lines = new BukkitSightLines(new FixedRoster().with(WORLD, world),
+                FixedOwnership.everything(), new BlockTypeAir(), log(), true);
+        Vec3 eye = new Vec3(1.5, 65.62, 1.5);
+        Box ends = new Box(3.25, 64.05, 1.25, 3.75, 65.75, 1.75);
+        SightRays rays = lines.rays(WORLD, eye, ends);
+        assertTrue(rays.provenClear());
+        for (int index = 0; index < 9; index++) {
+            assertEquals(RayVerdict.CLEAR, rays.trace(eye, new Vec3(3.3 + index * 0.05, 64.1 + index * 0.15, 1.5)));
+        }
+        assertTrue(casts.isEmpty());
+        assertEquals(3 * 2 * 1, read.size());
+    }
+
+    @Test
+    void withoutTheSharedSwitchEveryRayIsCastAsBefore() {
+        World world = blockWorld(Set.of(0L), new ArrayList<>(), block -> false);
+        BukkitSightLines lines = proofLines(world, FixedOwnership.everything());
+        SightRays rays = lines.rays(WORLD, new Vec3(1.5, 65.62, 1.5), new Box(3.25, 64.05, 1.25, 3.75, 65.75, 1.75));
+        assertFalse(rays instanceof SightBundle);
+    }
+
+    @Test
     void anySolidBlockInTheSpanLeavesTheRaysToBeAsked() {
         World world = blockWorld(Set.of(0L), new ArrayList<>(), block -> block.equals(List.of(2, 65, 1)));
         assertFalse(proofLines(world, FixedOwnership.everything()).provenClear(WORLD, new Vec3(1.5, 65.62, 1.5),
@@ -184,10 +210,10 @@ class BukkitSightLinesTest {
                 .answer("getUID", WORLD)
                 .compute("isChunkLoaded", arguments -> arguments.length == 2
                         && loadedChunkXs.contains((long) (int) arguments[0]) && (int) arguments[1] == 0)
-                .compute("getType", arguments -> {
+                .compute("getBlockAt", arguments -> {
                     List<Integer> block = List.of((int) arguments[0], (int) arguments[1], (int) arguments[2]);
                     read.add(block);
-                    return solid.test(block) ? Material.STONE : Material.AIR;
+                    return StandIn.of(Block.class).answer("isEmpty", !solid.test(block)).build();
                 })
                 .compute("rayTraceBlocks", arguments -> {
                     casts.add(arguments);

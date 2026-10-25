@@ -23,6 +23,14 @@ public final class OpenMenus {
         return Optional.of(holder);
     }
 
+    public MenuHolder shownTo(UUID viewer) {
+        return shown.get(viewer);
+    }
+
+    public boolean anyShown() {
+        return !shown.isEmpty();
+    }
+
     public void closed(MenuHolder holder) {
         shown.remove(holder.viewer(), holder);
     }

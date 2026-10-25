@@ -3,6 +3,7 @@ package italy.mlsac.net.pipeline.occlusion;
 
 import italy.mlsac.net.pipeline.environment.WorldSightLines;
 import italy.mlsac.net.pipeline.environment.RayVerdict;
+import italy.mlsac.net.pipeline.environment.SightRays;
 import italy.mlsac.net.pipeline.geometry.Box;
 import italy.mlsac.net.pipeline.geometry.Vec3;
 import java.util.ArrayList;
@@ -94,13 +95,14 @@ public final class OcclusionProbe {
         double best = -1.0;
         for (Vec3 eye : job.eyes()) {
             double share;
-            if (rays.provenClear(job.world(), eye, targetSpan)) {
+            SightRays bundle = rays.rays(job.world(), eye, targetSpan);
+            if (bundle.provenClear()) {
                 share = FULLY_EXPOSED;
             } else {
                 if (targets == null) {
                     targets = exposureTargets(tight, centre);
                 }
-                share = eyeExposure(job.world(), eye, targets);
+                share = eyeExposure(bundle, eye, targets);
             }
             best = Math.max(best, share);
             if (best >= 1.0) {
@@ -110,10 +112,11 @@ public final class OcclusionProbe {
         return best;
     }
 
-    private double eyeExposure(UUID world, Vec3 eye, Vec3[] targets) {
+    private double eyeExposure(SightRays bundle, Vec3 eye, Vec3[] targets) {
         int visible = 0;
         for (Vec3 point : targets) {
-            RayVerdict verdict = trace(world, eye, point);
+            RayVerdict verdict = Math.sqrt(eye.squaredDistanceTo(point)) < SHORTEST_SEGMENT
+                    ? RayVerdict.CLEAR : bundle.trace(eye, point);
             if (verdict == RayVerdict.UNKNOWN) {
                 return -1.0;
             }

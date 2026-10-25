@@ -5,6 +5,8 @@ import italy.mlsac.net.console.LogTopic;
 import italy.mlsac.net.console.PluginLog;
 import italy.mlsac.net.pipeline.environment.PlayerStates;
 import italy.mlsac.net.pipeline.player.PlayerSample;
+import italy.mlsac.net.pipeline.turn.PlayerTurn;
+import italy.mlsac.net.pipeline.turn.TurnPart;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -18,6 +20,7 @@ public final class BukkitPlayerStates implements PlayerStates {
     private final SampleReading reading;
     private final PingReading ping;
     private final PluginLog log;
+    private volatile Resolved lastSampled;
 
     public BukkitPlayerStates(ServerRoster roster, ThreadOwnership ownership, SampleReading reading,
                               PingReading ping, PluginLog log) {
@@ -39,12 +42,36 @@ public final class BukkitPlayerStates implements PlayerStates {
 
     @Override
     public PlayerSample sample(UUID player) {
-        Optional<Player> found = roster.player(player).filter(ownership::ownsEntity);
-        if (found.isEmpty()) {
+        return sample(player, true);
+    }
+
+    @Override
+    public PlayerSample sample(UUID player, boolean complete) {
+        Optional<Player> found = roster.player(player);
+        return found.isEmpty() ? null : sample(player, new ServerPlayerSlot(found.get()), complete);
+    }
+
+    @Override
+    public PlayerSample sample(UUID player, boolean complete, PlayerTurn turn) {
+        ServerPlayerSlot slot = (ServerPlayerSlot) turn.part(TurnPart.SERVER_PLAYER);
+        if (slot == null) {
+            Optional<Player> found = roster.player(player);
+            if (found.isEmpty()) {
+                return null;
+            }
+            slot = new ServerPlayerSlot(found.get());
+            turn.keep(TurnPart.SERVER_PLAYER, slot);
+        }
+        return sample(player, slot, complete);
+    }
+
+    private PlayerSample sample(UUID player, ServerPlayerSlot slot, boolean complete) {
+        if (!ownership.ownsEntity(slot.player())) {
             return null;
         }
+        lastSampled = new Resolved(Thread.currentThread(), player, slot.player());
         try {
-            return reading.read(found.get());
+            return reading.read(slot, complete);
         } catch (RuntimeException failure) {
             log.warn(LogTopic.DATA, "A player state could not be sampled: " + failure.getClass().getSimpleName(),
                     failure);
@@ -54,7 +81,20 @@ public final class BukkitPlayerStates implements PlayerStates {
 
     @Override
     public int serverPing(UUID player) {
-        Optional<Player> found = roster.player(player);
+        return pingOf(roster.player(player));
+    }
+
+    @Override
+    public int serverPingAfterSample(UUID player) {
+        Resolved resolved = lastSampled;
+        if (resolved == null || resolved.thread() != Thread.currentThread() || !resolved.player().equals(player)) {
+            return serverPing(player);
+        }
+        lastSampled = null;
+        return pingOf(Optional.of(resolved.handle()));
+    }
+
+    private int pingOf(Optional<Player> found) {
         if (found.isEmpty()) {
             return PingReading.ABSENT;
         }
@@ -64,5 +104,8 @@ public final class BukkitPlayerStates implements PlayerStates {
             log.debug(LogTopic.DATA, () -> "Server ping unavailable: " + failure);
             return PingReading.ABSENT;
         }
+    }
+
+    private record Resolved(Thread thread, UUID player, Player handle) {
     }
 }

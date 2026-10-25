@@ -44,6 +44,7 @@ import italy.mlsac.net.player.PlayerDirectory;
 import italy.mlsac.net.player.StandingCache;
 import italy.mlsac.net.player.bukkit.InstalledPermissionPlugin;
 import italy.mlsac.net.player.StandingRefresher;
+import italy.mlsac.net.player.bukkit.LuckPermsChanges;
 import italy.mlsac.net.player.bukkit.BukkitPlayerDirectory;
 import italy.mlsac.net.player.bukkit.BukkitPlayerEventBridge;
 import italy.mlsac.net.player.bukkit.ReflectiveBedrockDetector;
@@ -158,7 +159,8 @@ final class CoreWiring {
                 () -> config.get().modules().updates());
         this.joinNotices = new JoinNotices(notices, missingPreset, updates, colorizer);
         this.playerEvents = new BukkitPlayerEventBridge(plugin, bus, online, standings);
-        this.standingRefresher = new StandingRefresher(scheduler, players, standings);
+        this.standingRefresher = new StandingRefresher(scheduler, players, standings,
+                LuckPermsChanges.detect(plugin, log));
         this.ticks = chooseTickSource();
         this.modelSelection = new ModelSelections(config, bus, log);
         this.modelApi = new BukkitModelApi(plugin, bus, modelSelection, log);

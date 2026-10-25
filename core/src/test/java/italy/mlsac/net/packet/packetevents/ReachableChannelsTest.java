@@ -12,7 +12,10 @@ import italy.mlsac.net.console.LogLevel;
 import italy.mlsac.net.testkit.CapturingLogSink;
 import italy.mlsac.net.testkit.ManualClock;
 import italy.mlsac.net.testkit.TestLogs;
+import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -123,5 +126,101 @@ class ReachableChannelsTest {
         StandInChannel channel = StandInChannel.injected(loop).withFailingCheck();
         assertNull(new ReachableChannels(channel.access(), faults).channelOrNull(PLAYER));
         assertEquals(1, sink.texts(LogLevel.WARNING).size());
+    }
+
+    @Test
+    void closedChannelsAreForgottenOnceManyHaveBeenSeen() {
+        Map<UUID, Object> byPlayer = new ConcurrentHashMap<>();
+        Set<Object> closed = ConcurrentHashMap.newKeySet();
+        ChannelAccess access = new ChannelAccess() {
+            @Override
+            public Object channelOf(UUID player) {
+                return byPlayer.get(player);
+            }
+
+            @Override
+            public boolean open(Object channel) {
+                return !closed.contains(channel);
+            }
+
+            @Override
+            public boolean injected(Object channel) {
+                return true;
+            }
+
+            @Override
+            public void execute(Object channel, Runnable task) {
+                task.run();
+            }
+
+            @Override
+            public Object loopOf(Object channel) {
+                return this;
+            }
+        };
+        ReachableChannels channels = new ReachableChannels(access, faults);
+        for (int session = 0; session < 1000; session++) {
+            UUID player = new UUID(9, session);
+            Object channel = new Object();
+            byPlayer.put(player, channel);
+            assertSame(channel, channels.channelOrNull(player));
+            closed.add(channel);
+            byPlayer.remove(player);
+        }
+        UUID stays = new UUID(10, 1);
+        Object open = new Object();
+        byPlayer.put(stays, open);
+        assertSame(open, channels.channelOrNull(stays));
+        assertTrue(channels.remembered() < 70, "remembered " + channels.remembered());
+        assertSame(open, channels.channelOrNull(stays));
+    }
+
+    @Test
+    void aPingRouteKeepsItsChannelWhileItIsOpen() {
+        Map<UUID, Object> byPlayer = new ConcurrentHashMap<>();
+        Set<Object> closed = ConcurrentHashMap.newKeySet();
+        AtomicInteger lookups = new AtomicInteger();
+        ChannelAccess access = new ChannelAccess() {
+            @Override
+            public Object channelOf(UUID player) {
+                lookups.incrementAndGet();
+                return byPlayer.get(player);
+            }
+
+            @Override
+            public boolean open(Object channel) {
+                return !closed.contains(channel);
+            }
+
+            @Override
+            public boolean injected(Object channel) {
+                return true;
+            }
+
+            @Override
+            public void execute(Object channel, Runnable task) {
+                task.run();
+            }
+
+            @Override
+            public Object loopOf(Object channel) {
+                return this;
+            }
+        };
+        ReachableChannels channels = new ReachableChannels(access, faults);
+        Object first = new Object();
+        byPlayer.put(PLAYER, first);
+        ChannelRoute route = new ChannelRoute();
+        for (int tick = 0; tick < 20; tick++) {
+            assertSame(first, channels.routed(route, PLAYER));
+        }
+        assertEquals(1, lookups.get());
+        Object second = new Object();
+        closed.add(first);
+        byPlayer.put(PLAYER, second);
+        assertSame(second, channels.routed(route, PLAYER));
+        closed.add(second);
+        byPlayer.remove(PLAYER);
+        assertNull(channels.routed(route, PLAYER));
     }
 }

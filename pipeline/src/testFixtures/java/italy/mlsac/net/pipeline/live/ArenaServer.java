@@ -34,6 +34,7 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.UnaryOperator;
 
 final class ArenaServer implements PlayerStates, PlayerStanding, PlayerConnections, WorldSightLines, MonotonicClock,
         WallClock, UuidSource, DataFolder, PlatformText, DetectionSwitches, BackendAvailability, UltraWindowSink,
@@ -47,6 +48,7 @@ final class ArenaServer implements PlayerStates, PlayerStanding, PlayerConnectio
     private final Map<UUID, List<byte[]>> windows = new ConcurrentHashMap<>();
     private final Map<String, byte[]> files = new ConcurrentHashMap<>();
     private final AtomicLong uuidCounter = new AtomicLong();
+    private UnaryOperator<PlayerSample> style = UnaryOperator.identity();
 
     PipelinePorts ports() {
         return new PipelinePorts(this, this, this, this, this, this, this, this, this, this, this, this,
@@ -68,9 +70,13 @@ final class ArenaServer implements PlayerStates, PlayerStanding, PlayerConnectio
     }
 
     void place(UUID player, long capturedAt, double x, double z, float yaw, float pitch) {
-        states.put(player, new PlayerSample(player, WORLD, entityNumbers.get(player), capturedAt, x, 64.0, z, yaw,
-                pitch, 1.62, 1.8, 0.6, 0.0, 1.0f, true, false, PlayerPosture.NEUTRAL, "diamond_sword", 12.5f,
-                "SURVIVAL", null));
+        states.put(player, style.apply(new PlayerSample(player, WORLD, entityNumbers.get(player), capturedAt, x,
+                64.0, z, yaw, pitch, 1.62, 1.8, 0.6, 0.0, 1.0f, true, false, PlayerPosture.NEUTRAL, "diamond_sword",
+                12.5f, "SURVIVAL", null)));
+    }
+
+    void restyle(UnaryOperator<PlayerSample> style) {
+        this.style = style;
     }
 
     List<byte[]> windowsOf(UUID player) {

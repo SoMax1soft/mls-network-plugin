@@ -1,17 +1,18 @@
 // Copyright (c) 2026 MLSAC. All Rights Reserved.
 package italy.mlsac.net.packet.packetevents;
 
-import java.util.Collections;
 import java.util.Set;
 import java.util.UUID;
-import java.util.WeakHashMap;
+import java.util.concurrent.ConcurrentHashMap;
 
 final class ReachableChannels {
 
     private final ChannelAccess access;
     private final PacketFaultLog faults;
-    private final Set<Object> injectedSeen =
-            Collections.synchronizedSet(Collections.newSetFromMap(new WeakHashMap<>()));
+    private static final int FIRST_PRUNE_AT = 64;
+
+    private final Set<Object> injectedSeen = ConcurrentHashMap.newKeySet();
+    private volatile int pruneAt = FIRST_PRUNE_AT;
 
     ReachableChannels(ChannelAccess access, PacketFaultLog faults) {
         this.access = access;
@@ -21,6 +22,24 @@ final class ReachableChannels {
     Object channelOrNull(UUID player) {
         Object channel = access.channelOf(player);
         return channel != null && carries(channel) ? channel : null;
+    }
+
+    Object routed(ChannelRoute route, UUID player) {
+        Object known = route.channel();
+        if (known != null) {
+            try {
+                if (access.open(known)) {
+                    return known;
+                }
+            } catch (RuntimeException failure) {
+                faults.recordNetworkFault("a channel check", failure);
+                route.channel(null);
+                return null;
+            }
+        }
+        Object fresh = channelOrNull(player);
+        route.channel(fresh);
+        return fresh;
     }
 
     boolean carries(Object channel) {
@@ -37,7 +56,30 @@ final class ReachableChannels {
             return false;
         }
         injectedSeen.add(channel);
+        if (injectedSeen.size() >= pruneAt) {
+            pruneClosed();
+        }
         return true;
+    }
+
+    private synchronized void pruneClosed() {
+        if (injectedSeen.size() < pruneAt) {
+            return;
+        }
+        injectedSeen.removeIf(this::closedOrBroken);
+        pruneAt = Math.max(FIRST_PRUNE_AT, injectedSeen.size() * 2);
+    }
+
+    private boolean closedOrBroken(Object channel) {
+        try {
+            return !access.open(channel);
+        } catch (RuntimeException failure) {
+            return true;
+        }
+    }
+
+    int remembered() {
+        return injectedSeen.size();
     }
 
     boolean runOnLoop(UUID player, Runnable task) {

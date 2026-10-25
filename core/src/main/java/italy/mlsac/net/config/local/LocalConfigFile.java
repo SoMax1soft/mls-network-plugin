@@ -29,7 +29,7 @@ public final class LocalConfigFile {
             "server-identity.reporting.alert-threshold", "command-guard.enabled", "command-guard.mode",
             "command-guard.extra-allowed-roots", "command-guard.max-commands-per-minute",
             "command-guard.max-commands-per-player-per-minute", "command-guard.max-same-command-burst",
-            "command-guard.burst-pause-minutes");
+            "command-guard.burst-pause-minutes", "performance.wall-checks-per-second");
     private static final List<String> FILES_NO_LONGER_USED = List.of("modules.yml", "holograms.yml", "menu_ru.yml",
             "menu_en.yml", "menu_vi.yml", "modules/anti-esp.yml", "messages_ru.yml", "messages_en.yml",
             "messages_vi.yml");

@@ -24,7 +24,8 @@ public final class BukkitServerSide {
                 new InteractionRangeAttribute(core.log()));
         this.ports = new ServerSide(
                 new BukkitPlayerStates(roster, ownership, reading, PingReading.forRunningServer(), core.log()),
-                new BukkitSightLines(roster, ownership, AirReading.forRunningServer(), core.log()),
+                new BukkitSightLines(roster, ownership, AirReading.forRunningServer(), core.log(),
+                        SharedSightCheck.switchFor(core.host().plugin().map(Plugin::getServer).orElse(null))),
                 new BukkitServerFacts(roster, core.packets().clients(), places),
                 ServerHooks.inOrder(new TickedPlayers(core.bus(), roster, works), pace), pace);
     }

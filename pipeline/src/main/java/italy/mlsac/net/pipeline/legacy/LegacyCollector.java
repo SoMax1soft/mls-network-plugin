@@ -6,6 +6,9 @@ import italy.mlsac.net.pipeline.environment.BackendAvailability;
 import italy.mlsac.net.pipeline.environment.DetectionSwitches;
 import italy.mlsac.net.pipeline.environment.LegacyWindowSink;
 import italy.mlsac.net.pipeline.environment.PlayerStanding;
+import italy.mlsac.net.pipeline.turn.PlayerTurn;
+import italy.mlsac.net.pipeline.turn.TurnEpoch;
+import italy.mlsac.net.pipeline.turn.TurnPart;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -17,9 +20,16 @@ public final class LegacyCollector {
     private final PlayerStanding standing;
     private final LegacyWindowSink sink;
     private final Map<UUID, LegacyCombat> states = new ConcurrentHashMap<>();
+    private final TurnEpoch epoch;
 
     public LegacyCollector(DetectionSwitches switches, BackendAvailability backend, PlayerStanding standing,
             LegacyWindowSink sink) {
+        this(switches, backend, standing, sink, new TurnEpoch());
+    }
+
+    public LegacyCollector(DetectionSwitches switches, BackendAvailability backend, PlayerStanding standing,
+            LegacyWindowSink sink, TurnEpoch epoch) {
+        this.epoch = epoch;
         this.switches = switches;
         this.backend = backend;
         this.standing = standing;
@@ -27,11 +37,27 @@ public final class LegacyCollector {
     }
 
     public void gameTick(UUID player) {
-        if (!switches.detectionEnabled() || !backend.usable() || !standing.valid(player)
-                || standing.exempt(player)) {
+        gameTick(player, false, null);
+    }
+
+    public void gameTick(UUID player, boolean knownOnline, PlayerTurn turn) {
+        if (!switches.detectionEnabled() || !backend.usable()) {
             return;
         }
-        LegacyCombat state = stateOf(player);
+        LegacyCombat known = turn == null ? null : (LegacyCombat) turn.part(TurnPart.LEGACY_COMBAT);
+        if (known == null) {
+            known = states.get(player);
+            if (turn != null) {
+                turn.keep(TurnPart.LEGACY_COMBAT, known);
+            }
+        }
+        if (known != null && (known.bedrock() || !switches.legacyEnabledFor(player))) {
+            return;
+        }
+        if (!knownOnline && !standing.valid(player) || standing.exempt(player)) {
+            return;
+        }
+        LegacyCombat state = known != null ? known : stateOf(player);
         if (state.bedrock() || !switches.legacyEnabledFor(player)) {
             return;
         }
@@ -105,10 +131,12 @@ public final class LegacyCollector {
 
     public void forget(UUID player) {
         states.remove(player);
+        epoch.advance();
     }
 
     public void forgetAll() {
         states.clear();
+        epoch.advance();
     }
 
     private LegacyCombat stateOf(UUID player) {

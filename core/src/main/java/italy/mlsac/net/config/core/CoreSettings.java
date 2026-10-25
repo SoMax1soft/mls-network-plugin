@@ -7,7 +7,11 @@ import italy.mlsac.net.text.LanguageId;
 import java.util.Objects;
 
 public record CoreSettings(boolean debug, LanguageId language, ApiKey accessKey, PresetSelection preset,
-                           ServerIdentity identity, CommandGuardSettings commandGuard, BadPacketSettings badPackets) {
+                           ServerIdentity identity, CommandGuardSettings commandGuard, BadPacketSettings badPackets,
+                           int wallChecksPerSecond) {
+
+    public static final int FULL_WALL_CHECKS = 20;
+    public static final int HALF_WALL_CHECKS = 10;
 
     public CoreSettings {
         Objects.requireNonNull(language, "language");

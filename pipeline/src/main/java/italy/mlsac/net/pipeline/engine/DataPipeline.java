@@ -25,7 +25,7 @@ public final class DataPipeline implements PipelineInput {
     private final PipelinePorts ports;
     private final PlayerTurns turns;
     private final VersionNames versions = new VersionNames();
-    private final ServerSamples samples = new ServerSamples();
+    private final ServerSamples samples;
     private final CompensationBook compensation;
     private final MovementPrefilter prefilter;
     private final InputTaps taps;
@@ -48,14 +48,16 @@ public final class DataPipeline implements PipelineInput {
     public DataPipeline(PipelinePorts ports, PlayerTurns turns, InputTapSource tapSource) {
         this.ports = ports;
         this.turns = turns;
-        this.compensation = new CompensationBook(ports.pings(), ports.monotonic());
+        this.samples = new ServerSamples(turns.epoch());
+        this.compensation = new CompensationBook(ports.pings(), ports.monotonic(), turns.epoch());
         ClientSightRewind lens = new ClientSightRewind(compensation, samples);
         OcclusionProbe probe = new OcclusionProbe(ports.rays());
         this.prefilter = new MovementPrefilter(ports.connections(), versions);
         this.taps = tapSource.open(new TapParts(samples, lens, probe, ports, turns));
         this.live = new LiveStreams(ports.switches(), ports.standing(), ports.monotonic(), samples, lens, probe,
-                ports.ultraWindows());
-        this.legacy = new LegacyCollector(ports.switches(), ports.backend(), ports.standing(), ports.legacyWindows());
+                ports.ultraWindows(), turns.epoch());
+        this.legacy = new LegacyCollector(ports.switches(), ports.backend(), ports.standing(), ports.legacyWindows(),
+                turns.epoch());
         this.tickCycle = new TickCycle(ports.states(), ports.switches(), samples, taps, live, legacy,
                 compensation, turns);
     }
@@ -250,6 +252,7 @@ public final class DataPipeline implements PipelineInput {
 
     @Override
     public void joined(UUID player) {
+        turns.of(player).clear();
         compensation.track(player, ports.connections().viewSeed(player));
     }
 
@@ -283,6 +286,7 @@ public final class DataPipeline implements PipelineInput {
     }
 
     private void lifeBreak(UUID player) {
+        turns.of(player).clear();
         samples.removeSample(player);
         InputTap tap = taps.tapOrNull(player);
         if (tap != null) {
@@ -296,6 +300,7 @@ public final class DataPipeline implements PipelineInput {
 
     @Override
     public void teleported(UUID player) {
+        turns.of(player).clear();
         samples.removeSample(player);
         RowProducer rows = live.existingRows(player);
         if (rows != null) {

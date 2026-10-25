@@ -30,4 +30,9 @@ public final class PostureReading {
         return new PlayerPosture(player.isSprinting(), player.isSneaking(), climbing.of(player),
                 submerged.of(player), blind.of(player), player.isInsideVehicle());
     }
+
+    public PlayerPosture readStance(Player player) {
+        return new PlayerPosture(player.isSprinting(), player.isSneaking(), false, false, false,
+                player.isInsideVehicle());
+    }
 }

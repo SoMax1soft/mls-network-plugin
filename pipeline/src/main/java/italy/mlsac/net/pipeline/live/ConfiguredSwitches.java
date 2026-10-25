@@ -48,6 +48,11 @@ public final class ConfiguredSwitches implements DetectionSwitches, BackendAvail
     }
 
     @Override
+    public int wallChecksPerSecond() {
+        return current().wallChecks();
+    }
+
+    @Override
     public boolean clientPresent() {
         return backend.exists();
     }
@@ -61,13 +66,14 @@ public final class ConfiguredSwitches implements DetectionSwitches, BackendAvail
         EffectiveConfig now = config.get();
         SwitchReading known = reading;
         if (known.source() != now) {
-            known = new SwitchReading(now, now.detection().enabled(), now.detection().ultraMode());
+            known = new SwitchReading(now, now.detection().enabled(), now.detection().ultraMode(),
+                    now.core().wallChecksPerSecond());
             reading = known;
         }
         return known;
     }
 
-    private record SwitchReading(EffectiveConfig source, boolean detection, boolean ultra) {
-        static final SwitchReading UNREAD = new SwitchReading(null, false, false);
+    private record SwitchReading(EffectiveConfig source, boolean detection, boolean ultra, int wallChecks) {
+        static final SwitchReading UNREAD = new SwitchReading(null, false, false, 10);
     }
 }
