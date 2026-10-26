@@ -4,6 +4,9 @@ package italy.mlsac.net.pipeline.compensation;
 import italy.mlsac.net.pipeline.environment.MonotonicClock;
 import italy.mlsac.net.pipeline.environment.TransactionPings;
 import italy.mlsac.net.pipeline.player.ClientVersion;
+import italy.mlsac.net.pipeline.turn.PlayerTurn;
+import italy.mlsac.net.pipeline.turn.TurnEpoch;
+import italy.mlsac.net.pipeline.turn.TurnPart;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -15,10 +18,16 @@ public final class CompensationBook {
     private final TransactionPings pings;
     private final MonotonicClock clock;
     private final ConcurrentHashMap<UUID, CompensatedViewer> viewers = new ConcurrentHashMap<>();
+    private final TurnEpoch epoch;
 
     public CompensationBook(TransactionPings pings, MonotonicClock clock) {
+        this(pings, clock, new TurnEpoch());
+    }
+
+    public CompensationBook(TransactionPings pings, MonotonicClock clock, TurnEpoch epoch) {
         this.pings = pings;
         this.clock = clock;
+        this.epoch = epoch;
     }
 
     public void track(UUID viewer, ViewSeed seed) {
@@ -41,10 +50,12 @@ public final class CompensationBook {
             }
         }
         viewers.put(viewer, tracked);
+        epoch.advance();
     }
 
     public void forget(UUID viewer) {
         viewers.remove(viewer);
+        epoch.advance();
     }
 
     public Optional<CompensatedViewer> viewer(UUID viewer) {
@@ -67,6 +78,17 @@ public final class CompensationBook {
 
     public void endViewerTick(UUID viewer) {
         CompensatedViewer tracked = viewers.get(viewer);
+        if (tracked != null) {
+            probeIfRoom(tracked);
+        }
+    }
+
+    public void endViewerTick(UUID viewer, PlayerTurn turn) {
+        CompensatedViewer tracked = (CompensatedViewer) turn.part(TurnPart.COMPENSATED_VIEWER);
+        if (tracked == null) {
+            tracked = viewers.get(viewer);
+            turn.keep(TurnPart.COMPENSATED_VIEWER, tracked);
+        }
         if (tracked != null) {
             probeIfRoom(tracked);
         }

@@ -33,6 +33,23 @@ final class InteractionRangeAttribute implements ReachReading {
         return instance == null ? null : instance.getValue();
     }
 
+    @Override
+    public Double reach(ServerPlayerSlot slot) {
+        Optional<Attribute> attribute = attribute();
+        if (attribute.isEmpty()) {
+            return null;
+        }
+        AttributeInstance instance = slot.interactionRange();
+        if (instance == null) {
+            instance = slot.player().getAttribute(attribute.get());
+            if (instance == null) {
+                return null;
+            }
+            slot.interactionRange(instance);
+        }
+        return instance.getValue();
+    }
+
     private Optional<Attribute> attribute() {
         Optional<Attribute> known = resolved;
         if (known == null) {

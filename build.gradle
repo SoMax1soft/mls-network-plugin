@@ -4,7 +4,7 @@ plugins {
 }
 
 def buildNumber = findProperty('mlsacBuild')
-ext.mlsacVersion = buildNumber ? "2.0.${buildNumber}" : '2.0.dev'
+ext.mlsacVersion = buildNumber ? "2.1.${buildNumber}" : '2.1.dev'
 ext.mlsacEdition = gradle.ext.mlsacEdition
 
 subprojects {

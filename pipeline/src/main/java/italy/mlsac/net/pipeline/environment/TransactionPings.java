@@ -6,6 +6,14 @@ import java.util.UUID;
 public interface TransactionPings {
     void send(UUID viewer, int transactionId);
 
+    default Object route(UUID viewer) {
+        return null;
+    }
+
+    default void send(Object route, UUID viewer, int transactionId) {
+        send(viewer, transactionId);
+    }
+
     default void openBurst() {
     }
 

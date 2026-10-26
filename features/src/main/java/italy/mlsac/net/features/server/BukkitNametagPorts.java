@@ -8,9 +8,9 @@ import italy.mlsac.net.nametag.NametagPorts;
 import italy.mlsac.net.nametag.SeedSighting;
 import italy.mlsac.net.nametag.TrackingRange;
 import italy.mlsac.net.packet.PacketSender;
-import italy.mlsac.net.player.Audience;
 import italy.mlsac.net.player.PlayerDirectory;
 import italy.mlsac.net.player.PlayerView;
+import italy.mlsac.net.player.StandingCache;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -28,9 +28,11 @@ public final class BukkitNametagPorts implements NametagPorts {
     private final PacketSender connections;
     private final NametagWire wire;
     private final Supplier<TrackingRange> range;
+    private final StandingCache standings;
 
     public BukkitNametagPorts(SuspectRows rows, PlayerDirectory players, PacketSender connections, NametagWire wire,
-                              Supplier<TrackingRange> range) {
+                              Supplier<TrackingRange> range, StandingCache standings) {
+        this.standings = standings;
         this.rows = rows;
         this.players = players;
         this.connections = connections;
@@ -50,8 +52,8 @@ public final class BukkitNametagPorts implements NametagPorts {
 
     @Override
     public boolean staff(UUID viewer) {
-        return connections.reachable(viewer)
-                && players.byId(viewer).filter(PlayerView::online).map(Audience.STAFF::test).orElse(false);
+        return connections.reachable(viewer) && standings.standing(viewer).staff()
+                && players.byId(viewer).filter(PlayerView::online).isPresent();
     }
 
     @Override

@@ -9,6 +9,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import italy.mlsac.net.console.LogLevel;
 import italy.mlsac.net.console.PluginLog;
 import italy.mlsac.net.pipeline.player.PlayerSample;
+import italy.mlsac.net.pipeline.turn.PlayerTurn;
 import italy.mlsac.net.testkit.CapturingLogSink;
 import italy.mlsac.net.testkit.ManualClock;
 import italy.mlsac.net.testkit.TestLogs;
@@ -122,10 +123,90 @@ class BukkitPlayerStatesTest {
         assertEquals(PingReading.ABSENT, states.serverPing(FIRST));
     }
 
+    @Test
+    void stanceSampleSkipsTheReadsUltraNeverUses() {
+        Player player = PlayerStandIns.standing(FIRST, 7, world, 4.5, 64.0, 8.25)
+                .compute("getInventory", arguments -> {
+                    throw new AssertionError("hand read");
+                })
+                .compute("getGameMode", arguments -> {
+                    throw new AssertionError("game mode read");
+                }).build();
+        PlayerSample sample = states(new FixedRoster().with(player), FixedOwnership.everything(), refusingPosture(),
+                target -> 3.0).sample(FIRST, false);
+        assertEquals(4.5, sample.x());
+        assertEquals(0.7f, sample.swingCharge());
+        assertEquals(0.0, sample.fallBlocks());
+        assertTrue(sample.posture().sprinting());
+        assertFalse(sample.posture().submerged());
+        assertFalse(sample.posture().climbing());
+        assertFalse(sample.posture().blind());
+        assertFalse(sample.posture().riding());
+        assertEquals(HandReading.UNREADABLE_HAND, sample.handMaterial());
+        assertEquals(5.0f, sample.chargeTicks());
+        assertNull(sample.playModeName());
+        assertEquals(3.0, sample.interactionRange());
+        assertEquals(3.0, sample.reach());
+    }
+
+    @Test
+    void stanceSampleStillReadsTheGameModeWhenItDecidesTheReach() {
+        Player player = PlayerStandIns.standing(FIRST, 7, world, 0, 64, 0).build();
+        PlayerSample sample = states(new FixedRoster().with(player), FixedOwnership.everything(), refusingPosture(),
+                ReachReading.ABSENT).sample(FIRST, false);
+        assertEquals("SURVIVAL", sample.playModeName());
+        assertEquals(3.0, sample.reach());
+    }
+
+    @Test
+    void pingAfterASampleReusesThatPlayer() {
+        Player player = PlayerStandIns.standing(FIRST, 7, world, 0, 64, 0).build();
+        FixedRoster roster = new FixedRoster().with(player);
+        BukkitPlayerStates states = states(roster, FixedOwnership.everything());
+        states.sample(FIRST, true);
+        roster.remove(player);
+        assertEquals(42, states.serverPingAfterSample(FIRST));
+        assertEquals(PingReading.ABSENT, states.serverPingAfterSample(FIRST));
+        assertEquals(PingReading.ABSENT, states.serverPing(FIRST));
+    }
+
+    @Test
+    void aTurnKeepsTheResolvedPlayerUntilItIsCleared() {
+        Player player = PlayerStandIns.standing(FIRST, 7, world, 4.5, 64.0, 8.25).build();
+        FixedRoster roster = new FixedRoster().with(player);
+        BukkitPlayerStates states = states(roster, FixedOwnership.everything());
+        PlayerTurn turn = new PlayerTurn();
+        assertEquals(4.5, states.sample(FIRST, false, turn).x());
+        roster.remove(player);
+        assertEquals(4.5, states.sample(FIRST, false, turn).x());
+        turn.clear();
+        assertNull(states.sample(FIRST, false, turn));
+    }
+
+    @Test
+    void aKeptPlayerOfAnotherThreadIsStillNotSampled() {
+        Player player = PlayerStandIns.standing(FIRST, 7, world, 0, 64, 0).build();
+        PlayerTurn turn = new PlayerTurn();
+        assertNull(states(new FixedRoster().with(player), FixedOwnership.everything().withoutEntity(player))
+                .sample(FIRST, false, turn));
+    }
+
+    private static PostureReading refusingPosture() {
+        PlayerTrait refusing = target -> {
+            throw new AssertionError("posture trait read");
+        };
+        return new PostureReading(refusing, refusing, refusing);
+    }
+
     private BukkitPlayerStates states(FixedRoster roster, FixedOwnership ownership) {
-        SampleReading reading = new SampleReading(clock,
+        return states(roster, ownership,
                 new PostureReading(new NativeClimbing(), new NativeWaterContact(), player -> false),
-                new HandReading(log), player -> 5.0f, ReachReading.ABSENT);
+                ReachReading.ABSENT);
+    }
+
+    private BukkitPlayerStates states(FixedRoster roster, FixedOwnership ownership, PostureReading posture,
+                                      ReachReading reach) {
+        SampleReading reading = new SampleReading(clock, posture, new HandReading(log), player -> 5.0f, reach);
         return new BukkitPlayerStates(roster, ownership, reading, new PlayerPing(), log);
     }
 }

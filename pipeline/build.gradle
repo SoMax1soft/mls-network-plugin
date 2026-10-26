@@ -25,6 +25,16 @@ tasks.withType(Test).configureEach {
     systemProperty 'mlsac.golden.live', rootProject.file('../golden/traces/live').absolutePath
     systemProperty 'mlsac.parity.folder', layout.buildDirectory.dir('parity').get().asFile.absolutePath
     systemProperty 'mlsac.only', findProperty('only') ?: ''
+    systemProperty 'mlsac.bench', findProperty('bench') ?: 'false'
+    if (findProperty('benchPlayers') != null) {
+        systemProperty 'mlsac.bench.players', findProperty('benchPlayers')
+    }
+    if (findProperty('benchWalls') != null) {
+        systemProperty 'mlsac.bench.walls', findProperty('benchWalls')
+    }
+    if (findProperty('benchJfr') != null) {
+        jvmArgs "-XX:StartFlightRecording=filename=${findProperty('benchJfr')},settings=profile"
+    }
     systemProperty 'mlsac.wire6.recordings', findProperty('wire6Recordings') ?: ''
     systemProperty 'mlsac.wire6.out', findProperty('wire6Out') ?: ''
     if (findProperty('leadInRows') != null) {

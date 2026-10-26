@@ -65,6 +65,20 @@ final class PacketEventsSender implements PacketSender {
     }
 
     @Override
+    public Object pingRoute(UUID viewer) {
+        return new ChannelRoute();
+    }
+
+    @Override
+    public void sendTransactionPing(Object route, UUID viewer, int id) {
+        Object channel = route instanceof ChannelRoute known ? channels.routed(known, viewer)
+                : channels.channelOrNull(viewer);
+        if (channel != null) {
+            pings.deliver(channel, id);
+        }
+    }
+
+    @Override
     public void openPingBurst() {
         pings.openBurst();
     }

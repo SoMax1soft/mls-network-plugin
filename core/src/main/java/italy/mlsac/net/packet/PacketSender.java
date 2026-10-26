@@ -8,6 +8,14 @@ public interface PacketSender {
 
     void sendTransactionPing(UUID viewer, int id);
 
+    default Object pingRoute(UUID viewer) {
+        return null;
+    }
+
+    default void sendTransactionPing(Object route, UUID viewer, int id) {
+        sendTransactionPing(viewer, id);
+    }
+
     default void openPingBurst() {
     }
 

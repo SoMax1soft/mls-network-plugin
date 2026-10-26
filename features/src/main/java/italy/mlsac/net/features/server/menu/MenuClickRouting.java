@@ -11,6 +11,7 @@ import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.inventory.InventoryCloseEvent;
 import org.bukkit.event.inventory.InventoryDragEvent;
 import org.bukkit.event.inventory.InventoryEvent;
+import org.bukkit.event.inventory.InventoryType;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
@@ -27,7 +28,7 @@ public final class MenuClickRouting implements Listener {
 
     @EventHandler(priority = EventPriority.HIGHEST)
     public void clicked(InventoryClickEvent event) {
-        if (ourMenu(event).isEmpty()) {
+        if (ourMenu(event, event.getWhoClicked().getUniqueId()).isEmpty()) {
             return;
         }
         event.setCancelled(true);
@@ -39,12 +40,12 @@ public final class MenuClickRouting implements Listener {
 
     @EventHandler(priority = EventPriority.HIGHEST)
     public void dragged(InventoryDragEvent event) {
-        ourMenu(event).ifPresent(holder -> event.setCancelled(true));
+        ourMenu(event, event.getWhoClicked().getUniqueId()).ifPresent(holder -> event.setCancelled(true));
     }
 
     @EventHandler(priority = EventPriority.MONITOR)
     public void closed(InventoryCloseEvent event) {
-        ourMenu(event).ifPresent(menus::closed);
+        ourMenu(event, event.getPlayer().getUniqueId()).ifPresent(menus::closed);
     }
 
     @EventHandler(priority = EventPriority.MONITOR)
@@ -52,10 +53,15 @@ public final class MenuClickRouting implements Listener {
         menus.forget(event.getPlayer().getUniqueId());
     }
 
-    private static Optional<MenuHolder> ourMenu(InventoryEvent event) {
-        return Optional.ofNullable(event.getInventory().getHolder())
-                .filter(MenuHolder.class::isInstance)
-                .map(MenuHolder.class::cast);
+    private Optional<MenuHolder> ourMenu(InventoryEvent event, UUID viewer) {
+        Inventory top = event.getInventory();
+        MenuHolder shown = menus.shownTo(viewer);
+        if (shown != null && shown.getInventory().equals(top)) {
+            return Optional.of(shown);
+        }
+        return menus.anyShown() && top.getType() == InventoryType.CHEST
+                ? Optional.ofNullable(top.getHolder()).filter(MenuHolder.class::isInstance).map(MenuHolder.class::cast)
+                : Optional.empty();
     }
 
     private static boolean pressedButton(Inventory top, int rawSlot) {

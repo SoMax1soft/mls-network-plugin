@@ -11,4 +11,19 @@ public interface WorldSightLines {
     default boolean provenClear(UUID world, Vec3 from, Box ends) {
         return false;
     }
+
+    default SightRays rays(UUID world, Vec3 eye, Box ends) {
+        WorldSightLines lines = this;
+        return new SightRays() {
+            @Override
+            public boolean provenClear() {
+                return lines.provenClear(world, eye, ends);
+            }
+
+            @Override
+            public RayVerdict trace(Vec3 from, Vec3 to) {
+                return lines.trace(world, from, to);
+            }
+        };
+    }
 }

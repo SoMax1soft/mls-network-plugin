@@ -20,5 +20,9 @@ dependencies {
 }
 
 tasks.withType(Test).configureEach {
+    systemProperty 'mlsac.bench', findProperty('bench') ?: 'false'
+    if (findProperty('benchPlayers') != null) {
+        systemProperty 'mlsac.bench.players', findProperty('benchPlayers')
+    }
     systemProperty 'mlsac.wire5.vectors', rootProject.file('../specs/backend/wire-v5-vectors.json').absolutePath
 }

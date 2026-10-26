@@ -20,6 +20,16 @@ public final class SenderPings implements TransactionPings {
     }
 
     @Override
+    public Object route(UUID viewer) {
+        return sender.get().pingRoute(viewer);
+    }
+
+    @Override
+    public void send(Object route, UUID viewer, int transactionId) {
+        sender.get().sendTransactionPing(route, viewer, transactionId);
+    }
+
+    @Override
     public void openBurst() {
         sender.get().openPingBurst();
     }

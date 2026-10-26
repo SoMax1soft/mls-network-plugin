@@ -4,10 +4,12 @@ package italy.mlsac.net.pipeline.server;
 import italy.mlsac.net.console.LogTopic;
 import italy.mlsac.net.console.PluginLog;
 import italy.mlsac.net.pipeline.environment.RayVerdict;
+import italy.mlsac.net.pipeline.environment.SightRays;
 import italy.mlsac.net.pipeline.environment.WorldSightLines;
 import italy.mlsac.net.pipeline.geometry.Box;
 import italy.mlsac.net.pipeline.geometry.Vec3;
 import java.util.UUID;
+import java.util.function.BooleanSupplier;
 import org.bukkit.World;
 import org.bukkit.util.RayTraceResult;
 import org.bukkit.util.Vector;
@@ -19,12 +21,24 @@ public final class BukkitSightLines implements WorldSightLines {
     private final AirReading air;
     private final PluginLog log;
     private final ThreadLocal<SightCaster> casters = ThreadLocal.withInitial(SightCaster::new);
+    private final BooleanSupplier shared;
 
     public BukkitSightLines(ServerRoster roster, ThreadOwnership ownership, AirReading air, PluginLog log) {
+        this(roster, ownership, air, log, false);
+    }
+
+    public BukkitSightLines(ServerRoster roster, ThreadOwnership ownership, AirReading air, PluginLog log,
+                            boolean shared) {
+        this(roster, ownership, air, log, shared ? () -> true : () -> false);
+    }
+
+    public BukkitSightLines(ServerRoster roster, ThreadOwnership ownership, AirReading air, PluginLog log,
+                            BooleanSupplier shared) {
         this.roster = roster;
         this.ownership = ownership;
         this.air = air;
         this.log = log;
+        this.shared = shared;
     }
 
     @Override
@@ -66,13 +80,31 @@ public final class BukkitSightLines implements WorldSightLines {
         }
     }
 
+    @Override
+    public SightRays rays(UUID world, Vec3 eye, Box ends) {
+        if (shared.getAsBoolean() && AirVolume.spannable(eye, ends)) {
+            AirVolume volume = AirVolume.spanning(eye, ends);
+            if (SightBundle.blocks(volume) <= SightBundle.MOST_SHARED_BLOCKS) {
+                try {
+                    World found = roster.worldOrNull(world);
+                    if (found != null && volume.readable(found, ownership)) {
+                        return new SightBundle(this, world, found, volume, air, log);
+                    }
+                } catch (RuntimeException failure) {
+                    log.debug(LogTopic.DATA, () -> "Shared sight lines unavailable: " + failure);
+                }
+            }
+        }
+        return WorldSightLines.super.rays(world, eye, ends);
+    }
+
     private boolean readable(World world, Vec3 point) {
         int chunkX = SightSegment.chunkIndex(point.x());
         int chunkZ = SightSegment.chunkIndex(point.z());
         return ownership.ownsChunk(world, chunkX, chunkZ) && world.isChunkLoaded(chunkX, chunkZ);
     }
 
-    private static RayVerdict verdictOf(RayTraceResult hit, SightSegment segment) {
+    static RayVerdict verdictOf(RayTraceResult hit, SightSegment segment) {
         if (hit == null) {
             return RayVerdict.CLEAR;
         }

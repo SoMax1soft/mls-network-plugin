@@ -9,7 +9,7 @@ enum PingSendMode {
     BATCH("batch");
 
     static final String PROPERTY = "mlsac.ping.send";
-    static final PingSendMode DEFAULT = LOOP;
+    static final PingSendMode DEFAULT = BATCH;
 
     private final String key;
 

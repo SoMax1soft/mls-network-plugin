@@ -67,9 +67,10 @@ public final class RowProducer {
     }
 
     public void gameTick() {
+        long rowTick = gameTick;
         gameTick++;
         ticksSincePlayerAttack = Math.min(SATURATION, ticksSincePlayerAttack + 1);
-        occlusion.runAll();
+        occlusion.runAll(rowTick);
     }
 
     public void movement(MovementPacket packet) {

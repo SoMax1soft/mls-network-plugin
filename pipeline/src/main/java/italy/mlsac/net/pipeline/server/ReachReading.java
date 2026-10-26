@@ -9,4 +9,8 @@ public interface ReachReading {
     ReachReading ABSENT = player -> null;
 
     Double reach(Player player);
+
+    default Double reach(ServerPlayerSlot slot) {
+        return reach(slot.player());
+    }
 }

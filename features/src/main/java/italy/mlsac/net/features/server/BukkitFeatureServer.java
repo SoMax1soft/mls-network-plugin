@@ -148,7 +148,8 @@ public final class BukkitFeatureServer implements FeatureServer {
 
     @Override
     public synchronized NametagPorts nametagPorts(SuspectRows rows) {
-        nametagPorts = new BukkitNametagPorts(rows, core.players(), core.packets().sender(), wire, new SpigotTrackingRange());
+        nametagPorts = new BukkitNametagPorts(rows, core.players(), core.packets().sender(), wire, new SpigotTrackingRange(),
+                core.standings());
         return nametagPorts;
     }
 

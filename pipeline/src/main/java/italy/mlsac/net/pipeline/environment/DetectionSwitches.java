@@ -15,4 +15,8 @@ public interface DetectionSwitches {
     default boolean legacyEnabledFor(UUID player) {
         return !ultraEnabled();
     }
+
+    default int wallChecksPerSecond() {
+        return 20;
+    }
 }

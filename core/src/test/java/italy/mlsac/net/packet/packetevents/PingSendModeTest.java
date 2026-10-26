@@ -19,7 +19,7 @@ class PingSendModeTest {
 
     @Test
     void missingOrUnknownValuesFallBackToTheDefault() {
-        assertEquals(PingSendMode.LOOP, PingSendMode.DEFAULT);
+        assertEquals(PingSendMode.BATCH, PingSendMode.DEFAULT);
         assertEquals(PingSendMode.DEFAULT, PingSendMode.parse(null));
         assertEquals(PingSendMode.DEFAULT, PingSendMode.parse(""));
         assertEquals(PingSendMode.DEFAULT, PingSendMode.parse("lazy"));

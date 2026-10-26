@@ -54,7 +54,7 @@ public final class SuspectAdmission {
     }
 
     private void consider(PlayerView view) {
-        if (!view.online() || roster.active(view.id()).isPresent()) {
+        if (roster.active(view.id()).isPresent() || !view.online()) {
             return;
         }
         PlayerStanding standing = standings.standing(view.id());
