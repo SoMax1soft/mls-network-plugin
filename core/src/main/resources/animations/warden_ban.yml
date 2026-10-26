@@ -1,0 +1,268 @@
+# MLSAC Animation Engine v2.0 - Warden (Minecraft 1.19+)
+# Тема: Игрок замирает, за спиной из земли вылезает Варден, ревёт, съедает игрока и уходит обратно под землю
+# Длительность: 17.2 секунды (344 тика), наказание выполняется в момент укуса (234 тик)
+# Варден ненастоящий: только пакеты для игроков рядом, без ИИ, урона и Тьмы, после рестарта ничего не остаётся
+# На сервере ниже 1.19 вместо этой анимации играет fallbackAnimation
+# punishAtTick: на этом тике выполняется команда наказания; Варден доигрывает для тех, кто рядом, даже после кика
+
+totalTicks: 344
+punishAtTick: 234
+freezePlayer: true
+levitatePlayer: false
+strikeLightningAtEnd: false
+stripPlayer: true
+itemDropIntervalTicks: 9
+fallbackAnimation: "classic_ban"
+
+# Кто появляется: тип и расстояние за спиной игрока в блоках
+actor:
+  type: "WARDEN"
+  distanceBehind: 2.5
+
+# Действия актёра (actor) внутри стейджа, atTick считается от startTick стейджа:
+#   SPAWN (pose)            - появиться за спиной игрока лицом к нему
+#   POSE (pose)             - сменить позу: STANDING, EMERGING, ROARING, SNIFFING, DIGGING
+#   FACE_VICTIM             - повернуться к игроку
+#   STEP (distance, ticks)  - шагнуть к игроку на distance блоков за ticks тиков
+#   ATTACK                  - удар лапами (ванильная анимация атаки)
+#   SHAKE_TENDRILS          - дрожание усиков
+#   SONIC_BOOM              - замах звуковой волны
+#   TURN_VICTIM             - развернуть камеру игрока лицом к Вардену
+#   SWALLOW_VICTIM          - игрок «съеден»: становится невидимым до конца анимации
+#   REMOVE                  - убрать Вардена
+# anchor: "ACTOR" у частиц и звуков - играть их там, где стоит Варден (по умолчанию у игрока)
+
+stages:
+  # ==========================================
+  # СТЕЙДЖ 1: Скалк просыпается (1 - 30 тики)
+  # ==========================================
+  - name: "Sculk Awakens"
+    startTick: 1
+    endTick: 30
+    particles:
+      - particleType: "SCULK_CHARGE_POP"
+        shape: "CIRCLE"
+        intervalTicks: 2
+        count: 16
+        radiusStart: 3.0
+        radiusEnd: 0.8
+        heightOffsetStart: 0.1
+        heightOffsetEnd: 0.1
+        speed: 0.0
+    sounds:
+      - soundType: "BLOCK_SCULK_SHRIEKER_SHRIEK"
+        playAtTick: 0
+        volume: 2.0
+        pitch: 0.9
+      - soundType: "BLOCK_SCULK_SPREAD"
+        playAtTick: 0
+        volume: 1.5
+        pitch: 0.6
+        loop: true
+        loopIntervalTicks: 6
+
+  # ==========================================
+  # СТЕЙДЖ 2: Варден вылезает из земли за спиной (20 - 154 тики)
+  # ==========================================
+  - name: "Emerge"
+    startTick: 20
+    endTick: 154
+    actor:
+      - action: "SPAWN"
+        atTick: 0
+        pose: "EMERGING"
+    particles:
+      - particleType: "SCULK_SOUL"
+        shape: "CIRCLE"
+        intervalTicks: 3
+        count: 10
+        radiusStart: 1.6
+        radiusEnd: 0.6
+        heightOffsetStart: 0.1
+        heightOffsetEnd: 1.5
+        speed: 0.02
+        anchor: "ACTOR"
+      - particleType: "SCULK_CHARGE_POP"
+        shape: "POINT"
+        intervalTicks: 2
+        count: 6
+        offsetX: 0.7
+        offsetY: 0.1
+        offsetZ: 0.7
+        speed: 0.0
+        anchor: "ACTOR"
+    sounds:
+      - soundType: "ENTITY_WARDEN_EMERGE"
+        playAtTick: 0
+        volume: 2.0
+        pitch: 1.0
+        anchor: "ACTOR"
+      - soundType: "BLOCK_SCULK_CATALYST_BLOOM"
+        playAtTick: 0
+        volume: 1.2
+        pitch: 0.5
+        loop: true
+        loopIntervalTicks: 15
+        anchor: "ACTOR"
+
+  # ==========================================
+  # СТЕЙДЖ 3: Варден принюхивается (125 - 154 тики)
+  # ==========================================
+  - name: "Sniff"
+    startTick: 125
+    endTick: 154
+    actor:
+      - action: "SHAKE_TENDRILS"
+        atTick: 0
+      - action: "SHAKE_TENDRILS"
+        atTick: 14
+    sounds:
+      - soundType: "ENTITY_WARDEN_SNIFF"
+        playAtTick: 0
+        volume: 2.0
+        pitch: 1.0
+        anchor: "ACTOR"
+      - soundType: "ENTITY_WARDEN_TENDRIL_CLICKS"
+        playAtTick: 14
+        volume: 1.5
+        pitch: 1.0
+        anchor: "ACTOR"
+
+  # ==========================================
+  # СТЕЙДЖ 4: Рёв, игрок разворачивается к Вардену (155 - 240 тики)
+  # ==========================================
+  - name: "Roar"
+    startTick: 155
+    endTick: 240
+    actor:
+      - action: "FACE_VICTIM"
+        atTick: 0
+      - action: "TURN_VICTIM"
+        atTick: 0
+      - action: "POSE"
+        atTick: 2
+        pose: "ROARING"
+    particles:
+      - particleType: "SCULK_SOUL"
+        shape: "EXPLOSION"
+        intervalTicks: 4
+        count: 6
+        radiusStart: 0.8
+        radiusEnd: 1.6
+        heightOffsetStart: 2.3
+        heightOffsetEnd: 2.3
+        speed: 0.03
+        anchor: "ACTOR"
+      - particleType: "DUST"
+        shape: "SPHERE"
+        intervalTicks: 1
+        count: 24
+        radiusStart: 3.5
+        radiusEnd: 1.2
+        heightOffsetStart: 1.0
+        heightOffsetEnd: 1.0
+        isColored: true
+        red: 10
+        green: 90
+        blue: 110
+        particleSize: 1.3
+        speed: 0.0
+    sounds:
+      - soundType: "ENTITY_WARDEN_ROAR"
+        playAtTick: 2
+        volume: 2.5
+        pitch: 1.0
+        anchor: "ACTOR"
+
+  # ==========================================
+  # СТЕЙДЖ 5: Шаг вперёд и удар (225 - 233 тики)
+  # ==========================================
+  - name: "Lunge"
+    startTick: 225
+    endTick: 233
+    actor:
+      - action: "STEP"
+        atTick: 0
+        distance: 1.2
+        ticks: 6
+      - action: "ATTACK"
+        atTick: 6
+    sounds:
+      - soundType: "ENTITY_WARDEN_ANGRY"
+        playAtTick: 0
+        volume: 2.0
+        pitch: 1.0
+        anchor: "ACTOR"
+
+  # ==========================================
+  # СТЕЙДЖ 6: Игрок съеден (234 - 245 тики)
+  # ==========================================
+  - name: "Swallowed"
+    startTick: 234
+    endTick: 245
+    actor:
+      - action: "SWALLOW_VICTIM"
+        atTick: 0
+    particles:
+      - particleType: "SCULK_SOUL"
+        shape: "EXPLOSION"
+        intervalTicks: 20
+        count: 40
+        radiusStart: 1.2
+        radiusEnd: 1.2
+        heightOffsetStart: 1.0
+        heightOffsetEnd: 1.0
+        speed: 0.05
+      - particleType: "DUST"
+        shape: "SPHERE"
+        intervalTicks: 20
+        count: 45
+        radiusStart: 0.9
+        radiusEnd: 0.9
+        heightOffsetStart: 1.0
+        heightOffsetEnd: 1.0
+        isColored: true
+        red: 5
+        green: 40
+        blue: 50
+        particleSize: 1.6
+        speed: 0.0
+    sounds:
+      - soundType: "ENTITY_WARDEN_ATTACK_IMPACT"
+        playAtTick: 0
+        volume: 2.0
+        pitch: 0.9
+      - soundType: "ENTITY_PLAYER_HURT"
+        playAtTick: 0
+        volume: 1.0
+        pitch: 0.7
+
+  # ==========================================
+  # СТЕЙДЖ 7: Варден уходит под землю (244 - 344 тики)
+  # ==========================================
+  - name: "Dig"
+    startTick: 244
+    endTick: 344
+    actor:
+      - action: "POSE"
+        atTick: 0
+        pose: "DIGGING"
+      - action: "REMOVE"
+        atTick: 99
+    particles:
+      - particleType: "SCULK_SOUL"
+        shape: "CIRCLE"
+        intervalTicks: 3
+        count: 10
+        radiusStart: 0.6
+        radiusEnd: 1.8
+        heightOffsetStart: 1.2
+        heightOffsetEnd: 0.1
+        speed: 0.02
+        anchor: "ACTOR"
+    sounds:
+      - soundType: "ENTITY_WARDEN_DIG"
+        playAtTick: 0
+        volume: 2.0
+        pitch: 1.0
+        anchor: "ACTOR"

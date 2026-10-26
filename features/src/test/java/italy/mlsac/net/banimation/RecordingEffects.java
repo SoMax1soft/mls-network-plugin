@@ -8,7 +8,9 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
-final class RecordingEffects implements AnimationEffects {
+class RecordingEffects implements AnimationEffects {
+
+    static final UUID WORLD = UUID.fromString("6d4c0e2a-91b3-4f57-8c2e-00000000a0a0");
 
     final Map<UUID, Placement> online = new HashMap<>();
     final List<String> calls = new ArrayList<>();
@@ -16,6 +18,10 @@ final class RecordingEffects implements AnimationEffects {
     final List<Placement> teleports = new ArrayList<>();
     final List<Integer> droppedIndexes = new ArrayList<>();
     final List<List<Emission>> particleBursts = new ArrayList<>();
+    final List<Placement> actorSpawns = new ArrayList<>();
+    final List<Placement> actorMoves = new ArrayList<>();
+    final List<String> soundsHeard = new ArrayList<>();
+    final List<Point> soundPlaces = new ArrayList<>();
     int itemsInInventory = 36;
     RuntimeException failOnSound;
 
@@ -27,6 +33,12 @@ final class RecordingEffects implements AnimationEffects {
     @Override
     public Optional<Placement> location(UUID player) {
         return Optional.ofNullable(online.get(player));
+    }
+
+    @Override
+    public Optional<WorldSpot> spot(UUID player) {
+        calls.add("spot");
+        return Optional.ofNullable(online.get(player)).map(at -> new WorldSpot(WORLD, at.point()));
     }
 
     @Override
@@ -81,6 +93,8 @@ final class RecordingEffects implements AnimationEffects {
             throw failOnSound;
         }
         calls.add("sound " + sound);
+        soundsHeard.add(sound);
+        soundPlaces.add(at);
     }
 
     @Override
@@ -96,6 +110,37 @@ final class RecordingEffects implements AnimationEffects {
     @Override
     public void particles(UUID player, ParticleLook look, List<Emission> emissions, Point spread, double speed) {
         particleBursts.add(emissions);
+    }
+
+    @Override
+    public void spawnActor(UUID player, ActorKind kind, Placement at, ActorPose pose) {
+        actorSpawns.add(at);
+        calls.add("actor-spawn " + kind + " " + pose);
+    }
+
+    @Override
+    public void poseActor(UUID player, ActorPose pose) {
+        calls.add("actor-pose " + pose);
+    }
+
+    @Override
+    public void moveActor(UUID player, Placement to) {
+        actorMoves.add(to);
+    }
+
+    @Override
+    public void gestureActor(UUID player, ActorGesture gesture) {
+        calls.add("actor-gesture " + gesture);
+    }
+
+    @Override
+    public void removeActor(UUID player) {
+        calls.add("actor-remove");
+    }
+
+    @Override
+    public void hideVictim(UUID player, int ticks) {
+        calls.add("hide " + ticks);
     }
 
     @Override

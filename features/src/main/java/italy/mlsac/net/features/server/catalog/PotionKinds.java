@@ -12,6 +12,7 @@ public final class PotionKinds {
     public static final String SLOWNESS = "SLOWNESS";
     public static final String JUMP_BOOST = "JUMP_BOOST";
     public static final String LEVITATION = "LEVITATION";
+    public static final String INVISIBILITY = "INVISIBILITY";
 
     private final RegistryNameAliases aliases;
     private final Map<String, Optional<PotionEffectType>> resolved = new ConcurrentHashMap<>();

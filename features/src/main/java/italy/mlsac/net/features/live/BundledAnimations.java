@@ -12,7 +12,8 @@ import java.util.function.Supplier;
 public final class BundledAnimations implements Supplier<List<AnimationFile>> {
 
     private static final String FOLDER = "animations/";
-    private static final List<String> SHIPPED = List.of("classic_ban.yml", "dramatic_ban.yml", "rainbow_ban.yml");
+    private static final List<String> SHIPPED = List.of("classic_ban.yml", "dramatic_ban.yml", "rainbow_ban.yml",
+            "warden_ban.yml");
 
     private final ResourceSource resources;
     private final YamlParser yaml;

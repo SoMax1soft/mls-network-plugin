@@ -4,15 +4,18 @@ package italy.mlsac.net.packet.packetevents;
 import com.github.retrooper.packetevents.PacketEventsAPI;
 import com.github.retrooper.packetevents.manager.protocol.ProtocolManager;
 import com.github.retrooper.packetevents.netty.buffer.ByteBufHelper;
+import com.github.retrooper.packetevents.protocol.entity.type.EntityType;
 import com.github.retrooper.packetevents.protocol.entity.type.EntityTypes;
 import com.github.retrooper.packetevents.protocol.player.User;
 import com.github.retrooper.packetevents.protocol.teleport.RelativeFlag;
 import com.github.retrooper.packetevents.util.Vector3d;
 import com.github.retrooper.packetevents.wrapper.PacketWrapper;
 import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerDestroyEntities;
+import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerEntityHeadLook;
 import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerEntityMetadata;
 import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerEntityRelativeMove;
 import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerEntityRelativeMoveAndRotation;
+import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerEntityStatus;
 import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerEntityTeleport;
 import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerPing;
 import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerPlayerPositionAndLook;
@@ -80,12 +83,17 @@ final class PacketEventsSender implements PacketSender {
 
     @Override
     public void spawnVirtual(UUID viewer, VirtualEntity entity) {
-        write(viewer, spawnPacket(entity));
+        write(viewer, spawnPacket(entity, 0f));
+    }
+
+    @Override
+    public void spawnVirtualFacing(UUID viewer, VirtualEntity entity, float yaw) {
+        write(viewer, spawnPacket(entity, yaw));
     }
 
     @Override
     public void announceEntity(UUID viewer, VirtualEntity entity) {
-        announce(viewer, spawnPacket(entity));
+        announce(viewer, spawnPacket(entity, 0f));
     }
 
     @Override
@@ -106,15 +114,22 @@ final class PacketEventsSender implements PacketSender {
         }
     }
 
-    private PacketWrapper<?> spawnPacket(VirtualEntity entity) {
+    private PacketWrapper<?> spawnPacket(VirtualEntity entity, float yaw) {
         Vector3d at = new Vector3d(entity.x(), entity.y(), entity.z());
         if (entity.type() == VirtualEntityType.ARMOR_STAND && rules.spawnLivingEntityPacket()) {
             return new WrapperPlayServerSpawnLivingEntity(entity.entityNumber(), entity.uuid(), EntityTypes.ARMOR_STAND,
                     at, 0f, 0f, 0f, new Vector3d(0, 0, 0), List.of());
         }
         return new WrapperPlayServerSpawnEntity(entity.entityNumber(), Optional.of(entity.uuid()),
-                entity.type() == VirtualEntityType.TEXT_DISPLAY ? EntityTypes.TEXT_DISPLAY : EntityTypes.ARMOR_STAND,
-                at, 0f, 0f, 0f, 0, Optional.of(new Vector3d(0, 0, 0)));
+                entityType(entity.type()), at, 0f, yaw, yaw, 0, Optional.of(new Vector3d(0, 0, 0)));
+    }
+
+    private static EntityType entityType(VirtualEntityType type) {
+        return switch (type) {
+            case TEXT_DISPLAY -> EntityTypes.TEXT_DISPLAY;
+            case ARMOR_STAND -> EntityTypes.ARMOR_STAND;
+            case WARDEN -> EntityTypes.WARDEN;
+        };
     }
 
     @Override
@@ -141,6 +156,17 @@ final class PacketEventsSender implements PacketSender {
     @Override
     public void moveVirtual(UUID viewer, int entityNumber, double dx, double dy, double dz) {
         write(viewer, new WrapperPlayServerEntityRelativeMove(entityNumber, dx, dy, dz, false));
+    }
+
+    @Override
+    public void moveVirtualFacing(UUID viewer, int entityNumber, double dx, double dy, double dz, float yaw) {
+        write(viewer, new WrapperPlayServerEntityRelativeMoveAndRotation(entityNumber, dx, dy, dz, yaw, 0f, true));
+        write(viewer, new WrapperPlayServerEntityHeadLook(entityNumber, yaw));
+    }
+
+    @Override
+    public void playVirtualEvent(UUID viewer, int entityNumber, byte event) {
+        write(viewer, new WrapperPlayServerEntityStatus(entityNumber, event));
     }
 
     @Override

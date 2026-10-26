@@ -3,5 +3,6 @@ package italy.mlsac.net.packet;
 
 public enum VirtualEntityType {
     TEXT_DISPLAY,
-    ARMOR_STAND
+    ARMOR_STAND,
+    WARDEN
 }

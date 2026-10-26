@@ -12,11 +12,17 @@ public interface AnimationListener {
         }
 
         @Override
+        public void detached(UUID player, WorldSpot at, BooleanSupplier advance) {
+        }
+
+        @Override
         public void ended(UUID player) {
         }
     };
 
     void started(UUID player, BooleanSupplier advance);
+
+    void detached(UUID player, WorldSpot at, BooleanSupplier advance);
 
     void ended(UUID player);
 }

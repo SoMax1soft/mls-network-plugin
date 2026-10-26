@@ -55,12 +55,16 @@ public final class AnimationDirector {
             return false;
         }
         try {
-            Optional<Placement> current = effects.online(player) ? effects.location(player) : Optional.empty();
+            Optional<Placement> current = run.punished() || !effects.online(player) ? Optional.empty()
+                    : effects.location(player);
             TickPlan plan = run.advance(current);
             plan.cues().forEach(cue -> cue.apply(effects, player));
             if (plan.finished()) {
                 finish(player, run);
                 return false;
+            }
+            if (run.punishesNow()) {
+                return punish(player, run);
             }
             return true;
         } catch (RuntimeException failure) {
@@ -72,7 +76,7 @@ public final class AnimationDirector {
 
     public void quit(UUID player) {
         AnimationRun run = runs.get(player);
-        if (run != null) {
+        if (run != null && !run.punished()) {
             finish(player, run);
         }
     }
@@ -96,16 +100,36 @@ public final class AnimationDirector {
         return abandoned;
     }
 
+    private boolean punish(UUID player, AnimationRun run) {
+        Optional<WorldSpot> spot = effects.spot(player);
+        if (spot.isEmpty()) {
+            finish(player, run);
+            return false;
+        }
+        if (run.holdsItems()) {
+            effects.dropRemainingItems(player, run.dropped(), spot.get().point());
+        }
+        run.markPunished();
+        effects.runCommand(run.command());
+        listener.detached(player, spot.get(), () -> tick(player));
+        return true;
+    }
+
     private void finish(UUID player, AnimationRun run) {
         if (!runs.remove(player, run)) {
             return;
         }
         cleanUp(player, run);
-        effects.runCommand(run.command());
+        if (!run.punished()) {
+            effects.runCommand(run.command());
+        }
     }
 
     private void cleanUp(UUID player, AnimationRun run) {
         listener.ended(player);
+        if (run.script().actor().isPresent() || run.punished()) {
+            effects.removeActor(player);
+        }
         Optional<Point> dropAt = run.start().map(Placement::point)
                 .or(() -> effects.location(player).map(Placement::point));
         if (run.holdsItems()) {

@@ -39,6 +39,12 @@ public final class AnimationLibrary {
     }
 
     public Optional<AnimationScript> find(String name) {
+        return named(name).flatMap(script -> script.playsInstead().isPresent()
+                ? named(script.playsInstead().get()).filter(stand -> stand.playsInstead().isEmpty())
+                : Optional.of(script));
+    }
+
+    private Optional<AnimationScript> named(String name) {
         return name == null ? Optional.empty() : Optional.ofNullable(scripts.get(name.toLowerCase(Locale.ROOT)));
     }
 

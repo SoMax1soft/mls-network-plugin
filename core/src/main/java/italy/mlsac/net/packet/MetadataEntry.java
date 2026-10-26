@@ -27,4 +27,7 @@ public sealed interface MetadataEntry {
 
     record OptionalTextValue(int index, Optional<String> coloredText) implements MetadataEntry {
     }
+
+    record PoseValue(int index, VirtualPose pose) implements MetadataEntry {
+    }
 }

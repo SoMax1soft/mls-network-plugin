@@ -169,6 +169,21 @@ public final class FakePacketLayer implements PacketLayer {
             }
 
             @Override
+            public void spawnVirtualFacing(UUID viewer, VirtualEntity entity, float yaw) {
+                sent.add("spawn " + viewer + " " + entity + " yaw " + yaw);
+            }
+
+            @Override
+            public void moveVirtualFacing(UUID viewer, int entityNumber, double dx, double dy, double dz, float yaw) {
+                sent.add("move " + viewer + " " + entityNumber + " " + dx + " " + dy + " " + dz + " yaw " + yaw);
+            }
+
+            @Override
+            public void playVirtualEvent(UUID viewer, int entityNumber, byte event) {
+                sent.add("event " + viewer + " " + entityNumber + " " + event);
+            }
+
+            @Override
             public void updateVirtualMetadata(UUID viewer, int entityNumber, List<MetadataEntry> entries) {
                 sent.add("metadata " + viewer + " " + entityNumber + " " + entries);
             }

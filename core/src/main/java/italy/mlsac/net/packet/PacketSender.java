@@ -16,6 +16,10 @@ public interface PacketSender {
 
     void spawnVirtual(UUID viewer, VirtualEntity entity);
 
+    default void spawnVirtualFacing(UUID viewer, VirtualEntity entity, float yaw) {
+        spawnVirtual(viewer, entity);
+    }
+
     void updateVirtualMetadata(UUID viewer, int entityNumber, List<MetadataEntry> entries);
 
     void setPassengers(UUID viewer, int mountNumber, int[] passengers);
@@ -23,6 +27,13 @@ public interface PacketSender {
     void destroyVirtual(UUID viewer, int... entityNumbers);
 
     void moveVirtual(UUID viewer, int entityNumber, double dx, double dy, double dz);
+
+    default void moveVirtualFacing(UUID viewer, int entityNumber, double dx, double dy, double dz, float yaw) {
+        moveVirtual(viewer, entityNumber, dx, dy, dz);
+    }
+
+    default void playVirtualEvent(UUID viewer, int entityNumber, byte event) {
+    }
 
     void teleportVirtual(UUID viewer, int entityNumber, double x, double y, double z);
 

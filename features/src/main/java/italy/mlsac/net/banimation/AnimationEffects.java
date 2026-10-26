@@ -11,6 +11,8 @@ public interface AnimationEffects {
 
     Optional<Placement> location(UUID player);
 
+    Optional<WorldSpot> spot(UUID player);
+
     void closeInventory(UUID player);
 
     void resyncInventory(UUID player);
@@ -36,6 +38,18 @@ public interface AnimationEffects {
     void lightning(UUID player, Point at);
 
     void particles(UUID player, ParticleLook look, List<Emission> emissions, Point spread, double speed);
+
+    void spawnActor(UUID player, ActorKind kind, Placement at, ActorPose pose);
+
+    void poseActor(UUID player, ActorPose pose);
+
+    void moveActor(UUID player, Placement to);
+
+    void gestureActor(UUID player, ActorGesture gesture);
+
+    void removeActor(UUID player);
+
+    void hideVictim(UUID player, int ticks);
 
     void runCommand(String command);
 }

@@ -2,6 +2,7 @@
 package italy.mlsac.net.features.live;
 
 import italy.mlsac.net.banimation.AnimationListener;
+import italy.mlsac.net.banimation.WorldSpot;
 import italy.mlsac.net.bus.EventBus;
 import italy.mlsac.net.penalty.AnimationStateChanged;
 import italy.mlsac.net.schedule.TaskLane;
@@ -29,6 +30,18 @@ public final class AnimationTicker implements AnimationListener {
         bus.publish(new AnimationStateChanged(player, true));
         TaskTicket ticket = scheduler.submit(TaskLane.following(player, () -> halt(player)),
                 TaskTiming.repeating(0L, 1L), () -> {
+                    if (!advance.getAsBoolean()) {
+                        halt(player);
+                    }
+                });
+        running.put(player, ticket);
+    }
+
+    @Override
+    public void detached(UUID player, WorldSpot at, BooleanSupplier advance) {
+        halt(player);
+        TaskTicket ticket = scheduler.submit(TaskLane.chunkAt(at.world(), (int) Math.floor(at.point().x()),
+                (int) Math.floor(at.point().z())), TaskTiming.repeating(1L, 1L), () -> {
                     if (!advance.getAsBoolean()) {
                         halt(player);
                     }

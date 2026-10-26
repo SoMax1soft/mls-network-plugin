@@ -10,6 +10,7 @@ import java.util.Optional;
 public final class ScriptReader {
 
     static final String DEFAULT_SOUND = "ENTITY_EXPERIENCE_ORB_PICKUP";
+    static final double DEFAULT_DISTANCE_BEHIND = 2.5;
 
     private final ParticleNames particles;
     private final EffectRegistry registry;
@@ -29,6 +30,16 @@ public final class ScriptReader {
         if (!root.has("stages")) {
             log.warn("[Animation] " + fileName + " has no stages");
         }
+        Optional<ScriptNode> actorNode = root.child("actor");
+        Optional<ActorSpec> actor = actorNode.flatMap(node -> actor(fileName, node));
+        if (actorNode.isPresent() && actor.filter(spec -> registry.hasActor(spec.kind())).isEmpty()) {
+            String instead = root.text("fallbackAnimation", AnimationLibrary.DEFAULT_ANIMATION)
+                    .toLowerCase(Locale.ROOT);
+            log.info("[Animation] " + name + " cannot be shown on this server, " + instead + " plays instead");
+            return new AnimationScript(name, root.integer("totalTicks", 80), false, false, false, 1, -1, false,
+                    Optional.empty(), Optional.empty(), Optional.of(instead), 0, List.of());
+        }
+        boolean extended = extras.reads() || actor.isPresent();
         return new AnimationScript(name,
                 root.integer("totalTicks", 80),
                 root.flag("freezePlayer", true),
@@ -36,8 +47,21 @@ public final class ScriptReader {
                 root.flag("stripPlayer", false),
                 root.integer("itemDropIntervalTicks", 5),
                 root.integer("customLevitationAmplifier", -1),
+                root.flag("levitatePlayer", true),
                 root.child("movement").map(ScriptReader::movement),
-                root.children("stages").stream().map(this::stage).toList());
+                actor,
+                Optional.empty(),
+                Math.max(0, root.integer("punishAtTick", 0)),
+                root.children("stages").stream().map(node -> stage(node, extended)).toList());
+    }
+
+    private Optional<ActorSpec> actor(String fileName, ScriptNode node) {
+        String type = node.text("type", "");
+        Optional<ActorKind> kind = ActorKind.named(type);
+        if (kind.isEmpty()) {
+            log.warn("[Animation] " + fileName + " has an unknown actor type '" + type + "'");
+        }
+        return kind.map(found -> new ActorSpec(found, node.decimal("distanceBehind", DEFAULT_DISTANCE_BEHIND)));
     }
 
     private static MovementPath movement(ScriptNode node) {
@@ -46,16 +70,33 @@ public final class ScriptReader {
                 node.flag("smooth", true));
     }
 
-    private ScriptStage stage(ScriptNode node) {
-        List<TitleCue> titles = extras.reads() ? node.children("titles").stream().map(ScriptReader::title).toList()
+    private ScriptStage stage(ScriptNode node, boolean extended) {
+        List<TitleCue> titles = extended ? node.children("titles").stream().map(ScriptReader::title).toList()
                 : List.of();
-        Optional<ParticleTrail> trail = extras.reads() ? node.child("particleTrail").map(this::trail)
+        Optional<ParticleTrail> trail = extended ? node.child("particleTrail").map(this::trail)
                 : Optional.empty();
         return new ScriptStage(node.text("name", "Unnamed Stage"), node.integer("startTick", 0),
                 node.integer("endTick", 0),
                 node.children("particles").stream().map(this::particle).toList(),
                 node.children("sounds").stream().map(this::sound).toList(),
-                titles, node.integers("lightningTicks"), trail);
+                titles, node.integers("lightningTicks"), trail,
+                node.children("actor").stream().flatMap(cue -> actorCue(cue).stream()).toList());
+    }
+
+    private Optional<ActorCue> actorCue(ScriptNode node) {
+        String requested = node.text("action", "");
+        Optional<ActorAction> action = ActorAction.named(requested);
+        if (action.isEmpty()) {
+            log.warn("[Animation] Unknown actor action '" + requested + "', skipping it");
+            return Optional.empty();
+        }
+        String poseName = node.text("pose", ActorPose.STANDING.name());
+        ActorPose pose = ActorPose.named(poseName).orElseGet(() -> {
+            log.warn("[Animation] Unknown actor pose '" + poseName + "', using " + ActorPose.STANDING);
+            return ActorPose.STANDING;
+        });
+        return Optional.of(new ActorCue(node.integer("atTick", 0), action.get(), pose,
+                node.decimal("distance", 1.0), positive(node.integer("ticks", 1))));
     }
 
     private ParticleEffect particle(ScriptNode node) {
@@ -63,7 +104,7 @@ public final class ScriptReader {
                 positive(node.integer("intervalTicks", 1)), node.integer("count", 1),
                 node.decimal("radiusStart", 1.0), node.decimal("radiusEnd", 1.0),
                 node.decimal("heightOffsetStart", 0.0), node.decimal("heightOffsetEnd", 0.0),
-                node.decimal("speed", 0.0), spread(node, 0.0));
+                node.decimal("speed", 0.0), spread(node, 0.0), Anchor.named(node.text("anchor", "VICTIM")));
     }
 
     private ParticleTrail trail(ScriptNode node) {
@@ -85,7 +126,8 @@ public final class ScriptReader {
             sound = DEFAULT_SOUND;
         }
         return new SoundCue(sound, node.integer("playAtTick", 0), node.single("volume", 1.0f),
-                node.single("pitch", 1.0f), node.flag("loop", false), positive(node.integer("loopIntervalTicks", 20)));
+                node.single("pitch", 1.0f), node.flag("loop", false), positive(node.integer("loopIntervalTicks", 20)),
+                Anchor.named(node.text("anchor", "VICTIM")));
     }
 
     private static TitleCue title(ScriptNode node) {

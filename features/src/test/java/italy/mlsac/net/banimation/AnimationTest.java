@@ -37,6 +37,11 @@ class AnimationTest {
         public boolean modernParticleNames() {
             return modern;
         }
+
+        @Override
+        public boolean hasActor(ActorKind kind) {
+            return true;
+        }
     };
     private final RecordingEffects effects = new RecordingEffects();
     private final UUID player = UUID.randomUUID();

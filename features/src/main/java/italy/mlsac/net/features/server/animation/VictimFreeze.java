@@ -26,6 +26,10 @@ public final class VictimFreeze {
         }
     }
 
+    public void hide(Player player, int ticks) {
+        give(player, PotionKinds.INVISIBILITY, ticks, 0);
+    }
+
     public void lift(Player player) {
         potions.find(PotionKinds.SLOWNESS).ifPresent(player::removePotionEffect);
         potions.find(PotionKinds.JUMP_BOOST).ifPresent(player::removePotionEffect);

@@ -6,13 +6,20 @@ import java.util.Optional;
 
 public record ScriptStage(String name, int fromTick, int untilTick, List<ParticleEffect> particles,
                           List<SoundCue> sounds, List<TitleCue> titles, List<Integer> boltTicks,
-                          Optional<ParticleTrail> trail) {
+                          Optional<ParticleTrail> trail, List<ActorCue> actorCues) {
 
     public ScriptStage {
         particles = List.copyOf(particles);
         sounds = List.copyOf(sounds);
         titles = List.copyOf(titles);
         boltTicks = List.copyOf(boltTicks);
+        actorCues = List.copyOf(actorCues);
+    }
+
+    public ScriptStage(String name, int fromTick, int untilTick, List<ParticleEffect> particles,
+                       List<SoundCue> sounds, List<TitleCue> titles, List<Integer> boltTicks,
+                       Optional<ParticleTrail> trail) {
+        this(name, fromTick, untilTick, particles, sounds, titles, boltTicks, trail, List.of());
     }
 
     public boolean activeAt(int tick) {

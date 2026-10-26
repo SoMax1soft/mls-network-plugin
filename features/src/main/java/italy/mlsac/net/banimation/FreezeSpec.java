@@ -10,6 +10,6 @@ public record FreezeSpec(int slownessAmplifier, int jumpAmplifier, int slowTicks
 
     public static FreezeSpec of(AnimationScript script) {
         return new FreezeSpec(SLOWNESS, JUMP, script.lengthTicks() + EXTRA_SLOW_TICKS, script.effectiveLevitation(),
-                script.lengthTicks());
+                script.levitates() ? script.lengthTicks() : 0);
     }
 }

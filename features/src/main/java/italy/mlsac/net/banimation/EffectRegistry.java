@@ -8,4 +8,6 @@ public interface EffectRegistry {
     boolean hasSound(String name);
 
     boolean modernParticleNames();
+
+    boolean hasActor(ActorKind kind);
 }

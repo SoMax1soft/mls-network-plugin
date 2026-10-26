@@ -5,7 +5,9 @@ import java.util.List;
 import java.util.UUID;
 
 public sealed interface AnimationCue permits AnimationCue.SoundAt, AnimationCue.TitleShown, AnimationCue.LightningAt,
-        AnimationCue.ParticlesAt, AnimationCue.ItemDropped, AnimationCue.MovedTo {
+        AnimationCue.ParticlesAt, AnimationCue.ItemDropped, AnimationCue.MovedTo, AnimationCue.ActorSpawned,
+        AnimationCue.ActorPosed, AnimationCue.ActorMoved, AnimationCue.ActorGestured, AnimationCue.ActorRemoved,
+        AnimationCue.VictimHidden {
 
     void apply(AnimationEffects effects, UUID player);
 
@@ -53,6 +55,48 @@ public sealed interface AnimationCue permits AnimationCue.SoundAt, AnimationCue.
         @Override
         public void apply(AnimationEffects effects, UUID player) {
             effects.teleport(player, target);
+        }
+    }
+
+    record ActorSpawned(ActorKind kind, Placement at, ActorPose pose) implements AnimationCue {
+        @Override
+        public void apply(AnimationEffects effects, UUID player) {
+            effects.spawnActor(player, kind, at, pose);
+        }
+    }
+
+    record ActorPosed(ActorPose pose) implements AnimationCue {
+        @Override
+        public void apply(AnimationEffects effects, UUID player) {
+            effects.poseActor(player, pose);
+        }
+    }
+
+    record ActorMoved(Placement to) implements AnimationCue {
+        @Override
+        public void apply(AnimationEffects effects, UUID player) {
+            effects.moveActor(player, to);
+        }
+    }
+
+    record ActorGestured(ActorGesture gesture) implements AnimationCue {
+        @Override
+        public void apply(AnimationEffects effects, UUID player) {
+            effects.gestureActor(player, gesture);
+        }
+    }
+
+    record ActorRemoved() implements AnimationCue {
+        @Override
+        public void apply(AnimationEffects effects, UUID player) {
+            effects.removeActor(player);
+        }
+    }
+
+    record VictimHidden(int ticks) implements AnimationCue {
+        @Override
+        public void apply(AnimationEffects effects, UUID player) {
+            effects.hideVictim(player, ticks);
         }
     }
 }

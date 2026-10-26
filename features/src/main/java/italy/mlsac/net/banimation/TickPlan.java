@@ -9,6 +9,12 @@ public record TickPlan(List<AnimationCue> cues, boolean finished) {
         cues = List.copyOf(cues);
     }
 
+    TickPlan withoutVictimCues() {
+        return new TickPlan(cues.stream().filter(cue -> !(cue instanceof AnimationCue.MovedTo
+                || cue instanceof AnimationCue.TitleShown || cue instanceof AnimationCue.VictimHidden
+                || cue instanceof AnimationCue.ItemDropped)).toList(), finished);
+    }
+
     static TickPlan finishedNow() {
         return new TickPlan(List.of(), true);
     }

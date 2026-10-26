@@ -5,11 +5,19 @@ import java.util.List;
 import java.util.Optional;
 
 public record AnimationScript(String name, int lengthTicks, boolean holdVictimStill, boolean lightningAtEnd,
-                              boolean unequipVictim, int dropEveryTicks, int levitationAmplifier,
-                              Optional<MovementPath> movement, List<ScriptStage> stages) {
+                              boolean unequipVictim, int dropEveryTicks, int levitationAmplifier, boolean levitates,
+                              Optional<MovementPath> movement, Optional<ActorSpec> actor,
+                              Optional<String> playsInstead, int punishAtTick, List<ScriptStage> stages) {
 
     public AnimationScript {
         stages = List.copyOf(stages);
+    }
+
+    public AnimationScript(String name, int lengthTicks, boolean holdVictimStill, boolean lightningAtEnd,
+                           boolean unequipVictim, int dropEveryTicks, int levitationAmplifier,
+                           Optional<MovementPath> movement, List<ScriptStage> stages) {
+        this(name, lengthTicks, holdVictimStill, lightningAtEnd, unequipVictim, dropEveryTicks, levitationAmplifier,
+                true, movement, Optional.empty(), Optional.empty(), 0, stages);
     }
 
     public int effectiveLevitation() {

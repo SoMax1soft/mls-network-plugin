@@ -14,6 +14,7 @@ import italy.mlsac.net.features.live.PluginLogbook;
 import italy.mlsac.net.features.live.StaffSounds;
 import italy.mlsac.net.features.live.SuspectRows;
 import italy.mlsac.net.features.server.animation.AnimationLockdown;
+import italy.mlsac.net.features.server.animation.FakeActors;
 import italy.mlsac.net.features.server.animation.IncomingActionShield;
 import italy.mlsac.net.features.server.animation.InventoryResync;
 import italy.mlsac.net.features.server.animation.LockdownTable;
@@ -94,7 +95,8 @@ public final class BukkitFeatureServer implements FeatureServer {
         this.wire = new NametagWire(core.packets().sender(), colors, core.workload());
         this.animationEffects = new BukkitAnimationEffects(core.players(), threads, console, sounds,
                 new ParticleBurst(effects, core.log()),
-                new VictimFreeze(new PotionKinds(new RegistryNameAliases(core.serverRules()))), colors);
+                new VictimFreeze(new PotionKinds(new RegistryNameAliases(core.serverRules()))), colors,
+                new FakeActors(core.packets().sender()), core.packets().clients());
     }
 
     @Override

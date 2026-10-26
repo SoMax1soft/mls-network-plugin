@@ -3,6 +3,7 @@ package italy.mlsac.net.packet.packetevents;
 
 import com.github.retrooper.packetevents.protocol.entity.data.EntityData;
 import com.github.retrooper.packetevents.protocol.entity.data.EntityDataTypes;
+import com.github.retrooper.packetevents.protocol.entity.pose.EntityPose;
 import com.github.retrooper.packetevents.util.Vector3f;
 import com.github.retrooper.packetevents.util.adventure.AdventureSerializer;
 import italy.mlsac.net.packet.MetadataEntry;
@@ -38,6 +39,9 @@ final class MetadataEncoder {
         if (entry instanceof MetadataEntry.TextValue value) {
             return new EntityData<>(value.index(), EntityDataTypes.ADV_COMPONENT,
                     AdventureSerializer.serializer().fromLegacy(value.coloredText()));
+        }
+        if (entry instanceof MetadataEntry.PoseValue value) {
+            return new EntityData<>(value.index(), EntityDataTypes.ENTITY_POSE, EntityPose.valueOf(value.pose().name()));
         }
         MetadataEntry.OptionalTextValue value = (MetadataEntry.OptionalTextValue) entry;
         return new EntityData<>(value.index(), EntityDataTypes.OPTIONAL_ADV_COMPONENT,
