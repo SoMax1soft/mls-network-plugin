@@ -5,6 +5,10 @@ around the target — and sends compact feature windows to the MLSAC cloud, wher
 them for KillAura, TriggerBot, AimAssist and Reach. What happens to a cheater (alerts, damage
 reduction, kicks, bans) is configured in presets on [mlsac.net](https://mlsac.net).
 
+**FLARE** is a separate model for Crystal PvP: crystal aura, anchor aura, auto surround and auto web.
+It comes to every paid plan on November 10, 2026, with plugin 2.1.1.
+[What it catches and how it was tested](https://mlsac.net/news/flare-crystal-pvp).
+
 🇷🇺 [Русский ниже](#mlsac-20--ии-античит-для-серверов-minecraft)
 
 ## Download
@@ -62,6 +66,10 @@ not redistribute it, sell it or use it to build other anticheats or cheats. Thir
 вокруг цели, — и отправляет компактные окна признаков в облако MLSAC. Там нейросети оценивают их на
 KillAura, TriggerBot, AimAssist и Reach. Что делать с читером (алерты, снижение урона, кики, баны),
 настраивается в пресетах на [mlsac.net](https://mlsac.net).
+
+**FLARE** — отдельная модель для Crystal PvP: кристалл-аура, якорь-аура, авто-сурраунд и авто-паутина.
+С 10 ноября 2026 года она будет на всех платных тарифах, вместе с плагином 2.1.1.
+[Что она ловит и как мы её проверяли](https://mlsac.net/news/flare-crystal-pvp).
 
 ## Скачать
 
