@@ -54,7 +54,8 @@ ladder), `app` (bootstrap).
 
 ## Licence
 
-Source-available — see [LICENSE](LICENSE). You may read, build and run it on your own servers; you may
+Source-available — see [LICENSE](LICENSE). You may read, build and run it on your own servers, and
+change it for personal use as long as the telemetry the plugin sends by default stays intact; you may
 not redistribute it, sell it or use it to build other anticheats or cheats. Third-party components:
 [THIRD-PARTY-NOTICES](THIRD-PARTY-NOTICES).
 
@@ -112,5 +113,7 @@ Jar появятся в `build/dist/`.
 
 ## Лицензия
 
-Код открыт для чтения — см. [LICENSE](LICENSE). Можно читать, собирать и запускать на своих серверах;
-нельзя распространять, продавать и использовать для создания других античитов или читов.
+Код открыт для чтения — см. [LICENSE](LICENSE). Можно читать, собирать и запускать на своих серверах,
+а также изменять для личного использования, если телеметрия, которую плагин передаёт по умолчанию,
+остаётся без изменений; нельзя распространять, продавать и использовать для создания других
+античитов или читов.

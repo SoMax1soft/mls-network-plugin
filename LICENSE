@@ -5,27 +5,39 @@ Copyright (c) 2026 MLSAC (https://mlsac.net). All rights reserved.
    You may read this source code, build it, and run the resulting plugin on Minecraft servers that you
    own or operate, together with the MLSAC service and a valid MLSAC licence key.
 
-2. Restrictions
+2. Personal modifications (forks)
+   You may modify this source code and keep your own version of it (a fork) for personal use only: to
+   run it on Minecraft servers that you own or operate, together with the MLSAC service and a valid
+   MLSAC licence key, under the MLSAC Terms of Service (https://mlsac.net/terms). A modified version
+   must:
+   a) keep sending all the telemetry that the official plugin sends by default, in full and unaltered;
+      the telemetry may not be removed, reduced or replaced;
+   b) keep the copyright notices and this licence.
+
+3. Restrictions
    Without prior written permission from MLSAC you may not:
-   a) distribute this source code or binaries built from it, in whole or in part, modified or not;
+   a) distribute this source code or binaries built from it, in whole or in part, modified or not,
+      or pass a modified version to third parties or publish it;
    b) sell, rent, sublicense or otherwise commercialise it;
    c) use it, or any part of it, to build, train or improve another anti-cheat product or service;
    d) use it to build, test or distribute cheats, bypasses or tools that defeat MLSAC or other
       anti-cheats;
    e) remove or alter copyright notices.
+   Forking this repository on GitHub with GitHub's own fork function is allowed to the extent the
+   GitHub Terms of Service grant that right; everything else in this licence applies to such a fork.
 
-3. No trademark licence
+4. No trademark licence
    The names "MLSAC" and "MLS" and the MLSAC logos are not licensed by this document.
 
-4. Contributions
+5. Contributions
    Issues and pull requests are welcome. By submitting a contribution you grant MLSAC a perpetual,
    worldwide, royalty-free licence to use, modify and distribute it under any terms.
 
-5. Third-party components
+6. Third-party components
    Bundled third-party components keep their own licences; see THIRD-PARTY-NOTICES. Nothing in this
    licence restricts rights those licences grant.
 
-6. No warranty
+7. No warranty
    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED. IN NO EVENT SHALL
    MLSAC BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY ARISING FROM THE SOFTWARE OR ITS USE.
 
